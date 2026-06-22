@@ -18,6 +18,7 @@ from plotly.subplots import make_subplots
 from datetime import datetime, timedelta
 
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
+from statsmodels.tsa.arima.model import ARIMA
 from sklearn.linear_model import LinearRegression
 
 # ─────────────────────── Page config ─────────────────────────────────────────
@@ -104,9 +105,10 @@ def hex_rgba(hex_c: str, alpha: float) -> str:
 
 # ─────────────────────── Data fetching ───────────────────────────────────────
 
-@st.cache_data(ttl=3600, show_spinner=False)
+@st.cache_data(ttl=1800, show_spinner=False)
 def fetch_gold() -> tuple[pd.Series, str]:
-    for ticker in ("GC=F", "GLD", "IAU"):
+    # XAUUSD=X = giá Spot thực tế | GC=F = futures | GLD/IAU = ETF
+    for ticker in ("XAUUSD=X", "GC=F", "GLD", "IAU"):
         try:
             raw = yf.download(ticker, period="2y", interval="1d",
                               progress=False, auto_adjust=True)
@@ -124,6 +126,21 @@ def fetch_gold() -> tuple[pd.Series, str]:
     )
 
 
+@st.cache_data(ttl=1800, show_spinner=False)
+def fetch_dxy() -> pd.Series | None:
+    """USD Index — tương quan nghịch với giá vàng."""
+    try:
+        raw = yf.download("DX-Y.NYB", period="6mo", interval="1d",
+                          progress=False, auto_adjust=True)
+        if raw is None or raw.empty:
+            return None
+        if isinstance(raw.columns, pd.MultiIndex):
+            raw.columns = raw.columns.get_level_values(0)
+        return raw["Close"].dropna()
+    except Exception:
+        return None
+
+
 # ─────────────────────── Indicators ──────────────────────────────────────────
 
 def calc_rsi(s: pd.Series, period: int = 14) -> pd.Series:
@@ -135,12 +152,12 @@ def calc_rsi(s: pd.Series, period: int = 14) -> pd.Series:
 
 # ─────────────────────── Forecasting ─────────────────────────────────────────
 
-@st.cache_data(ttl=3600, show_spinner=False)
+@st.cache_data(ttl=1800, show_spinner=False)
 def forecast(_price_values: np.ndarray, last_date_str: str, days: int):
     price = pd.Series(_price_values)
     train = price.tail(min(365, len(price)))
 
-    # Model A: Holt-Winters
+    # ── Model A: Holt-Winters (bắt trend dài hạn + damping) ──
     hw_vals = None
     try:
         hw = ExponentialSmoothing(
@@ -150,17 +167,33 @@ def forecast(_price_values: np.ndarray, last_date_str: str, days: int):
     except Exception:
         pass
 
-    # Model B: log-return regression (last 90 days, damped)
+    # ── Model B: ARIMA(2,1,2) (bắt cấu trúc chuỗi thời gian) ──
+    arima_vals = None
+    try:
+        fit = ARIMA(train, order=(2, 1, 2)).fit()
+        arima_vals = fit.forecast(steps=days).values
+    except Exception:
+        pass
+
+    # ── Model C: Log-return regression 60 ngày (momentum gần nhất) ──
     log_p = np.log(train.values)
-    w     = min(90, len(log_p))
+    w     = min(60, len(log_p))
     slope = LinearRegression().fit(
         np.arange(w).reshape(-1, 1), log_p[-w:]
-    ).coef_[0] * 0.55
+    ).coef_[0] * 0.50   # dampened để tránh extrapolate quá đà
     lr_vals = np.exp(log_p[-1] + slope * np.arange(1, days + 1))
 
-    combined = 0.58 * hw_vals + 0.42 * lr_vals if hw_vals is not None else lr_vals
+    # ── Ensemble: ưu tiên mô hình thống kê, momentum làm điều chỉnh ──
+    if hw_vals is not None and arima_vals is not None:
+        combined = 0.45 * hw_vals + 0.35 * arima_vals + 0.20 * lr_vals
+    elif hw_vals is not None:
+        combined = 0.60 * hw_vals + 0.40 * lr_vals
+    elif arima_vals is not None:
+        combined = 0.60 * arima_vals + 0.40 * lr_vals
+    else:
+        combined = lr_vals
 
-    # Confidence interval ~90%
+    # ── Confidence interval ~90% theo độ biến động lịch sử ──
     vol    = train.pct_change().std()
     spread = combined * vol * np.sqrt(np.arange(1, days + 1)) * 1.65
 
@@ -177,7 +210,7 @@ def forecast(_price_values: np.ndarray, last_date_str: str, days: int):
 
 # ─────────────────────── Signal scoring ──────────────────────────────────────
 
-def compute_signal(price, ma20, ma50, ma200, rsi, fc_mean):
+def compute_signal(price, ma20, ma50, ma200, rsi, fc_mean, dxy: pd.Series | None = None):
     cur  = float(price.iloc[-1])
     r    = float(rsi.iloc[-1])
     fc_e = float(fc_mean.iloc[-1])
@@ -186,6 +219,7 @@ def compute_signal(price, ma20, ma50, ma200, rsi, fc_mean):
     score = 0
     notes = []
 
+    # ── Moving Average ────────────────────────────────────────────────────────
     if cur > float(ma20.iloc[-1]):  score += 1
     if cur > float(ma50.iloc[-1]):  score += 1
     if cur > float(ma200.iloc[-1]):
@@ -198,6 +232,7 @@ def compute_signal(price, ma20, ma50, ma200, rsi, fc_mean):
     else:
         notes.append("⚠️ MA20 < MA50 — áp lực giảm ngắn hạn")
 
+    # ── RSI ───────────────────────────────────────────────────────────────────
     if 45 < r < 70:
         score += 1; notes.append(f"✅ RSI {r:.0f} — động lực tăng ổn định")
     elif r >= 70:
@@ -207,6 +242,19 @@ def compute_signal(price, ma20, ma50, ma200, rsi, fc_mean):
     else:
         notes.append(f"➡️ RSI {r:.0f} — trung tính")
 
+    # ── DXY (USD Index) — tương quan nghịch với vàng ──────────────────────────
+    if dxy is not None and len(dxy) > 20:
+        dxy_cur  = float(dxy.iloc[-1])
+        dxy_ma20 = float(dxy.rolling(20).mean().iloc[-1])
+        dxy_diff = dxy_cur - dxy_ma20
+        if dxy_diff > 0.8:
+            score -= 1; notes.append(f"⚠️ USD mạnh (DXY {dxy_cur:.1f} > MA20) — áp lực giảm với vàng")
+        elif dxy_diff < -0.8:
+            score += 1; notes.append(f"✅ USD yếu (DXY {dxy_cur:.1f} < MA20) — hỗ trợ vàng tăng")
+        else:
+            notes.append(f"➡️ USD trung tính (DXY {dxy_cur:.1f})")
+
+    # ── Forecast direction ────────────────────────────────────────────────────
     if chg >= 3:
         score += 2; notes.append(f"✅ Dự báo tăng **{chg:.1f}%** — tích cực")
     elif chg >= 0.5:
@@ -447,12 +495,13 @@ def main():
         st.cache_data.clear()
 
     # ── Fetch data ────────────────────────────────────────────────────────────
-    with st.spinner("📡 Đang tải dữ liệu giá vàng..."):
+    with st.spinner("📡 Đang tải dữ liệu giá vàng & USD Index..."):
         try:
             price, ticker = fetch_gold()
         except RuntimeError as e:
             st.error(str(e))
             return
+        dxy = fetch_dxy()
 
     # ── Compute indicators ────────────────────────────────────────────────────
     ma20  = price.rolling(20).mean()
@@ -474,7 +523,7 @@ def main():
 
     # ── Signal ────────────────────────────────────────────────────────────────
     signal, sig_color, sig_icon, notes = compute_signal(
-        price, ma20, ma50, ma200, rsi, fc_mean
+        price, ma20, ma50, ma200, rsi, fc_mean, dxy
     )
 
     cur  = float(price.iloc[-1])
@@ -546,7 +595,7 @@ def main():
     st.markdown(
         f"<p style='color:#484f58;font-size:0.78rem;text-align:center;'>"
         f"Nguồn dữ liệu: Yahoo Finance ({ticker})  ·  "
-        f"Mô hình: Holt-Winters + Linear Regression (ensemble)  ·  "
+        f"Mô hình: Holt-Winters + ARIMA(2,1,2) + Regression · DXY correlation  ·  "
         f"Chỉ mang tính tham khảo, không phải khuyến nghị đầu tư.</p>",
         unsafe_allow_html=True,
     )
