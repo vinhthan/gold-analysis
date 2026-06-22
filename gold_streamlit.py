@@ -147,31 +147,43 @@ def fetch_macro() -> dict[str, pd.Series]:
 @st.cache_data(ttl=60, show_spinner=False)
 def fetch_live_price():
     """
-    Lấy giá vàng LIVE (real-time) từ Yahoo Finance API.
-    Khác với yf.download() chỉ trả về giá đóng cửa phiên trước.
-    Cùng nguồn XAU/USD như giavang.org → khớp hơn.
+    Lấy giá vàng LIVE (real-time).
+    Ưu tiên: giavang.org → Yahoo Finance XAUUSD=X (spot).
+    Không dùng GC=F (futures) vì có premium ~$17 so với spot.
     Cache 60 giây để không gọi quá nhiều.
     """
-    import urllib.request as _ur, json as _json, ssl as _ssl
+    import urllib.request as _ur, json as _json, ssl as _ssl, re as _re
 
-    urls = [
-        # Yahoo Finance real-time chart API
-        "https://query1.finance.yahoo.com/v8/finance/chart/XAUUSD=X?interval=1m&range=1d",
-        # Mirror 2
-        "https://query2.finance.yahoo.com/v8/finance/chart/GC=F?interval=1m&range=1d",
-    ]
     ctx = _ssl.create_default_context()
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 
-    for url in urls:
+    # ── 1) Thử giavang.org (cùng nguồn người dùng đang xem) ──────────────────
+    try:
+        req = _ur.Request("https://giavang.org/the-gioi/", headers=headers)
+        with _ur.urlopen(req, timeout=10, context=ctx) as r:
+            html = r.read().decode("utf-8", errors="ignore")
+        # Tìm giá XAU/USD: thường dạng "3,312.45" hoặc "4,212.84" trong HTML
+        # giavang.org hiển thị giá trong thẻ có class liên quan đến "xauusd" / "world"
+        # Pattern: số 4 chữ số có dấu phẩy + dấu chấm thập phân
+        matches = _re.findall(r'[\$]?\s*([3-9],\d{3}\.\d{2})', html)
+        if matches:
+            price = float(matches[0].replace(",", ""))
+            if 1500 < price < 20000:
+                return round(price, 2), "giavang.org"
+    except Exception:
+        pass
+
+    # ── 2) Yahoo Finance XAUUSD=X (spot, không phải futures) ─────────────────
+    for host in ("query1", "query2"):
         try:
-            req = _ur.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            url = f"https://{host}.finance.yahoo.com/v8/finance/chart/XAUUSD%3DX?interval=1m&range=1d"
+            req = _ur.Request(url, headers=headers)
             with _ur.urlopen(req, timeout=8, context=ctx) as r:
-                data   = _json.load(r)
-                meta   = data["chart"]["result"][0]["meta"]
-                price  = meta.get("regularMarketPrice") or meta.get("previousClose")
-                source = "Yahoo Finance (Live)"
+                data  = _json.load(r)
+                meta  = data["chart"]["result"][0]["meta"]
+                price = meta.get("regularMarketPrice") or meta.get("previousClose")
                 if price and 500 < float(price) < 20000:
-                    return round(float(price), 2), source
+                    return round(float(price), 2), "Yahoo Finance (XAU/USD spot)"
         except Exception:
             pass
 
