@@ -402,6 +402,266 @@ def forecast(_price_values: np.ndarray, last_date_str: str,
     )
 
 # ══════════════════════════════════════════════════════════════════════════════
+#  NARRATIVE EXPLANATION  (giải thích tại sao tăng/giảm — tiếng Việt)
+# ══════════════════════════════════════════════════════════════════════════════
+
+_MONTH_VN = {
+    1:"Tháng 1", 2:"Tháng 2", 3:"Tháng 3", 4:"Tháng 4",
+    5:"Tháng 5", 6:"Tháng 6", 7:"Tháng 7", 8:"Tháng 8",
+    9:"Tháng 9", 10:"Tháng 10", 11:"Tháng 11", 12:"Tháng 12",
+}
+_SEASON_REASON = {
+    1:  "đầu năm nhu cầu vàng thường tăng do Tết Nguyên Đán và phong tục tặng vàng",
+    2:  "sau Tết nhu cầu trang sức còn dư, tâm lý mua vàng đầu năm vẫn cao",
+    3:  "giai đoạn chuyển tiếp, nhu cầu theo mùa chưa có động lực rõ",
+    4:  "mùa cưới Ấn Độ bắt đầu, nhu cầu vàng trang sức tăng đáng kể",
+    5:  "thường là tháng yếu nhất trong năm về nhu cầu vàng toàn cầu",
+    6:  "nhu cầu thấp, thanh khoản thị trường giảm trong mùa hè Bắc bán cầu",
+    7:  "thị trường hè, giao dịch tương đối trầm lắng",
+    8:  "nhu cầu bắt đầu tăng chuẩn bị mùa cưới lớn tháng 9–10",
+    9:  "mùa cưới Ấn Độ đỉnh điểm và lễ Diwali — nhu cầu vàng cao nhất năm",
+    10: "lễ Diwali và mùa tặng quà, nhu cầu vàng trang sức tiếp tục mạnh",
+    11: "chuẩn bị Giáng Sinh, nhu cầu trang sức và quà tặng tăng",
+    12: "mua vàng cuối năm để bảo toàn tài sản, tặng quà dịp lễ",
+}
+
+
+def generate_narrative(price, ma20, ma50, ma200, rsi,
+                       fc_mean, fc_lo, fc_hi,
+                       macro_score, macro_signals, macro_metrics,
+                       forecast_days, seas) -> str:
+    """Tạo đoạn giải thích tại sao giá vàng dự báo tăng/giảm."""
+
+    cur   = float(price.iloc[-1])
+    fc_e  = float(fc_mean.iloc[-1])
+    fc_l  = float(fc_lo.iloc[-1])
+    fc_h  = float(fc_hi.iloc[-1])
+    chg   = (fc_e - cur) / cur * 100
+    r     = float(rsi.iloc[-1])
+    lbl   = period_label(forecast_days)
+    m_now = pd.Timestamp(str(price.index[-1])).month
+
+    parts = []
+
+    # ── 1. Kỹ thuật ─────────────────────────────────────────────────────────
+    tech_lines = []
+    above = [m for m, s in [("MA20", ma20), ("MA50", ma50), ("MA200", ma200)]
+             if cur > float(s.iloc[-1])]
+    below = [m for m, s in [("MA20", ma20), ("MA50", ma50), ("MA200", ma200)]
+             if cur <= float(s.iloc[-1])]
+
+    if len(above) == 3:
+        tech_lines.append(
+            f"Về kỹ thuật, giá vàng hiện tại (${cur:,.0f}) đang giao dịch "
+            f"**trên cả MA20, MA50 và MA200** — đây là cấu hình rất tích cực, "
+            f"cho thấy xu hướng tăng được xác nhận trên mọi khung thời gian."
+        )
+    elif len(above) >= 2:
+        tech_lines.append(
+            f"Về kỹ thuật, giá (${cur:,.0f}) đang nằm **trên {' và '.join(above)}** "
+            f"nhưng dưới {' và '.join(below)}, phản ánh xu hướng tăng "
+            f"{'ngắn-trung hạn' if 'MA200' in below else 'chưa đủ mạnh trên dài hạn'}."
+        )
+    elif len(below) >= 2:
+        tech_lines.append(
+            f"Về kỹ thuật, giá (${cur:,.0f}) đang **dưới {' và '.join(below)}** "
+            f"— áp lực giảm {'rất lớn' if len(below) == 3 else 'đáng kể'} từ góc độ kỹ thuật."
+        )
+    else:
+        tech_lines.append(
+            f"Về kỹ thuật, giá (${cur:,.0f}) nằm gần các đường MA, "
+            f"chưa có tín hiệu xu hướng rõ ràng."
+        )
+
+    if r > 70:
+        tech_lines.append(
+            f"RSI đang ở **{r:.0f} (vùng quá mua)**: thị trường tăng nhanh, "
+            f"nguy cơ điều chỉnh ngắn hạn tăng lên, dù xu hướng chính vẫn là tăng."
+        )
+    elif r < 30:
+        tech_lines.append(
+            f"RSI ở **{r:.0f} (vùng quá bán)**: lực bán đã cạn kiệt, "
+            f"tạo điều kiện thuận lợi cho đợt hồi phục kỹ thuật."
+        )
+    elif r > 55:
+        tech_lines.append(
+            f"RSI **{r:.0f}** phản ánh động lực tăng ổn định, "
+            f"chưa vào vùng quá mua — còn nhiều dư địa để tiếp tục tăng."
+        )
+    elif r < 45:
+        tech_lines.append(
+            f"RSI **{r:.0f}** cho thấy momentum đang nghiêng về phía giảm, "
+            f"người mua chưa chiếm ưu thế rõ ràng."
+        )
+    else:
+        tech_lines.append(f"RSI **{r:.0f}** đang ở vùng trung tính, chưa xác nhận hướng rõ ràng.")
+
+    parts.append("**📐 Phân tích kỹ thuật**\n\n" + " ".join(tech_lines))
+
+    # ── 2. Vĩ mô ─────────────────────────────────────────────────────────────
+    macro_lines = []
+
+    if "dxy" in macro_metrics:
+        dxy_v = macro_metrics["dxy"]["val"]
+        dxy_c = macro_metrics["dxy"]["chg"] or 0
+        if dxy_c < -1:
+            macro_lines.append(
+                f"**USD suy yếu rõ rệt** (DXY {dxy_v:.1f}, giảm {abs(dxy_c):.1f}% trong tháng): "
+                f"vàng được định giá bằng USD — khi USD yếu, giá vàng tăng tự nhiên "
+                f"vì cùng một lượng vàng cần nhiều USD hơn để mua."
+            )
+        elif dxy_c > 1:
+            macro_lines.append(
+                f"**USD mạnh lên** (DXY {dxy_v:.1f}, tăng {dxy_c:.1f}% trong tháng): "
+                f"đây là lực cản chính với vàng — USD mạnh làm vàng đắt hơn với người mua "
+                f"nước ngoài, giảm nhu cầu toàn cầu và tạo áp lực giảm giá."
+            )
+        else:
+            macro_lines.append(
+                f"**USD tương đối ổn định** (DXY {dxy_v:.1f}): "
+                f"yếu tố tỷ giá chưa tạo áp lực lớn theo hướng nào cho vàng."
+            )
+
+    if "yield10y" in macro_metrics:
+        y_v = macro_metrics["yield10y"]["val"]
+        y_c = macro_metrics["yield10y"]["chg"] or 0
+        if y_v < 3.5:
+            macro_lines.append(
+                f"**Lợi suất trái phiếu 10Y Mỹ thấp ({y_v:.2f}%)**: "
+                f"chi phí cơ hội giữ vàng (vốn không sinh lãi) rất thấp, "
+                f"giúp vàng hấp dẫn hơn so với trái phiếu."
+            )
+        elif y_v > 4.5:
+            macro_lines.append(
+                f"**Lợi suất trái phiếu 10Y Mỹ cao ({y_v:.2f}%)**: "
+                f"nhà đầu tư có thể nhận {y_v:.2f}% mỗi năm từ trái phiếu an toàn, "
+                f"trong khi vàng không trả lãi — điều này cạnh tranh trực tiếp và kéo "
+                f"dòng tiền rút khỏi vàng."
+            )
+        else:
+            macro_lines.append(
+                f"**Lợi suất 10Y ở mức {y_v:.2f}%** "
+                f"({'đang tăng' if y_c > 0.1 else 'đang giảm' if y_c < -0.1 else 'ổn định'}): "
+                f"áp lực lên vàng ở mức trung bình."
+            )
+
+    if "vix" in macro_metrics:
+        vix_v = macro_metrics["vix"]["val"]
+        if vix_v > 30:
+            macro_lines.append(
+                f"**Chỉ số sợ hãi VIX ở {vix_v:.0f} — rất cao**: "
+                f"thị trường đang hoảng loạn, nhà đầu tư toàn cầu đổ tiền vào vàng "
+                f"như một \"hầm trú ẩn\" an toàn — đây là yếu tố đẩy giá vàng tăng mạnh nhất."
+            )
+        elif vix_v > 20:
+            macro_lines.append(
+                f"**VIX {vix_v:.0f} — thị trường lo lắng**: "
+                f"tâm lý phòng thủ đang chiếm ưu thế, hỗ trợ dòng tiền vào vàng."
+            )
+        elif vix_v < 14:
+            macro_lines.append(
+                f"**VIX {vix_v:.0f} — thị trường quá tự tin**: "
+                f"khi tất cả đều lạc quan và mua cổ phiếu, vàng mất đi sức hút "
+                f"\"tài sản trú ẩn\" — dòng tiền ưu tiên chảy vào rủi ro."
+            )
+        else:
+            macro_lines.append(
+                f"**VIX {vix_v:.0f}** — tâm lý thị trường trung tính, "
+                f"chưa có cú sốc đủ mạnh để đẩy dòng tiền mạnh vào hoặc ra khỏi vàng."
+            )
+
+    if "sp500" in macro_metrics:
+        sp_c = macro_metrics["sp500"]["chg"] or 0
+        sp_v = macro_metrics["sp500"]["val"]
+        if sp_c < -5:
+            macro_lines.append(
+                f"**Chứng khoán Mỹ (S&P 500) sụt giảm mạnh {sp_c:.1f}%**: "
+                f"khi cổ phiếu rớt giá mạnh, nhà đầu tư bán tháo và chuyển sang vàng "
+                f"để bảo vệ tài sản — tạo làn sóng mua vàng đáng kể."
+            )
+        elif sp_c > 5:
+            macro_lines.append(
+                f"**Chứng khoán Mỹ (S&P 500) tăng mạnh {sp_c:.1f}%**: "
+                f"tâm lý risk-on mạnh — nhà đầu tư tự tin mua cổ phiếu thay vì vàng, "
+                f"làm giảm nhu cầu với vàng."
+            )
+        else:
+            macro_lines.append(
+                f"**S&P 500 biến động {sp_c:+.1f}%** — chưa có xu hướng rõ ràng "
+                f"tác động lớn đến dòng tiền vào/ra vàng."
+            )
+
+    parts.append("**🌐 Yếu tố vĩ mô**\n\n" + "\n\n".join(macro_lines))
+
+    # ── 3. Mùa vụ ─────────────────────────────────────────────────────────────
+    seas_pct = seas * 100
+    seas_reason = _SEASON_REASON.get(m_now, "")
+    if abs(seas_pct) >= 0.2:
+        if seas_pct > 0:
+            seas_text = (
+                f"Kỳ dự báo trùng với giai đoạn **thuận lợi theo mùa vụ** "
+                f"(+{seas_pct:.1f}% bias lịch sử): {seas_reason}. "
+                f"Đây là lực đẩy bổ sung, đã được tính vào dự báo."
+            )
+        else:
+            seas_text = (
+                f"Kỳ dự báo rơi vào giai đoạn **kém thuận lợi theo mùa** "
+                f"({seas_pct:.1f}% bias lịch sử): {seas_reason}. "
+                f"Yếu tố này tạo lực cản nhẹ, đã được trừ vào dự báo."
+            )
+        parts.append(f"**📅 Yếu tố mùa vụ ({_MONTH_VN.get(m_now, '')})**\n\n{seas_text}")
+
+    # ── 4. Kết luận ───────────────────────────────────────────────────────────
+    if chg >= 4:
+        verdict = (
+            f"Tổng hợp lại, **tất cả các yếu tố đều nghiêng về phía tăng**: "
+            f"kỹ thuật tích cực, môi trường vĩ mô hỗ trợ"
+            f"{' và mùa vụ thuận lợi' if seas_pct > 0 else ''}. "
+            f"Mô hình dự báo giá vàng đạt **${fc_e:,.0f}** sau {lbl} "
+            f"(tăng {chg:.1f}%), với vùng dao động kỳ vọng **${fc_l:,.0f} – ${fc_h:,.0f}**."
+        )
+    elif chg >= 1:
+        verdict = (
+            f"Nhìn chung, **nhiều yếu tố hỗ trợ xu hướng tăng nhẹ**, "
+            f"dù chưa có catalyst đặc biệt mạnh. "
+            f"Dự báo giá vàng đạt khoảng **${fc_e:,.0f}** sau {lbl} "
+            f"(+{chg:.1f}%), vùng dao động **${fc_l:,.0f} – ${fc_h:,.0f}**."
+        )
+    elif chg <= -4:
+        verdict = (
+            f"Tổng hợp lại, **áp lực giảm đang chiếm ưu thế**: "
+            f"môi trường vĩ mô bất lợi"
+            f"{' kết hợp kỹ thuật yếu' if len(below) >= 2 else ''}. "
+            f"Dự báo giá vàng giảm về **${fc_e:,.0f}** sau {lbl} "
+            f"({chg:.1f}%), vùng dao động **${fc_l:,.0f} – ${fc_h:,.0f}**."
+        )
+    elif chg <= -1:
+        verdict = (
+            f"Nhìn chung, **áp lực nhẹ về phía giảm** đang hiện diện, "
+            f"chưa đủ mạnh để tạo xu hướng giảm rõ ràng. "
+            f"Dự báo giá khoảng **${fc_e:,.0f}** sau {lbl} "
+            f"({chg:.1f}%), vùng dao động **${fc_l:,.0f} – ${fc_h:,.0f}**."
+        )
+    else:
+        verdict = (
+            f"Các yếu tố **tương đối cân bằng**, chưa có lực đẩy rõ ràng theo hướng nào. "
+            f"Dự báo giá vàng dao động quanh **${fc_e:,.0f}** sau {lbl} "
+            f"({chg:+.1f}%), trong vùng **${fc_l:,.0f} – ${fc_h:,.0f}**."
+        )
+
+    if forecast_days >= 180:
+        verdict += (
+            f"\n\n> ⚠️ **Lưu ý quan trọng với dự báo {lbl}:** Độ bất định tăng rất cao "
+            f"theo thời gian. Vùng giá rộng (${fc_l:,.0f} – ${fc_h:,.0f}) là hoàn toàn bình thường. "
+            f"Các sự kiện bất ngờ như thay đổi lãi suất Fed, xung đột địa chính trị, "
+            f"hay khủng hoảng kinh tế đều có thể đảo chiều hoàn toàn dự báo này."
+        )
+
+    parts.append(f"**🎯 Kết luận ({lbl})**\n\n{verdict}")
+
+    return "\n\n---\n\n".join(parts)
+
+# ══════════════════════════════════════════════════════════════════════════════
 #  SIGNAL SCORING
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -762,19 +1022,46 @@ def main():
         unsafe_allow_html=True,
     )
 
+    # Tín hiệu nhanh (2 cột)
     col_t, col_m = st.columns(2)
     with col_t:
-        st.markdown("**📐 Phân tích kỹ thuật:**")
+        st.markdown("**📐 Tín hiệu kỹ thuật:**")
         for note in tech_notes:
             st.markdown(f"- {note}")
     with col_m:
-        st.markdown("**🌐 Tín hiệu vĩ mô chính:**")
+        st.markdown("**🌐 Tín hiệu vĩ mô:**")
         shown = 0
         for icon, text, _ in macro_signals:
             if icon not in ("📊",) and shown < 5:
                 st.markdown(f"- {icon} {text}")
                 shown += 1
         st.markdown(f"- {seas_note}")
+
+    st.markdown("---")
+
+    # ── Narrative — Giải thích chi tiết tại sao tăng/giảm ───────────────────
+    st.markdown(f"#### 📝 Giải thích chi tiết — Tại sao giá vàng dự báo như vậy trong {period_label(forecast_days)}?")
+
+    narrative = generate_narrative(
+        price, ma20, ma50, ma200, rsi,
+        fc_mean, fc_lo_s, fc_hi_s,
+        macro_score, macro_signals, macro_metrics,
+        forecast_days, seas,
+    )
+
+    # Hiển thị từng phần trong expander riêng để gọn trên mobile
+    sections = narrative.split("\n\n---\n\n")
+    sec_icons = ["📐", "🌐", "📅", "🎯"]
+    for i, sec in enumerate(sections):
+        title_end = sec.find("\n\n")
+        if title_end == -1:
+            st.markdown(sec)
+            continue
+        title = sec[:title_end].replace("**", "").strip()
+        body  = sec[title_end + 2:]
+        icon  = sec_icons[i] if i < len(sec_icons) else "📌"
+        with st.expander(title, expanded=(i == len(sections) - 1)):
+            st.markdown(body)
 
     # ── Footer ────────────────────────────────────────────────────────────────
     st.markdown("---")
