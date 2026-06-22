@@ -132,6 +132,40 @@ def fetch_macro() -> dict[str, pd.Series]:
             pass
     return result
 
+
+@st.cache_data(ttl=60, show_spinner=False)
+def fetch_live_price() -> tuple[float | None, str]:
+    """
+    Lấy giá vàng LIVE (real-time) từ Yahoo Finance API.
+    Khác với yf.download() chỉ trả về giá đóng cửa phiên trước.
+    Cùng nguồn XAU/USD như giavang.org → khớp hơn.
+    Cache 60 giây để không gọi quá nhiều.
+    """
+    import urllib.request as _ur, json as _json, ssl as _ssl
+
+    urls = [
+        # Yahoo Finance real-time chart API
+        "https://query1.finance.yahoo.com/v8/finance/chart/XAUUSD=X?interval=1m&range=1d",
+        # Mirror 2
+        "https://query2.finance.yahoo.com/v8/finance/chart/GC=F?interval=1m&range=1d",
+    ]
+    ctx = _ssl.create_default_context()
+
+    for url in urls:
+        try:
+            req = _ur.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            with _ur.urlopen(req, timeout=8, context=ctx) as r:
+                data   = _json.load(r)
+                meta   = data["chart"]["result"][0]["meta"]
+                price  = meta.get("regularMarketPrice") or meta.get("previousClose")
+                source = "Yahoo Finance (Live)"
+                if price and 500 < float(price) < 20000:
+                    return round(float(price), 2), source
+        except Exception:
+            pass
+
+    return None, ""
+
 # ══════════════════════════════════════════════════════════════════════════════
 #  TECHNICAL INDICATORS
 # ══════════════════════════════════════════════════════════════════════════════
@@ -574,6 +608,7 @@ def main():
         except RuntimeError as e:
             st.error(str(e)); return
         macro = fetch_macro()
+        live_price, live_src = fetch_live_price()
 
     # ── Technical indicators ──────────────────────────────────────────────────
     ma20   = price.rolling(20).mean()
@@ -616,13 +651,38 @@ def main():
 
     # ── Gold metrics ──────────────────────────────────────────────────────────
     m1, m2, m3, m4 = st.columns(4)
-    m1.metric("💰 Giá Spot hiện tại", f"${cur:,.0f}", f"Nguồn: {ticker}")
+
+    # Live price (real-time) ưu tiên hơn giá đóng cửa
+    if live_price:
+        live_diff = live_price - cur
+        m1.metric(
+            "⚡ Giá Live (Real-time)",
+            f"${live_price:,.2f}",
+            f"{live_diff:+.2f} so với phiên trước",
+            delta_color="normal",
+        )
+    else:
+        m1.metric("💰 Giá Spot (Close)", f"${cur:,.0f}", f"Nguồn: {ticker}")
+
     m2.metric(f"📅 Dự báo ({forecast_days//30} tháng)", f"${fc_e:,.0f}",
               f"{sign}{chg:.1f}%", delta_color="normal")
     m3.metric("📊 52W High / Low", f"${hi52:,.0f}", f"Low: ${lo52:,.0f}")
     m4.metric("📈 RSI (14)", f"{r_cur:.0f}",
               "Quá mua ⚠️" if r_cur > 70 else ("Quá bán ✅" if r_cur < 30 else "Bình thường"),
               delta_color="off")
+
+    # Ghi chú về nguồn giá
+    if live_price:
+        diff_pct = abs(live_price - cur) / cur * 100
+        note_color = "#f9a825" if diff_pct > 0.5 else "#8b949e"
+        st.markdown(
+            f"<p style='font-size:0.78rem;color:{note_color};margin:-8px 0 4px 0;'>"
+            f"⚡ Giá live: <b>${live_price:,.2f}</b> ({live_src}) · "
+            f"Giá đóng cửa phiên trước: <b>${cur:,.0f}</b> ({ticker}) · "
+            f"Lệch: <b>{live_price - cur:+.2f} USD</b>"
+            f"</p>",
+            unsafe_allow_html=True,
+        )
 
     st.markdown("---")
 
