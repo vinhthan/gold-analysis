@@ -3,7 +3,7 @@
 """
 GOLD PRICE TREND ANALYSIS v3 — Streamlit Web App
 Phân tích đa yếu tố vĩ mô + kỹ thuật + mùa vụ
-Dự báo xu hướng giá vàng thế giới (XAU/USD) 1–2 tháng tới
+Dự báo xu hướng giá vàng thế giới (XAU/USD) 1 tháng – 1 năm tới
 """
 
 import warnings
@@ -61,6 +61,17 @@ st.markdown("""
 # ══════════════════════════════════════════════════════════════════════════════
 #  CONSTANTS
 # ══════════════════════════════════════════════════════════════════════════════
+
+PERIOD_LABELS = {
+    30:  "1 tháng tới",
+    60:  "2 tháng tới",
+    90:  "3 tháng tới",
+    180: "6 tháng tới",
+    365: "1 năm tới",
+}
+
+def period_label(days: int) -> str:
+    return PERIOD_LABELS.get(days, f"{days} ngày tới")
 
 def hex_rgba(hex_c: str, alpha: float) -> str:
     h = hex_c.lstrip("#")
@@ -464,7 +475,8 @@ def build_chart(p, m20, m50, m200, bbu, bbl, hi52, lo52,
                 fc_mean, fc_lo, fc_hi, rsi_s,
                 sig_color: str, forecast_days: int) -> go.Figure:
 
-    H   = 150
+    # Lịch sử hiển thị = 2× kỳ dự báo, tối thiểu 150, tối đa 500 ngày
+    H   = min(max(150, forecast_days * 2), 500)
     fig = make_subplots(
         rows=2, cols=1, row_heights=[0.68, 0.32],
         shared_xaxes=True, vertical_spacing=0.04,
@@ -509,7 +521,7 @@ def build_chart(p, m20, m50, m200, bbu, bbl, hi52, lo52,
         hovertemplate="<b>%{x|%d/%m/%Y}</b><br>Giá: $%{y:,.0f}<extra></extra>"), row=1, col=1)
 
     # Forecast line
-    ml = f"{forecast_days // 30} tháng"
+    ml = period_label(forecast_days)
     fig.add_trace(go.Scatter(x=fc_mean.index, y=fc_mean, name=f"Dự báo {ml}",
         line=dict(color=sig_color, width=2.6),
         hovertemplate="<b>%{x|%d/%m/%Y}</b><br>Dự báo: $%{y:,.0f}<extra></extra>"), row=1, col=1)
@@ -593,8 +605,8 @@ def main():
     # ── Controls ──────────────────────────────────────────────────────────────
     c1, c2, c3 = st.columns([2, 1, 4])
     with c1:
-        forecast_days = st.radio("Kỳ dự báo:", [30, 60],
-            format_func=lambda x: "1 tháng tới" if x == 30 else "2 tháng tới",
+        forecast_days = st.radio("Kỳ dự báo:", list(PERIOD_LABELS.keys()),
+            format_func=lambda x: PERIOD_LABELS[x],
             horizontal=True, label_visibility="collapsed")
     with c2:
         if st.button("🔄 Làm mới", use_container_width=True):
@@ -664,7 +676,7 @@ def main():
     else:
         m1.metric("💰 Giá Spot (Close)", f"${cur:,.0f}", f"Nguồn: {ticker}")
 
-    m2.metric(f"📅 Dự báo ({forecast_days//30} tháng)", f"${fc_e:,.0f}",
+    m2.metric(f"📅 Dự báo ({period_label(forecast_days)})", f"${fc_e:,.0f}",
               f"{sign}{chg:.1f}%", delta_color="normal")
     m3.metric("📊 52W High / Low", f"${hi52:,.0f}", f"Low: ${lo52:,.0f}")
     m4.metric("📈 RSI (14)", f"{r_cur:.0f}",
@@ -721,7 +733,7 @@ def main():
     st.markdown("---")
 
     # ── Chart ─────────────────────────────────────────────────────────────────
-    ml = f"{forecast_days//30} tháng"
+    ml = period_label(forecast_days)
     st.markdown(
         f"#### Biểu đồ Giá Vàng · Dự báo {ml} tới · "
         f"Cập nhật {datetime.now():%H:%M %d/%m/%Y}"
