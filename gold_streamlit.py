@@ -136,8 +136,8 @@ def calc_rsi(s: pd.Series, period: int = 14) -> pd.Series:
 # ─────────────────────── Forecasting ─────────────────────────────────────────
 
 @st.cache_data(ttl=3600, show_spinner=False)
-def forecast(_price_values: np.ndarray, price_index, days: int):
-    price = pd.Series(_price_values, index=price_index)
+def forecast(_price_values: np.ndarray, last_date_str: str, days: int):
+    price = pd.Series(_price_values)
     train = price.tail(min(365, len(price)))
 
     # Model A: Holt-Winters
@@ -164,7 +164,7 @@ def forecast(_price_values: np.ndarray, price_index, days: int):
     vol    = train.pct_change().std()
     spread = combined * vol * np.sqrt(np.arange(1, days + 1)) * 1.65
 
-    fut = pd.bdate_range(start=price.index[-1] + timedelta(days=1), periods=days)
+    fut = pd.bdate_range(start=pd.Timestamp(last_date_str) + timedelta(days=1), periods=days)
     n   = min(len(fut), len(combined))
     idx = fut[:n]
 
@@ -469,7 +469,7 @@ def main():
     # ── Forecast ──────────────────────────────────────────────────────────────
     with st.spinner("🔮 Đang chạy mô hình dự báo..."):
         fc_mean, fc_lo_s, fc_hi_s = forecast(
-            price.values, price.index, forecast_days
+            price.values, str(price.index[-1]), forecast_days
         )
 
     # ── Signal ────────────────────────────────────────────────────────────────
