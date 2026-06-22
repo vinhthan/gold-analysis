@@ -134,7 +134,7 @@ def fetch_macro() -> dict[str, pd.Series]:
 
 
 @st.cache_data(ttl=60, show_spinner=False)
-def fetch_live_price() -> tuple[float | None, str]:
+def fetch_live_price():
     """
     Lấy giá vàng LIVE (real-time) từ Yahoo Finance API.
     Khác với yf.download() chỉ trả về giá đóng cửa phiên trước.
