@@ -1288,12 +1288,16 @@ def main():
     if live_price:
         diff_pct = abs(live_price - cur) / cur * 100
         note_color = "#f9a825" if diff_pct > 0.5 else "#8b949e"
+        # Ghi chú delay nếu nguồn là COMEX futures
+        delay_note = ""
+        if "COMEX" in live_src:
+            delay_note = " · ⏱ <i>Yahoo Finance delay ~15 phút — chênh $10-20 với giavang.org là bình thường</i>"
         st.markdown(
             f"<p style='font-size:0.78rem;color:{note_color};margin:-8px 0 4px 0;'>"
             f"⚡ Giá live: <b>${live_price:,.2f}</b> ({live_src}) · "
             f"Giá đóng cửa phiên trước: <b>${cur:,.0f}</b> ({ticker}) · "
             f"Lệch: <b>{live_price - cur:+.2f} USD</b>"
-            f"</p>",
+            f"{delay_note}</p>",
             unsafe_allow_html=True,
         )
 
