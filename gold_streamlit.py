@@ -111,7 +111,12 @@ MACRO_TICKERS = {
 def fetch_gold() -> tuple[pd.Series, str]:
     """
     Lấy giá vàng Spot lịch sử 2 năm.
-    Thứ tự: Yahoo v8 Chart API (direct) → yfinance XAUUSD=X → Stooq pdr → GC=F.
+    Thứ tự:
+      1) Yahoo v8 Chart API trực tiếp (XAUUSD=X)
+      2) yfinance XAUUSD=X
+      3) GLD ETF → quy đổi sang spot (chính xác, luôn tải được)
+      4) Stooq qua pandas_datareader
+      5) GC=F với điều chỉnh basis lãi suất
     """
     import urllib.request as _ur, json as _json, ssl as _ssl
     from datetime import datetime as _dt, timedelta as _td
@@ -120,74 +125,107 @@ def fetch_gold() -> tuple[pd.Series, str]:
     ua  = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 
-    def _series_from_chart(data):
-        """Parse Yahoo Finance v8 chart JSON → pd.Series."""
-        result    = data["chart"]["result"][0]
-        ts        = result["timestamp"]
-        closes    = result["indicators"]["quote"][0]["close"]
-        dates     = pd.to_datetime(ts, unit="s").normalize()
-        s = pd.Series(closes, index=dates, dtype=float).dropna()
-        s = s[s > 100]
-        return s
+    def _raw_to_close(raw):
+        if raw is None or raw.empty:
+            return None
+        if isinstance(raw.columns, pd.MultiIndex):
+            raw = raw.copy(); raw.columns = raw.columns.get_level_values(0)
+        s = raw["Close"].dropna()
+        return s if len(s) >= 100 else None
 
-    # ── 1) Yahoo Finance v8 Chart API (urllib trực tiếp, bypass yfinance) ─────
-    #       Cùng endpoint đang hoạt động cho live price — chỉ đổi range/interval
+    # ── 1) Yahoo Finance v8 Chart API (urllib trực tiếp) ─────────────────────
+    def _series_from_v8(data):
+        res    = data["chart"]["result"][0]
+        dates  = pd.to_datetime(res["timestamp"], unit="s").normalize()
+        closes = res["indicators"]["quote"][0]["close"]
+        s = pd.Series(closes, index=dates, dtype=float).dropna()
+        return s[s > 100]
+
     for host in ("query1", "query2"):
         try:
             url = (f"https://{host}.finance.yahoo.com/v8/finance/chart/"
                    f"XAUUSD%3DX?interval=1d&range=2y")
             req = _ur.Request(url, headers={"User-Agent": ua, "Accept": "application/json"})
             with _ur.urlopen(req, timeout=20, context=ctx) as r:
-                data = _json.load(r)
-            s = _series_from_chart(data)
+                s = _series_from_v8(_json.load(r))
             if len(s) >= 100:
                 return s, "XAUUSD=X (spot)"
         except Exception:
             pass
 
-    # ── 2) yfinance XAUUSD=X (download + Ticker.history) ─────────────────────
+    # ── 2) yfinance XAUUSD=X ─────────────────────────────────────────────────
     for _m in ("download", "ticker"):
         try:
-            if _m == "download":
-                raw = yf.download("XAUUSD=X", period="2y", interval="1d",
-                                  progress=False, auto_adjust=True)
-            else:
-                raw = yf.Ticker("XAUUSD=X").history(period="2y", auto_adjust=True)
-            if raw is None or raw.empty:
-                continue
-            if isinstance(raw.columns, pd.MultiIndex):
-                raw.columns = raw.columns.get_level_values(0)
-            close = raw["Close"].dropna()
-            if len(close) >= 100:
-                return close, "XAUUSD=X (spot)"
+            raw = (yf.download("XAUUSD=X", period="2y", interval="1d",
+                               progress=False, auto_adjust=True) if _m == "download"
+                   else yf.Ticker("XAUUSD=X").history(period="2y", auto_adjust=True))
+            s = _raw_to_close(raw)
+            if s is not None:
+                return s, "XAUUSD=X (spot)"
         except Exception:
             continue
 
-    # ── 3) pandas_datareader + Stooq ─────────────────────────────────────────
+    # ── 3) GLD ETF → quy đổi spot  (ETF luôn tải được, không bị block) ───────
+    #    GLD inception: 18/11/2004, initial ratio 0.10 oz/share, ER=0.40%/năm
+    #    Spot ≈ GLD_price / (0.10 × 0.996^years_since_inception)
+    try:
+        raw_gld = yf.download("GLD", period="2y", interval="1d",
+                               progress=False, auto_adjust=True)
+        s_gld = _raw_to_close(raw_gld)
+        if s_gld is not None:
+            inception  = _dt(2004, 11, 18)
+            yrs        = (_dt.today() - inception).days / 365.25
+            gld_ratio  = 0.10 * (0.996 ** yrs)   # oz vàng per GLD share
+            spot       = (s_gld / gld_ratio).dropna()
+            spot       = spot[spot > 100]
+            if len(spot) >= 100:
+                return spot, "GLD→XAU/USD (spot)"
+    except Exception:
+        pass
+
+    # ── 4) pandas_datareader + Stooq ─────────────────────────────────────────
     try:
         from pandas_datareader import data as _pdr
         start = _dt.today() - _td(days=730)
         df    = _pdr.DataReader("XAUUSD", "stooq", start=start, end=_dt.today())
-        df    = df.sort_index()
-        close = df["Close"].dropna()
-        close = close[close > 100]
-        if len(close) >= 100:
-            return close, "Stooq (XAU/USD spot)"
+        s     = df.sort_index()["Close"].dropna()
+        s     = s[s > 100]
+        if len(s) >= 100:
+            return s, "Stooq (XAU/USD spot)"
     except Exception:
         pass
 
-    # ── 4) GC=F Futures — last resort ────────────────────────────────────────
-    for ticker in ("GC=F", "GLD", "IAU"):
+    # ── 5) GC=F với điều chỉnh basis (last resort) ───────────────────────────
+    #    Spot ≈ GC=F / (1 + r × 30/365)  — khử premium futures ~$15-25
+    try:
+        raw_gcf = yf.download("GC=F", period="2y", interval="1d",
+                               progress=False, auto_adjust=True)
+        s_gcf = _raw_to_close(raw_gcf)
+        if s_gcf is not None:
+            # Lấy lãi suất ngắn hạn từ ^IRX (13-week T-bill)
+            r = 0.045  # fallback 4.5%
+            try:
+                irx = yf.download("^IRX", period="5d", interval="1d",
+                                   progress=False, auto_adjust=True)
+                if not irx.empty:
+                    r = float(irx["Close"].dropna().iloc[-1]) / 100
+            except Exception:
+                pass
+            basis  = 1 + r * 30 / 365     # ~30 ngày bình quân đến hạn hợp đồng
+            spot   = (s_gcf / basis).dropna()
+            if len(spot) >= 100:
+                return spot, "XAU/USD spot (adj.)"
+    except Exception:
+        pass
+
+    # ── 6) GC=F thô (absolute last resort) ───────────────────────────────────
+    for ticker in ("GC=F", "IAU"):
         try:
             raw = yf.download(ticker, period="2y", interval="1d",
-                              progress=False, auto_adjust=True)
-            if raw is None or raw.empty:
-                continue
-            if isinstance(raw.columns, pd.MultiIndex):
-                raw.columns = raw.columns.get_level_values(0)
-            close = raw["Close"].dropna()
-            if len(close) >= 100:
-                return close, ticker
+                               progress=False, auto_adjust=True)
+            s = _raw_to_close(raw)
+            if s is not None:
+                return s, ticker
         except Exception:
             continue
 
