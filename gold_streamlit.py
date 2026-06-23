@@ -147,37 +147,91 @@ def fetch_macro() -> dict[str, pd.Series]:
 @st.cache_data(ttl=60, show_spinner=False)
 def fetch_live_price():
     """
-    Lấy giá vàng LIVE (real-time) từ Yahoo Finance XAUUSD=X (spot).
-    Không dùng GC=F (futures) vì có premium ~$17 so với spot.
-    Cache 60 giây để không gọi quá nhiều.
+    Lấy giá vàng LIVE cùng nguồn giavang.org = TradingView FX_IDC:XAUUSD (ICE spot).
+    Fallback: Stooq → goldprice.org → Yahoo Finance XAUUSD=X.
+    Cache 60 giây.
     """
     import urllib.request as _ur, json as _json, ssl as _ssl
 
     ctx = _ssl.create_default_context()
-    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+    ua  = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
 
-    # Yahoo Finance XAUUSD=X — giá spot vàng thế giới (USD/oz)
-    # Không dùng GC=F vì đó là giá futures, cao hơn spot ~$15-20
+    def _valid(p):
+        try:
+            return p is not None and 500 < float(p) < 20000
+        except Exception:
+            return False
+
+    # ── 1) TradingView Scanner — FX_IDC:XAUUSD (ICE spot, cùng nguồn giavang.org) ──
+    try:
+        payload = _json.dumps({
+            "symbols": {"tickers": ["FX_IDC:XAUUSD"], "query": {"types": []}},
+            "columns": ["close"]
+        }).encode()
+        req = _ur.Request(
+            "https://scanner.tradingview.com/forex/scan",
+            data=payload,
+            headers={
+                "Content-Type": "application/json",
+                "User-Agent": ua,
+                "Origin": "https://www.tradingview.com",
+                "Referer": "https://www.tradingview.com/",
+            }
+        )
+        with _ur.urlopen(req, timeout=8, context=ctx) as r:
+            data = _json.load(r)
+        price = data["data"][0]["d"][0]
+        if _valid(price):
+            return round(float(price), 2), "TradingView (FX_IDC:XAUUSD)"
+    except Exception:
+        pass
+
+    # ── 2) Stooq XAUUSD (CSV, gần ICE spot) ─────────────────────────────────
+    try:
+        req = _ur.Request(
+            "https://stooq.com/q/l/?s=xauusd&f=sd2t2ohlcv&h&e=csv",
+            headers={"User-Agent": ua}
+        )
+        with _ur.urlopen(req, timeout=8, context=ctx) as r:
+            text = r.read().decode("utf-8", errors="ignore")
+        # Format: Symbol,Date,Time,Open,High,Low,Close,Volume
+        line = text.strip().splitlines()[-1]
+        price = float(line.split(",")[6])
+        if _valid(price):
+            return round(price, 2), "Stooq (XAU/USD spot)"
+    except Exception:
+        pass
+
+    # ── 3) goldprice.org API ─────────────────────────────────────────────────
+    try:
+        req = _ur.Request(
+            "https://data-asg.goldprice.org/dbXRates/USD",
+            headers={"User-Agent": ua, "Origin": "https://goldprice.org",
+                     "Referer": "https://goldprice.org/"}
+        )
+        with _ur.urlopen(req, timeout=8, context=ctx) as r:
+            data = _json.load(r)
+        for item in data.get("items", []):
+            if item.get("curr") == "USD":
+                price = item.get("xauPrice")
+                if _valid(price):
+                    return round(float(price), 2), "goldprice.org"
+    except Exception:
+        pass
+
+    # ── 4) Yahoo Finance XAUUSD=X spot (last resort) ─────────────────────────
     for host in ("query1", "query2"):
-        for endpoint in ("v8/finance/chart", "v7/finance/quote"):
-            try:
-                if "chart" in endpoint:
-                    url = f"https://{host}.finance.yahoo.com/{endpoint}/XAUUSD%3DX?interval=1m&range=1d"
-                    req = _ur.Request(url, headers=headers)
-                    with _ur.urlopen(req, timeout=8, context=ctx) as r:
-                        data  = _json.load(r)
-                        meta  = data["chart"]["result"][0]["meta"]
-                        price = meta.get("regularMarketPrice") or meta.get("previousClose")
-                else:
-                    url = f"https://{host}.finance.yahoo.com/{endpoint}?symbols=XAUUSD%3DX&fields=regularMarketPrice"
-                    req = _ur.Request(url, headers=headers)
-                    with _ur.urlopen(req, timeout=8, context=ctx) as r:
-                        data  = _json.load(r)
-                        price = data["quoteResponse"]["result"][0].get("regularMarketPrice")
-                if price and 500 < float(price) < 20000:
-                    return round(float(price), 2), "Yahoo Finance (XAU/USD spot)"
-            except Exception:
-                pass
+        try:
+            url = f"https://{host}.finance.yahoo.com/v8/finance/chart/XAUUSD%3DX?interval=1m&range=1d"
+            req = _ur.Request(url, headers={"User-Agent": ua})
+            with _ur.urlopen(req, timeout=8, context=ctx) as r:
+                data  = _json.load(r)
+                meta  = data["chart"]["result"][0]["meta"]
+                price = meta.get("regularMarketPrice") or meta.get("previousClose")
+            if _valid(price):
+                return round(float(price), 2), "Yahoo Finance (XAU/USD spot)"
+        except Exception:
+            pass
 
     return None, ""
 
