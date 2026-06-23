@@ -107,42 +107,42 @@ MACRO_TICKERS = {
 
 @st.cache_data(ttl=1800, show_spinner=False)
 def fetch_gold() -> tuple[pd.Series, str]:
-    """Lấy giá vàng Spot. Thứ tự: XAUUSD=X → Stooq → GC=F."""
-    import urllib.request as _ur, io as _io, ssl as _ssl
+    """Lấy giá vàng Spot. Thứ tự: XAUUSD=X (yf) → XAUUSD (pdr/Stooq) → GC=F."""
+    from datetime import datetime as _dt, timedelta as _td
 
-    # ── 1) Yahoo Finance XAUUSD=X (spot) ─────────────────────────────────────
-    try:
-        raw = yf.download("XAUUSD=X", period="2y", interval="1d",
-                          progress=False, auto_adjust=True)
-        if raw is not None and not raw.empty:
+    start = _dt.today() - _td(days=730)
+
+    # ── 1) yfinance XAUUSD=X — thử cả download lẫn Ticker.history ───────────
+    for _method in ("download", "ticker"):
+        try:
+            if _method == "download":
+                raw = yf.download("XAUUSD=X", period="2y", interval="1d",
+                                  progress=False, auto_adjust=True)
+            else:
+                raw = yf.Ticker("XAUUSD=X").history(period="2y", auto_adjust=True)
+            if raw is None or raw.empty:
+                continue
             if isinstance(raw.columns, pd.MultiIndex):
                 raw.columns = raw.columns.get_level_values(0)
             close = raw["Close"].dropna()
             if len(close) >= 100:
-                return close, "XAUUSD=X"
-    except Exception:
-        pass
+                return close, "XAUUSD=X (spot)"
+        except Exception:
+            continue
 
-    # ── 2) Stooq XAUUSD (spot, CSV trực tiếp — không cần API key) ────────────
+    # ── 2) pandas_datareader + Stooq — đáng tin cậy từ Streamlit Cloud ───────
     try:
-        ctx = _ssl.create_default_context()
-        req = _ur.Request(
-            "https://stooq.com/q/d/l/?s=xauusd&i=d",
-            headers={"User-Agent": "Mozilla/5.0"}
-        )
-        with _ur.urlopen(req, timeout=10, context=ctx) as r:
-            text = r.read().decode("utf-8", errors="ignore")
-        df = pd.read_csv(_io.StringIO(text), parse_dates=["Date"], index_col="Date")
+        from pandas_datareader import data as _pdr
+        df = _pdr.DataReader("XAUUSD", "stooq", start=start, end=_dt.today())
         df = df.sort_index()
         close = df["Close"].dropna()
-        # Stooq có thể trả về N/A khi thị trường đóng cửa, bỏ qua
-        close = close[close > 0]
+        close = close[close > 100]
         if len(close) >= 100:
             return close, "Stooq (XAU/USD spot)"
     except Exception:
         pass
 
-    # ── 3) GC=F (Gold Futures — last resort, giá cao hơn spot ~$15-20) ────────
+    # ── 3) GC=F Futures — last resort (giá cao hơn spot ~$15-20) ─────────────
     for ticker in ("GC=F", "GLD", "IAU"):
         try:
             raw = yf.download(ticker, period="2y", interval="1d",
