@@ -99,6 +99,8 @@ MACRO_TICKERS = {
     "^TNX":     "yield10y",  # 10Y Treasury Yield — cơ hội giữ vàng vs trái phiếu
     "^VIX":     "vix",       # Fear Index — vàng là safe-haven khi VIX cao
     "^GSPC":    "sp500",     # S&P 500 — risk-on/off indicator
+    "CL=F":     "oil",       # Dầu thô WTI — proxy lạm phát (quan trọng với vàng)
+    "TIP":      "tips",      # iShares TIPS ETF — lãi suất thực (yếu tố số 1 với vàng)
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -317,10 +319,10 @@ def calc_rsi(s: pd.Series, period: int = 14) -> pd.Series:
 #  MACRO REGIME ANALYSIS
 # ══════════════════════════════════════════════════════════════════════════════
 
-def macro_regime(macro: dict) -> tuple[int, str, list, dict]:
+def macro_regime(macro: dict, price: pd.Series = None) -> tuple[int, str, list, dict]:
     """
-    Phân tích 4 yếu tố vĩ mô, trả về:
-    - score: -8 đến +8
+    Phân tích 6 yếu tố vĩ mô + momentum vàng + mean reversion, trả về:
+    - score: tổng hợp (tối đa ~±14)
     - label: nhãn môi trường
     - signals: danh sách tín hiệu chi tiết
     - metrics: dict giá trị hiện tại để hiển thị
@@ -428,14 +430,111 @@ def macro_regime(macro: dict) -> tuple[int, str, list, dict]:
         else:
             signals.append(("➡️", f"S&P 500 {chg1m:+.1f}% (1 tháng) — trung tính", "gray"))
 
+    # ── Dầu thô WTI (proxy lạm phát) ─────────────────────────────────────
+    if "oil" in macro:
+        o     = macro["oil"]
+        cur   = float(o.iloc[-1])
+        n3m   = max(-66, -len(o))
+        ret3m = (cur / float(o.iloc[n3m]) - 1) * 100
+        metrics["oil"] = {"val": cur, "chg": ret3m, "unit": "$/bbl"}
+
+        if ret3m > 15:
+            score += 2
+            signals.append(("✅", f"Dầu WTI +{ret3m:.1f}% (3T) → lạm phát tăng → hỗ trợ vàng mạnh", "green"))
+        elif ret3m > 5:
+            score += 1
+            signals.append(("✅", f"Dầu WTI +{ret3m:.1f}% (3T) → áp lực lạm phát, tốt cho vàng", "green"))
+        elif ret3m < -15:
+            score -= 2
+            signals.append(("🔴", f"Dầu WTI {ret3m:.1f}% (3T) → lạm phát hạ nhiệt, bớt hỗ trợ vàng", "red"))
+        elif ret3m < -5:
+            score -= 1
+            signals.append(("⚠️", f"Dầu WTI {ret3m:.1f}% (3T) → giảm áp lực lạm phát", "orange"))
+        else:
+            signals.append(("➡️", f"Dầu WTI {ret3m:+.1f}% (3T) — ổn định, trung tính", "gray"))
+
+    # ── TIPS ETF (lãi suất thực — yếu tố số 1 với vàng) ──────────────────
+    # TIP tăng = lãi suất thực giảm = vàng hưởng lợi (và ngược lại)
+    if "tips" in macro:
+        t     = macro["tips"]
+        cur   = float(t.iloc[-1])
+        n3m   = max(-66, -len(t))
+        ret3m = (cur / float(t.iloc[n3m]) - 1) * 100
+        metrics["tips"] = {"val": cur, "chg": ret3m, "unit": ""}
+
+        if ret3m > 3:
+            score += 3
+            signals.append(("✅", f"TIPS ETF +{ret3m:.1f}% (3T) → lãi suất thực giảm mạnh → hỗ trợ vàng rất lớn", "green"))
+        elif ret3m > 1:
+            score += 2
+            signals.append(("✅", f"TIPS ETF +{ret3m:.1f}% (3T) → lãi suất thực hạ → tích cực cho vàng", "green"))
+        elif ret3m > 0:
+            score += 1
+            signals.append(("✅", f"TIPS ETF +{ret3m:.1f}% (3T) → lãi suất thực ổn định/giảm nhẹ, tốt cho vàng", "green"))
+        elif ret3m < -3:
+            score -= 3
+            signals.append(("🔴", f"TIPS ETF {ret3m:.1f}% (3T) → lãi suất thực tăng mạnh → áp lực lớn lên vàng", "red"))
+        elif ret3m < -1:
+            score -= 2
+            signals.append(("🔴", f"TIPS ETF {ret3m:.1f}% (3T) → lãi suất thực tăng → bất lợi cho vàng", "red"))
+        else:
+            score -= 1
+            signals.append(("⚠️", f"TIPS ETF {ret3m:.1f}% (3T) → lãi suất thực hơi tăng, áp lực nhẹ", "orange"))
+
+    # ── Momentum giá vàng (3T & 6T) ───────────────────────────────────────
+    if price is not None and len(price) >= 20:
+        cur_p  = float(price.iloc[-1])
+        n3m    = max(-66,  -len(price))
+        n6m    = max(-130, -len(price))
+        ret3m  = (cur_p / float(price.iloc[n3m])  - 1) * 100
+        ret6m  = (cur_p / float(price.iloc[n6m])  - 1) * 100
+        metrics["momentum"] = {"ret3m": ret3m, "ret6m": ret6m}
+
+        if ret3m > 12:
+            score += 2
+            signals.append(("✅", f"Momentum vàng 3 tháng: +{ret3m:.1f}% — đà tăng mạnh, xu hướng tiếp diễn", "green"))
+        elif ret3m > 4:
+            score += 1
+            signals.append(("✅", f"Momentum vàng 3 tháng: +{ret3m:.1f}% — tích cực", "green"))
+        elif ret3m < -8:
+            score -= 2
+            signals.append(("🔴", f"Momentum vàng 3 tháng: {ret3m:.1f}% — đà giảm rõ", "red"))
+        elif ret3m < -3:
+            score -= 1
+            signals.append(("⚠️", f"Momentum vàng 3 tháng: {ret3m:.1f}% — áp lực giảm ngắn hạn", "orange"))
+
+        if ret6m > 15:
+            score += 1
+            signals.append(("✅", f"Momentum 6 tháng: +{ret6m:.1f}% — xu hướng tăng trung hạn vững", "green"))
+        elif ret6m < -10:
+            score -= 1
+            signals.append(("🔴", f"Momentum 6 tháng: {ret6m:.1f}% — xu hướng trung hạn tiêu cực", "red"))
+
+    # ── Độ lệch MA200 (mean reversion) ────────────────────────────────────
+    if price is not None and len(price) >= 200:
+        cur_p  = float(price.iloc[-1])
+        ma200v = float(price.rolling(200).mean().iloc[-1])
+        dev    = (cur_p / ma200v - 1) * 100
+        metrics["ma200_dev"] = dev
+
+        if dev > 25:
+            score -= 2
+            signals.append(("⚠️", f"Giá cao hơn MA200 {dev:.1f}% — quá mua dài hạn, rủi ro điều chỉnh cao", "orange"))
+        elif dev > 15:
+            score -= 1
+            signals.append(("⚠️", f"Giá cao hơn MA200 {dev:.1f}% — hơi overbought so lịch sử", "orange"))
+        elif dev < -15:
+            score += 1
+            signals.append(("✅", f"Giá thấp hơn MA200 {abs(dev):.1f}% — vùng giá trị hấp dẫn về dài hạn", "green"))
+
     # ── Nhãn tổng hợp ─────────────────────────────────────────────────────
-    if score >= 6:
+    if score >= 8:
         label = "RẤT TÍCH CỰC CHO VÀNG"
-    elif score >= 3:
+    elif score >= 4:
         label = "TÍCH CỰC CHO VÀNG"
-    elif score <= -6:
+    elif score <= -8:
         label = "RẤT TIÊU CỰC CHO VÀNG"
-    elif score <= -3:
+    elif score <= -4:
         label = "TIÊU CỰC CHO VÀNG"
     else:
         label = "TRUNG TÍNH"
@@ -502,16 +601,38 @@ def forecast(_price_values: np.ndarray, last_date_str: str,
     else:
         base = lr_vals
 
-    # ── Macro adjustment: ±0.35% / month / score point ───────────────────
-    macro_adj = macro_score * 0.0035 * (days / 30)
+    # ── Macro adjustment: sqrt-damped để tránh cộng tuyến tính quá mức ──
+    # Cũ: score * 0.0035 * (days/30) → 1 năm score=8 ra +34% (sai)
+    # Mới: sqrt-damped → 1 năm score=8 ra ~11%, hợp lý hơn
+    macro_adj = np.clip(
+        macro_score * 0.004 * np.sqrt(days / 30),
+        -0.18, 0.18
+    )
 
     # ── Seasonal adjustment ───────────────────────────────────────────────
     seas_adj = seasonal_factor(last_date_str, days)
 
-    # ── Apply adjustments ─────────────────────────────────────────────────
-    combined = base * (1 + macro_adj + seas_adj)
+    # ── Momentum adjustment (3 tháng gần nhất của giá vàng) ──────────────
+    n3m      = min(66, len(train))
+    ret_3m   = float(train.iloc[-1]) / float(train.iloc[-n3m]) - 1
+    # Momentum đóng góp tối đa 12%, giảm dần cho kỳ dài (mean reversion)
+    mom_weight = 0.12 * (30 / max(days, 30)) ** 0.5
+    mom_adj  = np.clip(ret_3m * mom_weight, -0.08, 0.08)
 
-    # ── Confidence interval (~90%) ────────────────────────────────────────
+    # ── Mean reversion từ MA200 ───────────────────────────────────────────
+    if len(price) >= 200:
+        ma200v   = float(price.rolling(200).mean().iloc[-1])
+        cur_p    = float(price.iloc[-1])
+        dev      = cur_p / ma200v - 1          # +0.20 = đang cao hơn MA200 20%
+        # Áp lực quay về trung bình: tỷ lệ với độ lệch và thời gian
+        rev_adj  = np.clip(-dev * 0.10 * (days / 365), -0.06, 0.06)
+    else:
+        rev_adj  = 0.0
+
+    # ── Apply adjustments ─────────────────────────────────────────────────
+    combined = base * (1 + macro_adj + seas_adj + mom_adj + rev_adj)
+
+    # ── Confidence interval (~90%) — mở rộng theo căn bậc 2 thời gian ───
     vol    = train.pct_change().std()
     spread = combined * vol * np.sqrt(np.arange(1, days + 1)) * 1.65
 
@@ -1021,7 +1142,7 @@ def main():
     lo52   = float(price.tail(252).min())
 
     # ── Macro regime ──────────────────────────────────────────────────────────
-    macro_score, macro_label, macro_signals, macro_metrics = macro_regime(macro)
+    macro_score, macro_label, macro_signals, macro_metrics = macro_regime(macro, price)
 
     # ── Forecast (với macro + seasonal) ──────────────────────────────────────
     with st.spinner("🔮 Chạy mô hình dự báo (HW + ARIMA + Momentum + Macro + Mùa vụ)..."):
