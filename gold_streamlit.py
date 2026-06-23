@@ -1212,26 +1212,106 @@ def main():
     st.markdown(
         f"#### 🌐 Môi trường vĩ mô &nbsp; "
         f"<span style='color:{macro_score_color};font-size:0.95rem;'>"
-        f"[ {macro_label} · Điểm: {macro_score:+d}/10 ]</span>",
+        f"[ {macro_label} · Điểm: {macro_score:+d} ]</span>",
         unsafe_allow_html=True,
     )
 
+    # ── Hàng 1: 4 chỉ số cổ điển ─────────────────────────────────────────────
     mc1, mc2, mc3, mc4 = st.columns(4)
-    def macro_metric(col, label, key, fmt, low_good=False):
+
+    def macro_metric(col, label, key, fmt, low_good=False, pct_delta=False):
         if key not in macro_metrics:
             col.metric(label, "N/A"); return
-        m = macro_metrics[key]
+        m       = macro_metrics[key]
         val_str = f"{m['val']:{fmt}}"
-        delta   = f"{m['chg']:+.2f}" if m["chg"] is not None else None
+        if m["chg"] is not None:
+            delta = f"{m['chg']:+.1f}%" if pct_delta else f"{m['chg']:+.2f}"
+        else:
+            delta = None
         col.metric(label, val_str + m["unit"], delta,
                    delta_color="inverse" if low_good else "normal")
 
-    macro_metric(mc1, "💵 USD Index (DXY)",  "dxy",      ".1f", low_good=True)
-    macro_metric(mc2, "📉 Yield 10Y",        "yield10y", ".2f", low_good=True)
-    macro_metric(mc3, "😨 VIX (Fear Index)", "vix",      ".0f", low_good=False)
-    macro_metric(mc4, "📈 S&P 500",          "sp500",    ",.0f", low_good=False)
+    macro_metric(mc1, "💵 DXY (USD Index)",   "dxy",      ".1f",  low_good=True,  pct_delta=True)
+    macro_metric(mc2, "📉 Yield 10Y (%)",      "yield10y", ".2f",  low_good=True)
+    macro_metric(mc3, "😨 VIX (Fear Index)",   "vix",      ".0f",  low_good=False)
+    macro_metric(mc4, "📈 S&P 500",            "sp500",    ",.0f", low_good=False, pct_delta=True)
 
-    # Macro signals
+    # ── Hàng 2: chỉ số mới (Oil, TIPS, Momentum, MA200) ─────────────────────
+    mc5, mc6, mc7, mc8 = st.columns(4)
+    macro_metric(mc5, "🛢️ Dầu WTI ($/bbl)",   "oil",      ".1f",  low_good=False, pct_delta=True)
+    macro_metric(mc6, "📊 TIPS ETF (lãi suất thực)", "tips", ".2f", low_good=False, pct_delta=True)
+
+    if "momentum" in macro_metrics:
+        mom = macro_metrics["momentum"]
+        mc7.metric("⚡ Momentum vàng (3T)",
+                   f"{mom['ret3m']:+.1f}%",
+                   f"6 tháng: {mom['ret6m']:+.1f}%",
+                   delta_color="normal")
+    else:
+        mc7.metric("⚡ Momentum vàng (3T)", "N/A")
+
+    if "ma200_dev" in macro_metrics:
+        dev = macro_metrics["ma200_dev"]
+        lbl = "⚠️ Overbought" if dev > 15 else ("✅ Giá trị tốt" if dev < -10 else "Bình thường")
+        mc8.metric("📐 Lệch so MA200", f"{dev:+.1f}%", lbl,
+                   delta_color="inverse" if dev > 15 else "normal")
+    else:
+        mc8.metric("📐 Lệch so MA200", "N/A")
+
+    # ── Giải thích các chỉ số ─────────────────────────────────────────────────
+    with st.expander("📖 Các chỉ số vĩ mô là gì? (nhấn để xem)", expanded=False):
+        st.markdown("""
+**💵 DXY — Chỉ số sức mạnh đồng USD**
+Đo lường giá trị USD so với rổ 6 đồng tiền lớn (EUR, JPY, GBP, CAD, SEK, CHF).
+- **Tại sao quan trọng với vàng?** Vàng định giá bằng USD — khi USD mạnh (DXY tăng), vàng trở nên đắt hơn với người dùng đồng tiền khác → cầu giảm → giá vàng giảm. USD yếu → ngược lại.
+- 🎯 *DXY giảm = tốt cho vàng | DXY tăng = xấu cho vàng*
+
+---
+**📉 Yield 10Y — Lợi suất trái phiếu Kho bạc Mỹ 10 năm**
+Lãi suất chính phủ Mỹ trả cho trái phiếu kỳ hạn 10 năm — thước đo chi phí vốn và kỳ vọng lạm phát.
+- **Tại sao quan trọng?** Yield cao → trái phiếu sinh lãi tốt hơn → nhà đầu tư bán vàng mua trái phiếu. Yield thấp → vàng (không sinh lãi) cạnh tranh hơn.
+- 🎯 *Yield < 3.5% = rất tốt cho vàng | Yield > 4.5% = áp lực lớn*
+
+---
+**😨 VIX — Chỉ số sợ hãi thị trường (CBOE Volatility Index)**
+Đo mức độ biến động kỳ vọng của S&P 500 trong 30 ngày tới, phản ánh tâm lý nhà đầu tư.
+- VIX < 15: thị trường bình tĩnh (tham lam) | 15–25: lo lắng | > 30: hoảng loạn
+- **Tại sao quan trọng?** VIX cao → nhà đầu tư hoảng sợ, đổ tiền vào vàng như "tài sản trú ẩn an toàn".
+- 🎯 *VIX > 30 = rất tốt cho vàng | VIX < 12 = ít hỗ trợ vàng*
+
+---
+**📈 S&P 500 — Chỉ số chứng khoán 500 công ty lớn nhất Mỹ**
+Đại diện cho tâm lý "risk-on" (tìm lợi nhuận cao) hay "risk-off" (bảo toàn vốn).
+- **Tại sao quan trọng?** Khi chứng khoán tăng mạnh, nhà đầu tư ít cần vàng (đã có lợi nhuận tốt). Khi chứng khoán sụp đổ, vốn chạy vào vàng.
+- 🎯 *S&P giảm mạnh = tốt cho vàng | S&P tăng phi mã = kém hỗ trợ vàng*
+
+---
+**🛢️ Dầu WTI — Giá dầu thô Tây Texas (West Texas Intermediate)**
+Dầu là nguyên liệu đầu vào của toàn bộ nền kinh tế, ảnh hưởng trực tiếp đến lạm phát.
+- **Tại sao quan trọng?** Dầu tăng → chi phí sản xuất tăng → lạm phát tăng → nhà đầu tư mua vàng để bảo vệ tài sản khỏi lạm phát (vàng = hàng rào lạm phát).
+- 🎯 *Dầu tăng > 10% trong 3 tháng = hỗ trợ vàng | Dầu giảm mạnh = áp lực lên vàng*
+
+---
+**📊 TIPS ETF — Proxy Lãi suất Thực (Real Interest Rate)**
+iShares TIPS ETF (mã TIP) đại diện cho trái phiếu chính phủ Mỹ được bảo vệ chống lạm phát.
+Giá TIP tăng ≈ lãi suất thực đang giảm; Giá TIP giảm ≈ lãi suất thực đang tăng.
+- **Đây là yếu tố số 1 quan trọng nhất với vàng.** Lãi suất thực = Lãi suất danh nghĩa − Lạm phát. Khi lãi suất thực âm hoặc rất thấp → chi phí cơ hội giữ vàng gần bằng 0 → vàng rất hấp dẫn.
+- 🎯 *TIPS ETF tăng (lãi suất thực giảm) = rất tốt cho vàng | TIPS ETF giảm = áp lực lớn*
+
+---
+**⚡ Momentum vàng (3T/6T)**
+Tỷ suất sinh lời của giá vàng trong 3 tháng và 6 tháng gần nhất.
+- Xu hướng giá thường có quán tính — tăng tiếp tục tăng, giảm tiếp tục giảm trong ngắn-trung hạn.
+- 🎯 *+10% trong 3 tháng = đà tăng mạnh, có thể tiếp diễn | Âm mạnh = cẩn thận*
+
+---
+**📐 Lệch so MA200 (Mean Reversion)**
+Phần trăm giá vàng hiện tại cao/thấp hơn đường trung bình 200 ngày.
+- MA200 là "neo giá" dài hạn — giá thường có xu hướng quay về mức này sau khi lệch quá xa.
+- 🎯 *+25% so MA200 = rủi ro điều chỉnh cao | −15% so MA200 = vùng tích lũy hấp dẫn*
+        """)
+
+    # ── Chi tiết tín hiệu vĩ mô ───────────────────────────────────────────────
     with st.expander("📋 Chi tiết phân tích vĩ mô", expanded=False):
         for icon, text, _ in macro_signals:
             st.markdown(f"{icon} {text}")
