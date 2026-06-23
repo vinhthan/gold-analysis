@@ -107,15 +107,46 @@ MACRO_TICKERS = {
 
 @st.cache_data(ttl=1800, show_spinner=False)
 def fetch_gold() -> tuple[pd.Series, str]:
-    """Lấy giá vàng Spot. Thứ tự: XAUUSD=X (yf) → XAUUSD (pdr/Stooq) → GC=F."""
+    """
+    Lấy giá vàng Spot lịch sử 2 năm.
+    Thứ tự: Yahoo v8 Chart API (direct) → yfinance XAUUSD=X → Stooq pdr → GC=F.
+    """
+    import urllib.request as _ur, json as _json, ssl as _ssl
     from datetime import datetime as _dt, timedelta as _td
 
-    start = _dt.today() - _td(days=730)
+    ctx = _ssl.create_default_context()
+    ua  = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+           "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 
-    # ── 1) yfinance XAUUSD=X — thử cả download lẫn Ticker.history ───────────
-    for _method in ("download", "ticker"):
+    def _series_from_chart(data):
+        """Parse Yahoo Finance v8 chart JSON → pd.Series."""
+        result    = data["chart"]["result"][0]
+        ts        = result["timestamp"]
+        closes    = result["indicators"]["quote"][0]["close"]
+        dates     = pd.to_datetime(ts, unit="s").normalize()
+        s = pd.Series(closes, index=dates, dtype=float).dropna()
+        s = s[s > 100]
+        return s
+
+    # ── 1) Yahoo Finance v8 Chart API (urllib trực tiếp, bypass yfinance) ─────
+    #       Cùng endpoint đang hoạt động cho live price — chỉ đổi range/interval
+    for host in ("query1", "query2"):
         try:
-            if _method == "download":
+            url = (f"https://{host}.finance.yahoo.com/v8/finance/chart/"
+                   f"XAUUSD%3DX?interval=1d&range=2y")
+            req = _ur.Request(url, headers={"User-Agent": ua, "Accept": "application/json"})
+            with _ur.urlopen(req, timeout=20, context=ctx) as r:
+                data = _json.load(r)
+            s = _series_from_chart(data)
+            if len(s) >= 100:
+                return s, "XAUUSD=X (spot)"
+        except Exception:
+            pass
+
+    # ── 2) yfinance XAUUSD=X (download + Ticker.history) ─────────────────────
+    for _m in ("download", "ticker"):
+        try:
+            if _m == "download":
                 raw = yf.download("XAUUSD=X", period="2y", interval="1d",
                                   progress=False, auto_adjust=True)
             else:
@@ -130,11 +161,12 @@ def fetch_gold() -> tuple[pd.Series, str]:
         except Exception:
             continue
 
-    # ── 2) pandas_datareader + Stooq — đáng tin cậy từ Streamlit Cloud ───────
+    # ── 3) pandas_datareader + Stooq ─────────────────────────────────────────
     try:
         from pandas_datareader import data as _pdr
-        df = _pdr.DataReader("XAUUSD", "stooq", start=start, end=_dt.today())
-        df = df.sort_index()
+        start = _dt.today() - _td(days=730)
+        df    = _pdr.DataReader("XAUUSD", "stooq", start=start, end=_dt.today())
+        df    = df.sort_index()
         close = df["Close"].dropna()
         close = close[close > 100]
         if len(close) >= 100:
@@ -142,7 +174,7 @@ def fetch_gold() -> tuple[pd.Series, str]:
     except Exception:
         pass
 
-    # ── 3) GC=F Futures — last resort (giá cao hơn spot ~$15-20) ─────────────
+    # ── 4) GC=F Futures — last resort ────────────────────────────────────────
     for ticker in ("GC=F", "GLD", "IAU"):
         try:
             raw = yf.download(ticker, period="2y", interval="1d",
