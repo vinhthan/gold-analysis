@@ -252,74 +252,110 @@ def fetch_macro() -> dict[str, pd.Series]:
     return result
 
 
+def _comex_days_to_expiry() -> int:
+    """Tính số ngày đến khi hết hạn hợp đồng COMEX vàng front-month."""
+    import calendar as _cal
+    from datetime import date as _date, timedelta as _td
+    today = _date.today()
+    # Các tháng giao dịch chính của vàng COMEX: 2,4,6,8,10,12
+    for year in [today.year, today.year + 1]:
+        for month in [2, 4, 6, 8, 10, 12]:
+            if year == today.year and month < today.month:
+                continue
+            # Ngày hết hạn = ngày làm việc thứ 3 từ cuối tháng
+            last_day = _cal.monthrange(year, month)[1]
+            d, biz = _date(year, month, last_day), 0
+            while biz < 3:
+                if d.weekday() < 5:
+                    biz += 1
+                    if biz == 3:
+                        break
+                d -= _td(days=1)
+            days_left = (d - today).days
+            if days_left >= 5:
+                return days_left
+    return 45  # fallback
+
+
 @st.cache_data(ttl=60, show_spinner=False)
 def fetch_live_price():
     """
-    Lấy giá vàng LIVE cùng nguồn giavang.org = TradingView FX_IDC:XAUUSD (ICE spot).
-    Fallback: Stooq → goldprice.org → Yahoo Finance XAUUSD=X.
+    Lấy giá vàng LIVE spot (XAU/USD).
+    Dùng requests (luôn có trên Streamlit Cloud) + nhiều nguồn fallback.
     Cache 60 giây.
     """
-    import urllib.request as _ur, json as _json, ssl as _ssl
-
-    ctx = _ssl.create_default_context()
-    ua  = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+    import requests as _req
+    from datetime import datetime as _dt2
 
     def _valid(p):
         try:
-            return p is not None and 500 < float(p) < 20000
+            return p is not None and 1000 < float(p) < 20000
         except Exception:
             return False
 
-    # ── 1) TradingView Scanner — FX_IDC:XAUUSD (ICE spot, cùng nguồn giavang.org) ──
+    ua = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+          "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+
+    session = _req.Session()
+    session.headers.update({"User-Agent": ua, "Accept": "application/json",
+                             "Accept-Language": "en-US,en;q=0.9"})
+
+    # ── 1) TradingView Scanner — FX_IDC:XAUUSD (cùng nguồn giavang.org) ──────
     try:
-        payload = _json.dumps({
-            "symbols": {"tickers": ["FX_IDC:XAUUSD"], "query": {"types": []}},
-            "columns": ["close"]
-        }).encode()
-        req = _ur.Request(
+        r = session.post(
             "https://scanner.tradingview.com/forex/scan",
-            data=payload,
-            headers={
-                "Content-Type": "application/json",
-                "User-Agent": ua,
-                "Origin": "https://www.tradingview.com",
-                "Referer": "https://www.tradingview.com/",
-            }
+            json={"symbols": {"tickers": ["FX_IDC:XAUUSD"], "query": {"types": []}},
+                  "columns": ["close"]},
+            headers={"Origin": "https://www.tradingview.com",
+                     "Referer": "https://www.tradingview.com/"},
+            timeout=8
         )
-        with _ur.urlopen(req, timeout=8, context=ctx) as r:
-            data = _json.load(r)
-        price = data["data"][0]["d"][0]
+        price = r.json()["data"][0]["d"][0]
         if _valid(price):
-            return round(float(price), 2), "TradingView (FX_IDC:XAUUSD)"
+            return round(float(price), 2), "TradingView (ICE spot)"
     except Exception:
         pass
 
-    # ── 2) Stooq XAUUSD (CSV, gần ICE spot) ─────────────────────────────────
+    # ── 2) Yahoo Finance XAUUSD=X fast_info (endpoint v7/quote) ─────────────
     try:
-        req = _ur.Request(
-            "https://stooq.com/q/l/?s=xauusd&f=sd2t2ohlcv&h&e=csv",
-            headers={"User-Agent": ua}
-        )
-        with _ur.urlopen(req, timeout=8, context=ctx) as r:
-            text = r.read().decode("utf-8", errors="ignore")
-        # Format: Symbol,Date,Time,Open,High,Low,Close,Volume
-        line = text.strip().splitlines()[-1]
-        price = float(line.split(",")[6])
+        price = yf.Ticker("XAUUSD=X").fast_info.last_price
         if _valid(price):
-            return round(price, 2), "Stooq (XAU/USD spot)"
+            return round(float(price), 2), "Yahoo Finance (XAU/USD spot)"
     except Exception:
         pass
 
-    # ── 3) goldprice.org API ─────────────────────────────────────────────────
+    # ── 3) Yahoo Finance v8 chart — XAUUSD=X ─────────────────────────────────
+    for host in ("query1", "query2"):
+        try:
+            r = session.get(
+                f"https://{host}.finance.yahoo.com/v8/finance/chart/XAUUSD%3DX"
+                f"?interval=1m&range=1d", timeout=8)
+            meta  = r.json()["chart"]["result"][0]["meta"]
+            price = meta.get("regularMarketPrice") or meta.get("previousClose")
+            if _valid(price):
+                return round(float(price), 2), "Yahoo Finance (XAU/USD spot)"
+        except Exception:
+            pass
+
+    # ── 4) Swissquote forex feed (institutional broker, real-time 24/5) ──────
     try:
-        req = _ur.Request(
-            "https://data-asg.goldprice.org/dbXRates/USD",
-            headers={"User-Agent": ua, "Origin": "https://goldprice.org",
-                     "Referer": "https://goldprice.org/"}
-        )
-        with _ur.urlopen(req, timeout=8, context=ctx) as r:
-            data = _json.load(r)
-        for item in data.get("items", []):
+        r = session.get(
+            "https://forex-data-feed.swissquote.com/public-quotes/bboquotes"
+            "/instrument/XAU/USD", timeout=8)
+        d = r.json()[0]
+        price = (float(d["bid"]) + float(d["ask"])) / 2
+        if _valid(price):
+            return round(price, 2), "Swissquote (XAU/USD spot)"
+    except Exception:
+        pass
+
+    # ── 5) goldprice.org API ──────────────────────────────────────────────────
+    try:
+        r = session.get("https://data-asg.goldprice.org/dbXRates/USD",
+                        headers={"Origin": "https://goldprice.org",
+                                 "Referer": "https://goldprice.org/"},
+                        timeout=8)
+        for item in r.json().get("items", []):
             if item.get("curr") == "USD":
                 price = item.get("xauPrice")
                 if _valid(price):
@@ -327,44 +363,31 @@ def fetch_live_price():
     except Exception:
         pass
 
-    # ── 4) Yahoo Finance XAUUSD=X spot ───────────────────────────────────────
-    for host in ("query1", "query2"):
-        try:
-            url = f"https://{host}.finance.yahoo.com/v8/finance/chart/XAUUSD%3DX?interval=1m&range=1d"
-            req = _ur.Request(url, headers={"User-Agent": ua})
-            with _ur.urlopen(req, timeout=8, context=ctx) as r:
-                data  = _json.load(r)
-                meta  = data["chart"]["result"][0]["meta"]
-                price = meta.get("regularMarketPrice") or meta.get("previousClose")
-            if _valid(price):
-                return round(float(price), 2), "Yahoo Finance (XAU/USD spot)"
-        except Exception:
-            pass
-
-    # ── 5) GLD ETF giá hiện tại → quy đổi spot (luôn hoạt động được) ─────────
+    # ── 6) GLD ETF realtime → spot (hoạt động trong giờ NYSE) ───────────────
     try:
-        from datetime import datetime as _dt2
-        gld_hist = yf.Ticker("GLD").history(period="1d", interval="1m")
-        if not gld_hist.empty:
-            gld_price = float(gld_hist["Close"].dropna().iloc[-1])
-            if gld_price > 0:
-                yrs   = ((_dt2.today() - _dt2(2004, 11, 18)).days) / 365.25
-                ratio = 0.10 * (0.996 ** yrs)
-                spot  = gld_price / ratio
-                if _valid(spot):
-                    return round(spot, 2), "GLD→XAU/USD (live)"
+        price_gld = yf.Ticker("GLD").fast_info.last_price
+        if price_gld and price_gld > 0:
+            yrs   = ((_dt2.today() - _dt2(2004, 11, 18)).days) / 365.25
+            ratio = 0.10 * (0.996 ** yrs)
+            spot  = price_gld / ratio
+            if _valid(spot):
+                return round(spot, 2), "GLD→XAU/USD (live)"
     except Exception:
         pass
 
-    # ── 6) GC=F giá hiện tại với điều chỉnh basis ─────────────────────────────
+    # ── 7) GC=F realtime với basis điều chỉnh theo ngày hết hạn hợp đồng ─────
+    #    Spot ≈ GC=F / (1 + (r_rf + r_storage) × t/365)
+    #    r_storage ≈ 0.15%/năm; r_rf ≈ lãi suất Fed funds hiện tại
     try:
-        gcf_hist = yf.Ticker("GC=F").history(period="1d", interval="1m")
-        if not gcf_hist.empty:
-            gcf_price = float(gcf_hist["Close"].dropna().iloc[-1])
-            r     = 0.045
-            spot  = gcf_price / (1 + r * 30 / 365)
+        gcf_price = yf.Ticker("GC=F").fast_info.last_price
+        if gcf_price and gcf_price > 0:
+            t     = _comex_days_to_expiry()
+            r_rf  = 0.045   # Fed funds rate ≈ 4.5%
+            r_stg = 0.0015  # chi phí lưu kho vàng ~0.15%/năm
+            basis = 1 + (r_rf + r_stg) * t / 365
+            spot  = gcf_price / basis
             if _valid(spot):
-                return round(spot, 2), "XAU/USD spot (adj.)"
+                return round(spot, 2), f"XAU/USD spot (GC=F adj. {t}d)"
     except Exception:
         pass
 
