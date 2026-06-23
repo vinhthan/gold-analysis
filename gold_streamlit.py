@@ -363,31 +363,37 @@ def fetch_live_price():
     except Exception:
         pass
 
-    # ── 6) GLD ETF realtime → spot (hoạt động trong giờ NYSE) ───────────────
-    try:
-        price_gld = yf.Ticker("GLD").fast_info.last_price
-        if price_gld and price_gld > 0:
-            yrs   = ((_dt2.today() - _dt2(2004, 11, 18)).days) / 365.25
-            ratio = 0.10 * (0.996 ** yrs)
-            spot  = price_gld / ratio
-            if _valid(spot):
-                return round(spot, 2), "GLD→XAU/USD (live)"
-    except Exception:
-        pass
+    # ── 6) GC=F v8 chart 1m (COMEX giao dịch 24/5) + basis adjustment ─────────
+    #    Dùng OHLCV thực từ chart (không phải fast_info/close ngày trước)
+    #    Spot ≈ GC=F_live / (1 + (r_rf + r_storage) × t/365)
+    for host in ("query1", "query2"):
+        try:
+            r = session.get(
+                f"https://{host}.finance.yahoo.com/v8/finance/chart/GC%3DF"
+                f"?interval=1m&range=1d", timeout=10)
+            result = r.json()["chart"]["result"][0]
+            # Lấy giá 1-phút cuối cùng có dữ liệu (không null)
+            closes = result["indicators"]["quote"][0]["close"]
+            valid_c = [c for c in closes if c is not None]
+            if valid_c:
+                gcf_price = valid_c[-1]
+                t     = _comex_days_to_expiry()
+                basis = 1 + (0.045 + 0.0015) * t / 365
+                spot  = gcf_price / basis
+                if _valid(spot):
+                    return round(spot, 2), f"XAU/USD spot (COMEX-{t}d)"
+        except Exception:
+            pass
 
-    # ── 7) GC=F realtime với basis điều chỉnh theo ngày hết hạn hợp đồng ─────
-    #    Spot ≈ GC=F / (1 + (r_rf + r_storage) × t/365)
-    #    r_storage ≈ 0.15%/năm; r_rf ≈ lãi suất Fed funds hiện tại
+    # ── 7) GC=F fast_info (fallback cuối, có thể stale sau 5 PM ET) ──────────
     try:
         gcf_price = yf.Ticker("GC=F").fast_info.last_price
         if gcf_price and gcf_price > 0:
             t     = _comex_days_to_expiry()
-            r_rf  = 0.045   # Fed funds rate ≈ 4.5%
-            r_stg = 0.0015  # chi phí lưu kho vàng ~0.15%/năm
-            basis = 1 + (r_rf + r_stg) * t / 365
+            basis = 1 + (0.045 + 0.0015) * t / 365
             spot  = gcf_price / basis
             if _valid(spot):
-                return round(spot, 2), f"XAU/USD spot (GC=F adj. {t}d)"
+                return round(spot, 2), f"XAU/USD spot (COMEX adj.)"
     except Exception:
         pass
 
