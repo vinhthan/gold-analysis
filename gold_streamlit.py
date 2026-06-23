@@ -107,8 +107,43 @@ MACRO_TICKERS = {
 
 @st.cache_data(ttl=1800, show_spinner=False)
 def fetch_gold() -> tuple[pd.Series, str]:
-    """Lấy giá vàng Spot (ưu tiên) hoặc Futures."""
-    for ticker in ("XAUUSD=X", "GC=F", "GLD", "IAU"):
+    """Lấy giá vàng Spot. Thứ tự: XAUUSD=X → Stooq → GC=F."""
+    import urllib.request as _ur, io as _io, ssl as _ssl
+
+    # ── 1) Yahoo Finance XAUUSD=X (spot) ─────────────────────────────────────
+    try:
+        raw = yf.download("XAUUSD=X", period="2y", interval="1d",
+                          progress=False, auto_adjust=True)
+        if raw is not None and not raw.empty:
+            if isinstance(raw.columns, pd.MultiIndex):
+                raw.columns = raw.columns.get_level_values(0)
+            close = raw["Close"].dropna()
+            if len(close) >= 100:
+                return close, "XAUUSD=X"
+    except Exception:
+        pass
+
+    # ── 2) Stooq XAUUSD (spot, CSV trực tiếp — không cần API key) ────────────
+    try:
+        ctx = _ssl.create_default_context()
+        req = _ur.Request(
+            "https://stooq.com/q/d/l/?s=xauusd&i=d",
+            headers={"User-Agent": "Mozilla/5.0"}
+        )
+        with _ur.urlopen(req, timeout=10, context=ctx) as r:
+            text = r.read().decode("utf-8", errors="ignore")
+        df = pd.read_csv(_io.StringIO(text), parse_dates=["Date"], index_col="Date")
+        df = df.sort_index()
+        close = df["Close"].dropna()
+        # Stooq có thể trả về N/A khi thị trường đóng cửa, bỏ qua
+        close = close[close > 0]
+        if len(close) >= 100:
+            return close, "Stooq (XAU/USD spot)"
+    except Exception:
+        pass
+
+    # ── 3) GC=F (Gold Futures — last resort, giá cao hơn spot ~$15-20) ────────
+    for ticker in ("GC=F", "GLD", "IAU"):
         try:
             raw = yf.download(ticker, period="2y", interval="1d",
                               progress=False, auto_adjust=True)
@@ -121,6 +156,7 @@ def fetch_gold() -> tuple[pd.Series, str]:
                 return close, ticker
         except Exception:
             continue
+
     raise RuntimeError("Không tải được dữ liệu giá vàng. Kiểm tra Internet.")
 
 
