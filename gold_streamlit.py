@@ -327,7 +327,7 @@ def fetch_live_price():
     except Exception:
         pass
 
-    # ── 4) Yahoo Finance XAUUSD=X spot (last resort) ─────────────────────────
+    # ── 4) Yahoo Finance XAUUSD=X spot ───────────────────────────────────────
     for host in ("query1", "query2"):
         try:
             url = f"https://{host}.finance.yahoo.com/v8/finance/chart/XAUUSD%3DX?interval=1m&range=1d"
@@ -340,6 +340,33 @@ def fetch_live_price():
                 return round(float(price), 2), "Yahoo Finance (XAU/USD spot)"
         except Exception:
             pass
+
+    # ── 5) GLD ETF giá hiện tại → quy đổi spot (luôn hoạt động được) ─────────
+    try:
+        from datetime import datetime as _dt2
+        gld_hist = yf.Ticker("GLD").history(period="1d", interval="1m")
+        if not gld_hist.empty:
+            gld_price = float(gld_hist["Close"].dropna().iloc[-1])
+            if gld_price > 0:
+                yrs   = ((_dt2.today() - _dt2(2004, 11, 18)).days) / 365.25
+                ratio = 0.10 * (0.996 ** yrs)
+                spot  = gld_price / ratio
+                if _valid(spot):
+                    return round(spot, 2), "GLD→XAU/USD (live)"
+    except Exception:
+        pass
+
+    # ── 6) GC=F giá hiện tại với điều chỉnh basis ─────────────────────────────
+    try:
+        gcf_hist = yf.Ticker("GC=F").history(period="1d", interval="1m")
+        if not gcf_hist.empty:
+            gcf_price = float(gcf_hist["Close"].dropna().iloc[-1])
+            r     = 0.045
+            spot  = gcf_price / (1 + r * 30 / 365)
+            if _valid(spot):
+                return round(spot, 2), "XAU/USD spot (adj.)"
+    except Exception:
+        pass
 
     return None, ""
 
