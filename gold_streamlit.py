@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-GOLD PRICE TREND ANALYSIS v3 — Streamlit Web App
+MULTI-ASSET PRICE TREND ANALYSIS v4 — Streamlit Web App
 Phân tích đa yếu tố vĩ mô + kỹ thuật + mùa vụ
-Dự báo xu hướng giá vàng thế giới (XAU/USD) 1 tháng – 1 năm tới
+6 tài sản: 🥇 Vàng · 🥈 Bạc · 🟤 Đồng · 🛢️ Dầu WTI · 💵 USD/VND · ₿ Bitcoin
 """
 
 import warnings
@@ -25,8 +25,8 @@ from sklearn.linear_model import LinearRegression
 #  PAGE CONFIG
 # ══════════════════════════════════════════════════════════════════════════════
 st.set_page_config(
-    page_title="Gold Trend Analysis",
-    page_icon="🥇",
+    page_title="Market Trend Analysis",
+    page_icon="📊",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
@@ -70,6 +70,118 @@ PERIOD_LABELS = {
     365: "1 năm tới",
 }
 
+# ── Asset metadata ─────────────────────────────────────────────────────────
+ASSETS = {
+    "XAU": {
+        "tab":    "🥇 Vàng",
+        "name":   "Vàng (XAU/USD)",
+        "short":  "Vàng",
+        "unit":   "USD/troy oz",
+        "color":  "#FFD700",
+        "lo": 1000,   "hi": 20000,
+        "prefix": "$", "suffix": "",
+        "decimals": 2,
+    },
+    "XAG": {
+        "tab":    "🥈 Bạc",
+        "name":   "Bạc (XAG/USD)",
+        "short":  "Bạc",
+        "unit":   "USD/troy oz",
+        "color":  "#A8B8C8",
+        "lo": 10,     "hi": 500,
+        "prefix": "$", "suffix": "",
+        "decimals": 2,
+    },
+    "HG": {
+        "tab":    "🟤 Đồng",
+        "name":   "Đồng (HG/USD)",
+        "short":  "Đồng",
+        "unit":   "USD/lb",
+        "color":  "#B87333",
+        "lo": 1.5,    "hi": 20,
+        "prefix": "$", "suffix": "/lb",
+        "decimals": 4,
+    },
+    "CL": {
+        "tab":    "🛢️ Dầu WTI",
+        "name":   "Dầu WTI (USD/bbl)",
+        "short":  "Dầu WTI",
+        "unit":   "USD/bbl",
+        "color":  "#4a90d9",
+        "lo": 10,     "hi": 300,
+        "prefix": "$", "suffix": "",
+        "decimals": 2,
+    },
+    "USDVND": {
+        "tab":    "💵 USD/VND",
+        "name":   "USD/VND",
+        "short":  "USD/VND",
+        "unit":   "VND",
+        "color":  "#2ecc71",
+        "lo": 20000,  "hi": 35000,
+        "prefix": "", "suffix": " ₫",
+        "decimals": 0,
+    },
+    "BTC": {
+        "tab":    "₿ Bitcoin",
+        "name":   "Bitcoin (BTC/USD)",
+        "short":  "Bitcoin",
+        "unit":   "USD",
+        "color":  "#F7931A",
+        "lo": 5000,   "hi": 500000,
+        "prefix": "$", "suffix": "",
+        "decimals": 0,
+    },
+}
+
+# ── Macro sign per asset (+1 = same direction as DXY-up/yield-up/vix-up/sp500-up)
+# Positive sign means the raw macro state benefits this asset
+MACRO_SIGNS = {
+    "XAU":    {"dxy":-1, "yield10y":-1, "vix":+1, "sp500":-1, "oil":+1, "tips":+1},
+    "XAG":    {"dxy":-1, "yield10y":-1, "vix":+1, "sp500":+1, "oil":+1, "tips":+1},
+    "HG":     {"dxy":-1, "yield10y":-1, "vix":-1, "sp500":+1, "oil":+1, "tips":-1},
+    "CL":     {"dxy":-1, "yield10y":-1, "vix":-1, "sp500":+1, "oil": 0, "tips":-1},
+    "USDVND": {"dxy":+1, "yield10y":+1, "vix":-1, "sp500":+1, "oil":-1, "tips":+1},
+    "BTC":    {"dxy":-1, "yield10y":-1, "vix":+1, "sp500":+1, "oil": 0, "tips":+1},
+}
+
+# ── Seasonal monthly bias per asset (historical average monthly return) ─────
+SEASONAL_BIAS = {
+    "XAU": {
+        1: 0.013, 2: 0.004, 3:-0.002, 4: 0.006, 5:-0.006, 6:-0.003,
+        7: 0.002, 8: 0.007, 9: 0.010, 10: 0.002, 11:-0.002, 12: 0.005,
+    },
+    "XAG": {
+        1: 0.010, 2: 0.006, 3:-0.003, 4: 0.008, 5: 0.005, 6:-0.003,
+        7:-0.004, 8:-0.002, 9: 0.005, 10: 0.004, 11:-0.002, 12: 0.003,
+    },
+    "HG": {
+        1: 0.018, 2: 0.012, 3: 0.006, 4: 0.002, 5:-0.002, 6:-0.006,
+        7:-0.007, 8:-0.003, 9: 0.004, 10: 0.007, 11: 0.003, 12:-0.002,
+    },
+    "CL": {
+        1:-0.003, 2: 0.004, 3: 0.010, 4: 0.014, 5: 0.010, 6: 0.006,
+        7: 0.001, 8:-0.005, 9:-0.009, 10:-0.005, 11:-0.003, 12: 0.000,
+    },
+    "USDVND": {
+        1: 0.003, 2: 0.002, 3: 0.000, 4:-0.001, 5: 0.001, 6: 0.002,
+        7: 0.001, 8: 0.000, 9:-0.001, 10: 0.000, 11: 0.002, 12:-0.001,
+    },
+    "BTC": {
+        1: 0.030, 2:-0.010, 3: 0.020, 4: 0.015, 5:-0.020, 6:-0.010,
+        7: 0.010, 8: 0.005, 9:-0.030, 10: 0.030, 11: 0.020, 12: 0.025,
+    },
+}
+
+MACRO_TICKERS = {
+    "DX-Y.NYB": "dxy",
+    "^TNX":     "yield10y",
+    "^VIX":     "vix",
+    "^GSPC":    "sp500",
+    "CL=F":     "oil",
+    "TIP":      "tips",
+}
+
 def period_label(days: int) -> str:
     return PERIOD_LABELS.get(days, f"{days} ngày tới")
 
@@ -78,30 +190,16 @@ def hex_rgba(hex_c: str, alpha: float) -> str:
     r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
     return f"rgba({r},{g},{b},{alpha})"
 
-# Trung bình lợi nhuận tháng lịch sử của vàng (dữ liệu 30+ năm)
-SEASONAL_BIAS = {
-    1: 0.013,   # Jan: mạnh (Chinese New Year, FOMO đầu năm)
-    2: 0.004,   # Feb: nhẹ tích cực
-    3: -0.002,  # Mar: trung tính
-    4: 0.006,   # Apr: tích cực (nhu cầu trang sức Ấn Độ)
-    5: -0.006,  # May: yếu
-    6: -0.003,  # Jun: hơi yếu
-    7: 0.002,   # Jul: trung tính
-    8: 0.007,   # Aug: khá mạnh (mùa cưới Ấn Độ)
-    9: 0.010,   # Sep: mạnh nhất (safe-haven + mùa cưới)
-    10: 0.002,  # Oct: trung tính
-    11: -0.002, # Nov: hơi yếu
-    12: 0.005,  # Dec: tích cực (cuối năm)
-}
-
-MACRO_TICKERS = {
-    "DX-Y.NYB": "dxy",       # USD Index — tương quan nghịch mạnh với vàng
-    "^TNX":     "yield10y",  # 10Y Treasury Yield — cơ hội giữ vàng vs trái phiếu
-    "^VIX":     "vix",       # Fear Index — vàng là safe-haven khi VIX cao
-    "^GSPC":    "sp500",     # S&P 500 — risk-on/off indicator
-    "CL=F":     "oil",       # Dầu thô WTI — proxy lạm phát (quan trọng với vàng)
-    "TIP":      "tips",      # iShares TIPS ETF — lãi suất thực (yếu tố số 1 với vàng)
-}
+def fmt_price(p: float, asset_key: str) -> str:
+    """Format a price value for display."""
+    a = ASSETS[asset_key]
+    d = a["decimals"]
+    if d == 0:
+        return f"{a['prefix']}{p:,.0f}{a['suffix']}"
+    elif d == 2:
+        return f"{a['prefix']}{p:,.2f}{a['suffix']}"
+    else:
+        return f"{a['prefix']}{p:.4f}{a['suffix']}"
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  DATA FETCHING
@@ -230,6 +328,194 @@ def fetch_gold() -> tuple[pd.Series, str]:
             continue
 
     raise RuntimeError("Không tải được dữ liệu giá vàng. Kiểm tra Internet.")
+
+
+@st.cache_data(ttl=1800, show_spinner=False)
+def fetch_price(asset_key: str) -> tuple[pd.Series, str]:
+    """
+    Generic price fetcher cho tất cả asset.
+    Tự động chọn nguồn phù hợp theo asset_key.
+    """
+    if asset_key == "XAU":
+        return fetch_gold()
+
+    import urllib.request as _ur, json as _json, ssl as _ssl
+    from datetime import datetime as _dt, timedelta as _td
+
+    info = ASSETS[asset_key]
+    lo, hi = info["lo"], info["hi"]
+    ctx = _ssl.create_default_context()
+    ua  = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+           "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+
+    def _raw_to_close(raw):
+        if raw is None or raw.empty:
+            return None
+        if isinstance(raw.columns, pd.MultiIndex):
+            raw = raw.copy(); raw.columns = raw.columns.get_level_values(0)
+        s = raw["Close"].dropna()
+        return s if len(s) >= 60 else None
+
+    def _valid(s):
+        if s is None or len(s) < 60:
+            return False
+        v = float(s.iloc[-1])
+        return lo * 0.3 < v < hi * 3
+
+    def _v8_series(host, ticker):
+        enc = ticker.replace("=", "%3D").replace("-", "%2D")
+        url = f"https://{host}.finance.yahoo.com/v8/finance/chart/{enc}?interval=1d&range=2y"
+        req = _ur.Request(url, headers={"User-Agent": ua, "Accept": "application/json"})
+        with _ur.urlopen(req, timeout=20, context=ctx) as r:
+            data = _json.load(r)
+        res   = data["chart"]["result"][0]
+        dates = pd.to_datetime(res["timestamp"], unit="s").normalize()
+        closes = res["indicators"]["quote"][0]["close"]
+        s = pd.Series(closes, index=dates, dtype=float).dropna()
+        return s[s > 0]
+
+    # ── Bitcoin — BTC-USD luôn tải được ──────────────────────────────────────
+    if asset_key == "BTC":
+        try:
+            raw = yf.download("BTC-USD", period="2y", interval="1d",
+                              progress=False, auto_adjust=True)
+            s = _raw_to_close(raw)
+            if _valid(s):
+                return s, "BTC-USD (Yahoo Finance)"
+        except Exception:
+            pass
+        # IBIT ETF fallback (≈0.001 BTC/share, ER 0.25%)
+        try:
+            raw = yf.download("IBIT", period="1y", interval="1d",
+                              progress=False, auto_adjust=True)
+            s_etf = _raw_to_close(raw)
+            if s_etf is not None:
+                inception = _dt(2024, 1, 11)
+                yrs = (_dt.today() - inception).days / 365.25
+                ratio = 0.001 * (0.9975 ** yrs)
+                spot = (s_etf / ratio).dropna()
+                if _valid(spot):
+                    return spot, "IBIT→BTC (Yahoo Finance)"
+        except Exception:
+            pass
+        raise RuntimeError("Không tải được dữ liệu Bitcoin.")
+
+    # ── USD/VND — Yahoo forex ─────────────────────────────────────────────────
+    if asset_key == "USDVND":
+        for ticker in ("USDVND=X",):
+            for host in ("query1", "query2"):
+                try:
+                    s = _v8_series(host, ticker)
+                    s = s[(s > 20000) & (s < 40000)]
+                    if len(s) >= 60:
+                        return s, f"{ticker} (Yahoo Finance)"
+                except Exception:
+                    pass
+            try:
+                raw = yf.download(ticker, period="2y", interval="1d",
+                                  progress=False, auto_adjust=True)
+                s = _raw_to_close(raw)
+                if s is not None:
+                    s = s[(s > 20000) & (s < 40000)]
+                    if len(s) >= 60:
+                        return s, f"{ticker} (Yahoo Finance)"
+            except Exception:
+                pass
+        raise RuntimeError("Không tải được dữ liệu USD/VND.")
+
+    # ── Bạc (XAG) — XAGUSD=X → SLV ETF → SI=F ───────────────────────────────
+    if asset_key == "XAG":
+        # 1) XAGUSD=X v8 API
+        for host in ("query1", "query2"):
+            try:
+                s = _v8_series(host, "XAGUSD=X")
+                s = s[(s > 10) & (s < 500)]
+                if len(s) >= 100:
+                    return s, "XAGUSD=X (spot)"
+            except Exception:
+                pass
+        # 2) yfinance XAGUSD=X
+        for _m in ("download", "ticker"):
+            try:
+                raw = (yf.download("XAGUSD=X", period="2y", interval="1d",
+                                   progress=False, auto_adjust=True) if _m == "download"
+                       else yf.Ticker("XAGUSD=X").history(period="2y", auto_adjust=True))
+                s = _raw_to_close(raw)
+                if s is not None:
+                    s = s[(s > 10) & (s < 500)]
+                    if len(s) >= 100:
+                        return s, "XAGUSD=X (spot)"
+            except Exception:
+                continue
+        # 3) SLV ETF → spot (inception 21/04/2006, 0.9434 oz/share, ER≈0.5%/năm)
+        try:
+            raw = yf.download("SLV", period="2y", interval="1d",
+                              progress=False, auto_adjust=True)
+            s_etf = _raw_to_close(raw)
+            if s_etf is not None:
+                inception = _dt(2006, 4, 21)
+                yrs = (_dt.today() - inception).days / 365.25
+                ratio = 0.9434 * (0.995 ** yrs)
+                spot = (s_etf / ratio).dropna()
+                spot = spot[(spot > 10) & (spot < 500)]
+                if len(spot) >= 100:
+                    return spot, "SLV→XAG (spot)"
+        except Exception:
+            pass
+        # 4) SI=F futures với basis adjustment
+        try:
+            raw = yf.download("SI=F", period="2y", interval="1d",
+                              progress=False, auto_adjust=True)
+            s = _raw_to_close(raw)
+            if s is not None:
+                r = 0.045
+                try:
+                    irx = yf.download("^IRX", period="5d", interval="1d",
+                                      progress=False, auto_adjust=True)
+                    if not irx.empty:
+                        r = float(irx["Close"].dropna().iloc[-1]) / 100
+                except Exception:
+                    pass
+                basis = 1 + r * 30 / 365
+                spot = (s / basis).dropna()
+                if _valid(spot):
+                    return spot, "SI=F (adj.)"
+        except Exception:
+            pass
+        raise RuntimeError("Không tải được dữ liệu giá Bạc.")
+
+    # ── Đồng (HG) — HG=F futures ─────────────────────────────────────────────
+    if asset_key == "HG":
+        # HG=F là hợp đồng tương lai đồng COMEX, đơn vị USD/lb
+        for period in ("2y", "1y"):
+            try:
+                raw = yf.download("HG=F", period=period, interval="1d",
+                                  progress=False, auto_adjust=True)
+                s = _raw_to_close(raw)
+                if s is not None:
+                    s = s[(s > 1.0) & (s < 25)]
+                    if len(s) >= 60:
+                        return s, "HG=F (COMEX)"
+            except Exception:
+                pass
+        # COPX ETF (copper miners) — không phải giá đồng trực tiếp, bỏ qua
+        raise RuntimeError("Không tải được dữ liệu giá Đồng.")
+
+    # ── Dầu WTI (CL) — CL=F futures ──────────────────────────────────────────
+    if asset_key == "CL":
+        try:
+            raw = yf.download("CL=F", period="2y", interval="1d",
+                              progress=False, auto_adjust=True)
+            s = _raw_to_close(raw)
+            if s is not None:
+                s = s[(s > 5) & (s < 400)]
+                if len(s) >= 100:
+                    return s, "CL=F (WTI Futures)"
+        except Exception:
+            pass
+        raise RuntimeError("Không tải được dữ liệu giá Dầu WTI.")
+
+    raise RuntimeError(f"Asset không hỗ trợ: {asset_key}")
 
 
 @st.cache_data(ttl=1800, show_spinner=False)
@@ -399,6 +685,102 @@ def fetch_live_price():
 
     return None, ""
 
+
+@st.cache_data(ttl=60, show_spinner=False)
+def fetch_live(asset_key: str) -> tuple:
+    """
+    Generic live price fetcher cho tất cả asset.
+    """
+    if asset_key == "XAU":
+        return fetch_live_price()
+
+    import requests as _req
+    info = ASSETS[asset_key]
+    lo, hi = info["lo"], info["hi"]
+
+    def _valid(p):
+        try:
+            return p is not None and lo * 0.3 < float(p) < hi * 3
+        except Exception:
+            return False
+
+    ua = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+          "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+    session = _req.Session()
+    session.headers.update({"User-Agent": ua, "Accept": "application/json"})
+
+    # TradingView scanner symbol per asset
+    tv_cfg = {
+        "XAG":    ("https://scanner.tradingview.com/forex/scan",   "FX_IDC:XAGUSD"),
+        "HG":     ("https://scanner.tradingview.com/futures/scan",  "COMEX:HG1!"),
+        "CL":     ("https://scanner.tradingview.com/futures/scan",  "NYMEX:CL1!"),
+        "USDVND": ("https://scanner.tradingview.com/forex/scan",   "FX_IDC:USDVND"),
+        "BTC":    ("https://scanner.tradingview.com/crypto/scan",   "COINBASE:BTCUSD"),
+    }
+    if asset_key in tv_cfg:
+        tv_url, tv_sym = tv_cfg[asset_key]
+        try:
+            r = session.post(
+                tv_url,
+                json={"symbols": {"tickers": [tv_sym], "query": {"types": []}},
+                      "columns": ["close"]},
+                headers={"Origin": "https://www.tradingview.com",
+                         "Referer": "https://www.tradingview.com/"},
+                timeout=8
+            )
+            price = r.json()["data"][0]["d"][0]
+            if _valid(price):
+                return round(float(price), info["decimals"]), "TradingView"
+        except Exception:
+            pass
+
+    # Yahoo Finance fast_info
+    yf_map = {
+        "XAG":    "XAGUSD=X",
+        "HG":     "HG=F",
+        "CL":     "CL=F",
+        "USDVND": "USDVND=X",
+        "BTC":    "BTC-USD",
+    }
+    yf_tk = yf_map.get(asset_key)
+    if yf_tk:
+        try:
+            price = yf.Ticker(yf_tk).fast_info.last_price
+            if _valid(price):
+                return round(float(price), info["decimals"]), f"Yahoo ({yf_tk})"
+        except Exception:
+            pass
+
+    # Yahoo v8 chart 1m
+    if yf_tk:
+        for host in ("query1", "query2"):
+            try:
+                enc = yf_tk.replace("=", "%3D")
+                r = session.get(
+                    f"https://{host}.finance.yahoo.com/v8/finance/chart/{enc}"
+                    f"?interval=1m&range=1d", timeout=10)
+                meta = r.json()["chart"]["result"][0]["meta"]
+                price = meta.get("regularMarketPrice") or meta.get("previousClose")
+                if _valid(price):
+                    return round(float(price), info["decimals"]), "Yahoo Finance v8"
+            except Exception:
+                pass
+
+    # Bitcoin — CoinGecko (public, luôn accessible)
+    if asset_key == "BTC":
+        try:
+            r = session.get(
+                "https://api.coingecko.com/api/v3/simple/price"
+                "?ids=bitcoin&vs_currencies=usd", timeout=8)
+            price = r.json()["bitcoin"]["usd"]
+            if _valid(price):
+                return round(float(price), 0), "CoinGecko"
+        except Exception:
+            pass
+
+    return None, ""
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 #  TECHNICAL INDICATORS
 # ══════════════════════════════════════════════════════════════════════════════
@@ -413,17 +795,30 @@ def calc_rsi(s: pd.Series, period: int = 14) -> pd.Series:
 #  MACRO REGIME ANALYSIS
 # ══════════════════════════════════════════════════════════════════════════════
 
-def macro_regime(macro: dict, price: pd.Series = None) -> tuple[int, str, list, dict]:
+def macro_regime(macro: dict, price: pd.Series = None,
+                 asset_key: str = "XAU") -> tuple[int, str, list, dict]:
     """
-    Phân tích 6 yếu tố vĩ mô + momentum vàng + mean reversion, trả về:
-    - score: tổng hợp (tối đa ~±14)
-    - label: nhãn môi trường
-    - signals: danh sách tín hiệu chi tiết
-    - metrics: dict giá trị hiện tại để hiển thị
+    Phân tích 6 yếu tố vĩ mô + momentum + mean reversion cho bất kỳ asset.
+    Dùng MACRO_SIGNS[asset_key] để flip dấu đóng góp score.
     """
-    score = 0
+    signs  = MACRO_SIGNS.get(asset_key, MACRO_SIGNS["XAU"])
+    a_name = ASSETS[asset_key]["short"]
+    score  = 0
     signals = []
     metrics = {}
+
+    def _si(contrib):
+        """Icon/color theo đóng góp thực (sau khi nhân sign)."""
+        return ("✅", "green")   if contrib > 0 else \
+               ("🔴", "red")    if contrib < 0 else \
+               ("➡️", "gray")
+
+    def _apply(raw_score, key):
+        """Nhân raw_score với MACRO_SIGNS và cộng vào score."""
+        nonlocal score
+        c = raw_score * signs.get(key, 0)
+        score += c
+        return c
 
     # ── DXY (USD Index) ────────────────────────────────────────────────────
     if "dxy" in macro:
@@ -435,17 +830,21 @@ def macro_regime(macro: dict, price: pd.Series = None) -> tuple[int, str, list, 
         metrics["dxy"] = {"val": cur, "chg": chg1m, "unit": ""}
 
         if cur < ma20 - 0.5 and cur < ma50:
-            score += 2
-            signals.append(("✅", f"USD rất yếu — DXY {cur:.1f} dưới cả MA20 & MA50 → hỗ trợ mạnh cho vàng", "green"))
+            c = _apply(2, "dxy"); ico, col = _si(c)
+            signals.append((ico, f"USD rất yếu — DXY {cur:.1f} dưới MA20 & MA50"
+                            + (f" → hỗ trợ {a_name}" if c > 0 else f" → bất lợi {a_name}"), col))
         elif cur < ma20:
-            score += 1
-            signals.append(("✅", f"USD hơi yếu — DXY {cur:.1f} dưới MA20 → tích cực cho vàng", "green"))
+            c = _apply(1, "dxy"); ico, col = _si(c)
+            signals.append((ico, f"USD hơi yếu — DXY {cur:.1f} dưới MA20"
+                            + (f" → tích cực cho {a_name}" if c > 0 else f" → bất lợi nhẹ {a_name}"), col))
         elif cur > ma20 + 0.5 and cur > ma50:
-            score -= 2
-            signals.append(("🔴", f"USD rất mạnh — DXY {cur:.1f} trên cả MA20 & MA50 → áp lực giảm vàng", "red"))
+            c = _apply(-2, "dxy"); ico, col = _si(c)
+            signals.append((ico, f"USD rất mạnh — DXY {cur:.1f} trên MA20 & MA50"
+                            + (f" → hỗ trợ {a_name}" if c > 0 else f" → áp lực lớn lên {a_name}"), col))
         elif cur > ma20:
-            score -= 1
-            signals.append(("⚠️", f"USD hơi mạnh — DXY {cur:.1f} trên MA20 → áp lực nhẹ", "orange"))
+            c = _apply(-1, "dxy"); ico, col = _si(c)
+            signals.append((ico, f"USD hơi mạnh — DXY {cur:.1f} trên MA20"
+                            + (f" → tích cực {a_name}" if c > 0 else f" → áp lực nhẹ {a_name}"), col))
         else:
             signals.append(("➡️", f"USD trung tính — DXY {cur:.1f}", "gray"))
         signals.append(("📊", f"DXY thay đổi 1 tháng: {chg1m:+.1f}%", "gray"))
@@ -458,17 +857,20 @@ def macro_regime(macro: dict, price: pd.Series = None) -> tuple[int, str, list, 
         metrics["yield10y"] = {"val": cur, "chg": chg, "unit": "%"}
 
         if cur < 3.5:
-            score += 2
-            signals.append(("✅", f"Yield 10Y: {cur:.2f}% — thấp → chi phí cơ hội giữ vàng thấp, hỗ trợ tăng", "green"))
+            c = _apply(2, "yield10y"); ico, col = _si(c)
+            signals.append((ico, f"Yield 10Y: {cur:.2f}% — thấp → chi phí cơ hội thấp, "
+                            + (f"hỗ trợ {a_name}" if c > 0 else f"bất lợi {a_name}"), col))
         elif cur < 4.0:
-            score += 1
-            signals.append(("✅", f"Yield 10Y: {cur:.2f}% — trung bình, tương đối tích cực cho vàng", "green"))
+            c = _apply(1, "yield10y"); ico, col = _si(c)
+            signals.append((ico, f"Yield 10Y: {cur:.2f}% — trung bình thấp", col))
         elif cur < 4.5:
-            score -= 1
-            signals.append(("⚠️", f"Yield 10Y: {cur:.2f}% — hơi cao, áp lực nhẹ lên vàng", "orange"))
+            c = _apply(-1, "yield10y"); ico, col = _si(c)
+            signals.append((ico, f"Yield 10Y: {cur:.2f}% — hơi cao"
+                            + (f" → tích cực {a_name}" if c > 0 else f" → áp lực nhẹ {a_name}"), col))
         else:
-            score -= 2
-            signals.append(("🔴", f"Yield 10Y: {cur:.2f}% — cao → trái phiếu hút tiền khỏi vàng", "red"))
+            c = _apply(-2, "yield10y"); ico, col = _si(c)
+            signals.append((ico, f"Yield 10Y: {cur:.2f}% — cao"
+                            + (f" → hỗ trợ {a_name}" if c > 0 else f" → áp lực lớn {a_name}"), col))
 
         t = "⬆ tăng" if chg > 0.1 else ("⬇ giảm" if chg < -0.1 else "→ ổn định")
         signals.append(("📊", f"Yield 10Y đang {t} ({chg:+.2f}% so tháng trước)", "gray"))
@@ -477,50 +879,61 @@ def macro_regime(macro: dict, price: pd.Series = None) -> tuple[int, str, list, 
     if "vix" in macro:
         v   = macro["vix"]
         cur = float(v.iloc[-1])
-        ma20 = float(v.rolling(20).mean().iloc[-1])
         metrics["vix"] = {"val": cur, "chg": None, "unit": ""}
+        # VIX cao = panic → hỗ trợ safe-haven (vàng, bạc, BTC); bất lợi risk assets (đồng, dầu)
+        vix_sign = signs.get("vix", 1)
 
         if cur > 35:
-            score += 3
-            signals.append(("✅", f"VIX {cur:.0f} — hoảng loạn thị trường → dòng tiền mạnh vào vàng (safe haven)", "green"))
+            c = _apply(3, "vix"); ico, col = _si(c)
+            lbl = (f"dòng tiền mạnh vào {a_name} (safe haven)" if c > 0
+                   else f"nhu cầu công nghiệp/{a_name} giảm mạnh khi hoảng loạn")
+            signals.append((ico, f"VIX {cur:.0f} — hoảng loạn thị trường → {lbl}", col))
         elif cur > 25:
-            score += 2
-            signals.append(("✅", f"VIX {cur:.0f} — sợ hãi cao → vàng được hỗ trợ tốt", "green"))
+            c = _apply(2, "vix"); ico, col = _si(c)
+            signals.append((ico, f"VIX {cur:.0f} — sợ hãi cao → "
+                            + (f"{a_name} được hỗ trợ" if c > 0 else f"bất lợi {a_name}"), col))
         elif cur > 18:
-            score += 1
-            signals.append(("✅", f"VIX {cur:.0f} — thị trường lo ngại, hỗ trợ vàng", "green"))
+            c = _apply(1, "vix"); ico, col = _si(c)
+            signals.append((ico, f"VIX {cur:.0f} — thị trường lo ngại → "
+                            + (f"hỗ trợ {a_name}" if c > 0 else f"nhẹ bất lợi {a_name}"), col))
         elif cur < 12:
-            score -= 2
-            signals.append(("🔴", f"VIX {cur:.0f} — tham lam cực độ → ít dòng tiền vào vàng", "red"))
+            c = _apply(-2, "vix"); ico, col = _si(c)
+            signals.append((ico, f"VIX {cur:.0f} — tham lam cực độ → "
+                            + (f"ít dòng tiền vào {a_name}" if c < 0 else f"tích cực {a_name}"), col))
         elif cur < 16:
-            score -= 1
-            signals.append(("⚠️", f"VIX {cur:.0f} — thị trường tự tin, ít hỗ trợ vàng", "orange"))
+            c = _apply(-1, "vix"); ico, col = _si(c)
+            signals.append((ico, f"VIX {cur:.0f} — thị trường tự tin, "
+                            + (f"ít hỗ trợ {a_name}" if c < 0 else f"tốt cho {a_name}"), col))
         else:
             signals.append(("➡️", f"VIX {cur:.0f} — trung tính", "gray"))
 
     # ── S&P 500 (Risk Sentiment) ──────────────────────────────────────────
     if "sp500" in macro:
-        s    = macro["sp500"]
-        cur  = float(s.iloc[-1])
-        ma50 = float(s.rolling(50).mean().iloc[-1]) if len(s) >= 50 else cur
+        s     = macro["sp500"]
+        cur   = float(s.iloc[-1])
         chg1m = (cur / float(s.iloc[max(-22, -len(s))]) - 1) * 100
         metrics["sp500"] = {"val": cur, "chg": chg1m, "unit": ""}
+        # S&P tăng = risk-on: xấu cho vàng/XAU, tốt cho đồng/dầu/BTC
 
         if chg1m < -8:
-            score += 3
-            signals.append(("✅", f"S&P 500 sụt mạnh {chg1m:.1f}% → risk-off, tiền đổ vào vàng mạnh", "green"))
+            c = _apply(3, "sp500"); ico, col = _si(c)
+            signals.append((ico, f"S&P 500 sụt mạnh {chg1m:.1f}% → risk-off, "
+                            + (f"tiền đổ vào {a_name}" if c > 0 else f"nhu cầu {a_name} giảm theo"), col))
         elif chg1m < -4:
-            score += 2
-            signals.append(("✅", f"S&P 500 giảm {chg1m:.1f}% → risk-off, hỗ trợ vàng", "green"))
+            c = _apply(2, "sp500"); ico, col = _si(c)
+            signals.append((ico, f"S&P 500 giảm {chg1m:.1f}% → "
+                            + (f"hỗ trợ {a_name}" if c > 0 else f"bất lợi {a_name}"), col))
         elif chg1m < -1:
-            score += 1
-            signals.append(("✅", f"S&P 500 giảm nhẹ {chg1m:.1f}% → tích cực nhẹ cho vàng", "green"))
+            c = _apply(1, "sp500"); ico, col = _si(c)
+            signals.append((ico, f"S&P 500 giảm nhẹ {chg1m:.1f}%", col))
         elif chg1m > 6:
-            score -= 2
-            signals.append(("🔴", f"S&P 500 tăng mạnh {chg1m:.1f}% → risk-on, vốn rút khỏi vàng", "red"))
+            c = _apply(-2, "sp500"); ico, col = _si(c)
+            signals.append((ico, f"S&P 500 tăng mạnh {chg1m:.1f}% → risk-on, "
+                            + (f"tốt cho {a_name}" if c > 0 else f"vốn rút khỏi {a_name}"), col))
         elif chg1m > 2:
-            score -= 1
-            signals.append(("⚠️", f"S&P 500 tăng {chg1m:.1f}% → risk-on, vàng kém hấp dẫn hơn", "orange"))
+            c = _apply(-1, "sp500"); ico, col = _si(c)
+            signals.append((ico, f"S&P 500 tăng {chg1m:.1f}% → "
+                            + (f"tích cực {a_name}" if c > 0 else f"{a_name} kém hấp dẫn hơn"), col))
         else:
             signals.append(("➡️", f"S&P 500 {chg1m:+.1f}% (1 tháng) — trung tính", "gray"))
 
@@ -531,24 +944,27 @@ def macro_regime(macro: dict, price: pd.Series = None) -> tuple[int, str, list, 
         n3m   = max(-66, -len(o))
         ret3m = (cur / float(o.iloc[n3m]) - 1) * 100
         metrics["oil"] = {"val": cur, "chg": ret3m, "unit": "$/bbl"}
-
-        if ret3m > 15:
-            score += 2
-            signals.append(("✅", f"Dầu WTI +{ret3m:.1f}% (3T) → lạm phát tăng → hỗ trợ vàng mạnh", "green"))
-        elif ret3m > 5:
-            score += 1
-            signals.append(("✅", f"Dầu WTI +{ret3m:.1f}% (3T) → áp lực lạm phát, tốt cho vàng", "green"))
-        elif ret3m < -15:
-            score -= 2
-            signals.append(("🔴", f"Dầu WTI {ret3m:.1f}% (3T) → lạm phát hạ nhiệt, bớt hỗ trợ vàng", "red"))
-        elif ret3m < -5:
-            score -= 1
-            signals.append(("⚠️", f"Dầu WTI {ret3m:.1f}% (3T) → giảm áp lực lạm phát", "orange"))
+        # Với CL chính nó (oil sign = 0) → không tự tính vào score
+        if signs.get("oil", 0) != 0:
+            if ret3m > 15:
+                c = _apply(2, "oil"); ico, col = _si(c)
+                signals.append((ico, f"Dầu WTI +{ret3m:.1f}% (3T) → lạm phát tăng → "
+                                + (f"hỗ trợ {a_name}" if c > 0 else f"áp lực {a_name}"), col))
+            elif ret3m > 5:
+                c = _apply(1, "oil"); ico, col = _si(c)
+                signals.append((ico, f"Dầu WTI +{ret3m:.1f}% (3T) → áp lực lạm phát", col))
+            elif ret3m < -15:
+                c = _apply(-2, "oil"); ico, col = _si(c)
+                signals.append((ico, f"Dầu WTI {ret3m:.1f}% (3T) → lạm phát hạ nhiệt", col))
+            elif ret3m < -5:
+                c = _apply(-1, "oil"); ico, col = _si(c)
+                signals.append((ico, f"Dầu WTI {ret3m:.1f}% (3T) → giảm áp lực lạm phát", col))
+            else:
+                signals.append(("➡️", f"Dầu WTI {ret3m:+.1f}% (3T) — ổn định, trung tính", "gray"))
         else:
-            signals.append(("➡️", f"Dầu WTI {ret3m:+.1f}% (3T) — ổn định, trung tính", "gray"))
+            signals.append(("➡️", f"Dầu WTI {cur:.1f} USD/bbl (3T: {ret3m:+.1f}%)", "gray"))
 
-    # ── TIPS ETF (lãi suất thực — yếu tố số 1 với vàng) ──────────────────
-    # TIP tăng = lãi suất thực giảm = vàng hưởng lợi (và ngược lại)
+    # ── TIPS ETF (lãi suất thực — TIP tăng = lãi suất thực giảm) ────────
     if "tips" in macro:
         t     = macro["tips"]
         cur   = float(t.iloc[-1])
@@ -557,25 +973,27 @@ def macro_regime(macro: dict, price: pd.Series = None) -> tuple[int, str, list, 
         metrics["tips"] = {"val": cur, "chg": ret3m, "unit": ""}
 
         if ret3m > 3:
-            score += 3
-            signals.append(("✅", f"TIPS ETF +{ret3m:.1f}% (3T) → lãi suất thực giảm mạnh → hỗ trợ vàng rất lớn", "green"))
+            c = _apply(3, "tips"); ico, col = _si(c)
+            signals.append((ico, f"TIPS ETF +{ret3m:.1f}% (3T) → lãi suất thực giảm mạnh → "
+                            + (f"hỗ trợ rất lớn {a_name}" if c > 0 else f"áp lực lớn {a_name}"), col))
         elif ret3m > 1:
-            score += 2
-            signals.append(("✅", f"TIPS ETF +{ret3m:.1f}% (3T) → lãi suất thực hạ → tích cực cho vàng", "green"))
+            c = _apply(2, "tips"); ico, col = _si(c)
+            signals.append((ico, f"TIPS ETF +{ret3m:.1f}% (3T) → lãi suất thực hạ", col))
         elif ret3m > 0:
-            score += 1
-            signals.append(("✅", f"TIPS ETF +{ret3m:.1f}% (3T) → lãi suất thực ổn định/giảm nhẹ, tốt cho vàng", "green"))
+            c = _apply(1, "tips"); ico, col = _si(c)
+            signals.append((ico, f"TIPS ETF +{ret3m:.1f}% (3T) → lãi suất thực ổn định/giảm nhẹ", col))
         elif ret3m < -3:
-            score -= 3
-            signals.append(("🔴", f"TIPS ETF {ret3m:.1f}% (3T) → lãi suất thực tăng mạnh → áp lực lớn lên vàng", "red"))
+            c = _apply(-3, "tips"); ico, col = _si(c)
+            signals.append((ico, f"TIPS ETF {ret3m:.1f}% (3T) → lãi suất thực tăng mạnh → "
+                            + (f"hỗ trợ {a_name}" if c > 0 else f"áp lực lớn {a_name}"), col))
         elif ret3m < -1:
-            score -= 2
-            signals.append(("🔴", f"TIPS ETF {ret3m:.1f}% (3T) → lãi suất thực tăng → bất lợi cho vàng", "red"))
+            c = _apply(-2, "tips"); ico, col = _si(c)
+            signals.append((ico, f"TIPS ETF {ret3m:.1f}% (3T) → lãi suất thực tăng", col))
         else:
-            score -= 1
-            signals.append(("⚠️", f"TIPS ETF {ret3m:.1f}% (3T) → lãi suất thực hơi tăng, áp lực nhẹ", "orange"))
+            c = _apply(-1, "tips"); ico, col = _si(c)
+            signals.append((ico, f"TIPS ETF {ret3m:.1f}% (3T) → lãi suất thực hơi tăng", col))
 
-    # ── Momentum giá vàng (3T & 6T) ───────────────────────────────────────
+    # ── Momentum giá tài sản (3T & 6T) ────────────────────────────────────
     if price is not None and len(price) >= 20:
         cur_p  = float(price.iloc[-1])
         n3m    = max(-66,  -len(price))
@@ -586,16 +1004,16 @@ def macro_regime(macro: dict, price: pd.Series = None) -> tuple[int, str, list, 
 
         if ret3m > 12:
             score += 2
-            signals.append(("✅", f"Momentum vàng 3 tháng: +{ret3m:.1f}% — đà tăng mạnh, xu hướng tiếp diễn", "green"))
+            signals.append(("✅", f"Momentum {a_name} 3 tháng: +{ret3m:.1f}% — đà tăng mạnh", "green"))
         elif ret3m > 4:
             score += 1
-            signals.append(("✅", f"Momentum vàng 3 tháng: +{ret3m:.1f}% — tích cực", "green"))
+            signals.append(("✅", f"Momentum {a_name} 3 tháng: +{ret3m:.1f}% — tích cực", "green"))
         elif ret3m < -8:
             score -= 2
-            signals.append(("🔴", f"Momentum vàng 3 tháng: {ret3m:.1f}% — đà giảm rõ", "red"))
+            signals.append(("🔴", f"Momentum {a_name} 3 tháng: {ret3m:.1f}% — đà giảm rõ", "red"))
         elif ret3m < -3:
             score -= 1
-            signals.append(("⚠️", f"Momentum vàng 3 tháng: {ret3m:.1f}% — áp lực giảm ngắn hạn", "orange"))
+            signals.append(("⚠️", f"Momentum {a_name} 3 tháng: {ret3m:.1f}% — áp lực giảm", "orange"))
 
         if ret6m > 15:
             score += 1
@@ -613,23 +1031,24 @@ def macro_regime(macro: dict, price: pd.Series = None) -> tuple[int, str, list, 
 
         if dev > 25:
             score -= 2
-            signals.append(("⚠️", f"Giá cao hơn MA200 {dev:.1f}% — quá mua dài hạn, rủi ro điều chỉnh cao", "orange"))
+            signals.append(("⚠️", f"Giá cao hơn MA200 {dev:.1f}% — quá mua dài hạn, rủi ro điều chỉnh", "orange"))
         elif dev > 15:
             score -= 1
             signals.append(("⚠️", f"Giá cao hơn MA200 {dev:.1f}% — hơi overbought so lịch sử", "orange"))
         elif dev < -15:
             score += 1
-            signals.append(("✅", f"Giá thấp hơn MA200 {abs(dev):.1f}% — vùng giá trị hấp dẫn về dài hạn", "green"))
+            signals.append(("✅", f"Giá thấp hơn MA200 {abs(dev):.1f}% — vùng giá trị hấp dẫn dài hạn", "green"))
 
     # ── Nhãn tổng hợp ─────────────────────────────────────────────────────
+    AU = a_name.upper()
     if score >= 8:
-        label = "RẤT TÍCH CỰC CHO VÀNG"
+        label = f"RẤT TÍCH CỰC CHO {AU}"
     elif score >= 4:
-        label = "TÍCH CỰC CHO VÀNG"
+        label = f"TÍCH CỰC CHO {AU}"
     elif score <= -8:
-        label = "RẤT TIÊU CỰC CHO VÀNG"
+        label = f"RẤT TIÊU CỰC CHO {AU}"
     elif score <= -4:
-        label = "TIÊU CỰC CHO VÀNG"
+        label = f"TIÊU CỰC CHO {AU}"
     else:
         label = "TRUNG TÍNH"
 
@@ -639,15 +1058,15 @@ def macro_regime(macro: dict, price: pd.Series = None) -> tuple[int, str, list, 
 #  SEASONAL FACTOR
 # ══════════════════════════════════════════════════════════════════════════════
 
-def seasonal_factor(last_date_str: str, days: int) -> float:
+def seasonal_factor(last_date_str: str, days: int, asset_key: str = "XAU") -> float:
     """Tính lệch mùa vụ trung bình cho kỳ dự báo."""
+    bias  = SEASONAL_BIAS.get(asset_key, SEASONAL_BIAS["XAU"])
     start = pd.Timestamp(last_date_str) + timedelta(days=1)
     month_days: dict[int, int] = {}
     for i in range(days):
         m = (start + timedelta(days=i)).month
         month_days[m] = month_days.get(m, 0) + 1
-    return sum(SEASONAL_BIAS.get(m, 0) * cnt / days
-               for m, cnt in month_days.items())
+    return sum(bias.get(m, 0) * cnt / days for m, cnt in month_days.items())
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  FORECASTING  (3-model ensemble + macro + seasonal)
@@ -655,7 +1074,7 @@ def seasonal_factor(last_date_str: str, days: int) -> float:
 
 @st.cache_data(ttl=1800, show_spinner=False)
 def forecast(_price_values: np.ndarray, last_date_str: str,
-             days: int, macro_score: int = 0) -> tuple:
+             days: int, macro_score: int = 0, asset_key: str = "XAU") -> tuple:
     price = pd.Series(_price_values)
     train = price.tail(min(365, len(price)))
 
@@ -704,7 +1123,7 @@ def forecast(_price_values: np.ndarray, last_date_str: str,
     )
 
     # ── Seasonal adjustment ───────────────────────────────────────────────
-    seas_adj = seasonal_factor(last_date_str, days)
+    seas_adj = seasonal_factor(last_date_str, days, asset_key)
 
     # ── Momentum adjustment (3 tháng gần nhất của giá vàng) ──────────────
     n3m      = min(66, len(train))
@@ -1074,7 +1493,8 @@ def compute_signal(price, ma20, ma50, ma200, rsi,
 
 def build_chart(p, m20, m50, m200, bbu, bbl, hi52, lo52,
                 fc_mean, fc_lo, fc_hi, rsi_s,
-                sig_color: str, forecast_days: int) -> go.Figure:
+                sig_color: str, forecast_days: int,
+                asset_key: str = "XAU") -> go.Figure:
 
     # Lịch sử hiển thị = 2× kỳ dự báo, tối thiểu 150, tối đa 500 ngày
     H   = min(max(150, forecast_days * 2), 500)
@@ -1094,10 +1514,10 @@ def build_chart(p, m20, m50, m200, bbu, bbl, hi52, lo52,
 
     # 52W levels
     fig.add_hline(y=hi52, line_dash="dot", line_color="#3fb950", line_width=0.9, opacity=0.5,
-                  annotation_text=f"52W High ${hi52:,.0f}",
+                  annotation_text=f"52W High {fmt_price(hi52, asset_key)}",
                   annotation_font_color="#3fb950", annotation_font_size=9, row=1, col=1)
     fig.add_hline(y=lo52, line_dash="dot", line_color="#f85149", line_width=0.9, opacity=0.5,
-                  annotation_text=f"52W Low ${lo52:,.0f}",
+                  annotation_text=f"52W Low {fmt_price(lo52, asset_key)}",
                   annotation_font_color="#f85149", annotation_font_size=9,
                   annotation_position="bottom right", row=1, col=1)
 
@@ -1116,16 +1536,19 @@ def build_chart(p, m20, m50, m200, bbu, bbl, hi52, lo52,
         name="Vùng dự báo (90% CI)", line=dict(width=0),
         fill="tonexty", fillcolor=hex_rgba(sig_color, 0.16)), row=1, col=1)
 
+    a_info = ASSETS[asset_key]
+    a_name = a_info["name"]
+
     # Price history
     fig.add_trace(go.Scatter(x=sl(p).index, y=sl(p),
-        name="Giá Vàng (XAU/USD)", line=dict(color="#c9d1d9", width=2.2),
-        hovertemplate="<b>%{x|%d/%m/%Y}</b><br>Giá: $%{y:,.0f}<extra></extra>"), row=1, col=1)
+        name=a_name, line=dict(color="#c9d1d9", width=2.2),
+        hovertemplate="<b>%{x|%d/%m/%Y}</b><br>Giá: %{y:,.4g}<extra></extra>"), row=1, col=1)
 
     # Forecast line
     ml = period_label(forecast_days)
     fig.add_trace(go.Scatter(x=fc_mean.index, y=fc_mean, name=f"Dự báo {ml}",
         line=dict(color=sig_color, width=2.6),
-        hovertemplate="<b>%{x|%d/%m/%Y}</b><br>Dự báo: $%{y:,.0f}<extra></extra>"), row=1, col=1)
+        hovertemplate="<b>%{x|%d/%m/%Y}</b><br>Dự báo: %{y:,.4g}<extra></extra>"), row=1, col=1)
 
     # TODAY divider
     fig.add_vline(x=p.index[-1].timestamp() * 1000,
@@ -1133,19 +1556,21 @@ def build_chart(p, m20, m50, m200, bbu, bbl, hi52, lo52,
 
     # Current price marker
     cur_p = float(p.iloc[-1])
+    cur_label = fmt_price(cur_p, asset_key)
     fig.add_trace(go.Scatter(x=[p.index[-1]], y=[cur_p], mode="markers+text",
-        marker=dict(color="#FFD700", size=10),
-        text=[f"  Hôm nay ${cur_p:,.0f}"],
-        textposition="middle right", textfont=dict(color="#FFD700", size=10),
+        marker=dict(color=a_info["color"], size=10),
+        text=[f"  Hôm nay {cur_label}"],
+        textposition="middle right", textfont=dict(color=a_info["color"], size=10),
         showlegend=False, hoverinfo="skip"), row=1, col=1)
 
     # Forecast end marker
     fc_e = float(fc_mean.iloc[-1])
     chg  = (fc_e - cur_p) / cur_p * 100
     sign = "+" if chg >= 0 else ""
+    fc_label = fmt_price(fc_e, asset_key)
     fig.add_trace(go.Scatter(x=[fc_mean.index[-1]], y=[fc_e], mode="markers+text",
         marker=dict(color=sig_color, size=9, symbol="diamond"),
-        text=[f"  ${fc_e:,.0f} ({sign}{chg:.1f}%)"],
+        text=[f"  {fc_label} ({sign}{chg:.1f}%)"],
         textposition="middle right", textfont=dict(color=sig_color, size=10, family="Arial Black"),
         showlegend=False, hoverinfo="skip"), row=1, col=1)
 
@@ -1184,46 +1609,32 @@ def build_chart(p, m20, m50, m200, bbu, bbl, hi52, lo52,
               zerolinecolor="rgba(255,255,255,0.05)")
     fig.update_xaxes(**gd)
     fig.update_yaxes(**gd)
-    fig.update_yaxes(title_text="USD / troy oz", row=1, col=1, title_font_size=9)
+    fig.update_yaxes(title_text=a_info["unit"], row=1, col=1, title_font_size=9)
     fig.update_yaxes(title_text="RSI", row=2, col=1, range=[10, 90], title_font_size=9)
     fig.update_xaxes(tickformat="%d/%m/%y", tickangle=-30, row=2, col=1)
     return fig
 
 # ══════════════════════════════════════════════════════════════════════════════
-#  MAIN APP
+#  ASSET TAB RENDERER
 # ══════════════════════════════════════════════════════════════════════════════
 
-def main():
+def render_asset_tab(asset_key: str, macro: dict, forecast_days: int):
+    """Render toàn bộ nội dung phân tích cho một asset tab."""
+    info = ASSETS[asset_key]
+    a_color  = info["color"]
+    a_name   = info["name"]
+    a_short  = info["short"]
+    a_unit   = info["unit"]
 
-    # ── Header ────────────────────────────────────────────────────────────────
-    st.markdown("""
-    <div class="gold-header">
-        <h1>🥇 GOLD PRICE TREND ANALYSIS</h1>
-        <p>Phân tích đa yếu tố vĩ mô + kỹ thuật + mùa vụ · Dự báo xu hướng XAU/USD</p>
-    </div>""", unsafe_allow_html=True)
-    st.markdown("---")
-
-    # ── Controls ──────────────────────────────────────────────────────────────
-    c1, c2, c3 = st.columns([2, 1, 4])
-    with c1:
-        forecast_days = st.radio("Kỳ dự báo:", list(PERIOD_LABELS.keys()),
-            format_func=lambda x: PERIOD_LABELS[x],
-            horizontal=True, label_visibility="collapsed")
-    with c2:
-        if st.button("🔄 Làm mới", use_container_width=True):
-            st.cache_data.clear()
-            st.rerun()
-
-    # ── Fetch ─────────────────────────────────────────────────────────────────
-    with st.spinner("📡 Đang tải dữ liệu giá vàng & chỉ số vĩ mô..."):
+    # ── Fetch price + live ────────────────────────────────────────────────
+    with st.spinner(f"📡 Đang tải dữ liệu {a_short}..."):
         try:
-            price, ticker = fetch_gold()
+            price, ticker = fetch_price(asset_key)
         except RuntimeError as e:
             st.error(str(e)); return
-        macro = fetch_macro()
-        live_price, live_src = fetch_live_price()
+        live_price, live_src = fetch_live(asset_key)
 
-    # ── Technical indicators ──────────────────────────────────────────────────
+    # ── Technical indicators ──────────────────────────────────────────────
     ma20   = price.rolling(20).mean()
     ma50   = price.rolling(50).mean()
     ma200  = price.rolling(200).mean()
@@ -1235,78 +1646,77 @@ def main():
     hi52   = float(price.tail(252).max())
     lo52   = float(price.tail(252).min())
 
-    # ── Macro regime ──────────────────────────────────────────────────────────
-    macro_score, macro_label, macro_signals, macro_metrics = macro_regime(macro, price)
+    # ── Macro regime ──────────────────────────────────────────────────────
+    macro_score, macro_label, macro_signals, macro_metrics = macro_regime(
+        macro, price, asset_key
+    )
 
-    # ── Forecast (với macro + seasonal) ──────────────────────────────────────
-    with st.spinner("🔮 Chạy mô hình dự báo (HW + ARIMA + Momentum + Macro + Mùa vụ)..."):
+    # ── Forecast ──────────────────────────────────────────────────────────
+    with st.spinner(f"🔮 Chạy mô hình dự báo {a_short}..."):
         fc_mean, fc_lo_s, fc_hi_s = forecast(
-            price.values, str(price.index[-1]), forecast_days, macro_score
+            price.values, str(price.index[-1]), forecast_days,
+            macro_score, asset_key
         )
 
-    # ── Signal ────────────────────────────────────────────────────────────────
+    # ── Signal ────────────────────────────────────────────────────────────
     signal, sig_color, sig_icon, tech_notes = compute_signal(
         price, ma20, ma50, ma200, rsi, fc_mean, macro_score
     )
 
-    cur  = float(price.iloc[-1])
-    fc_e = float(fc_mean.iloc[-1])
-    chg  = (fc_e - cur) / cur * 100
-    sign = "+" if chg >= 0 else ""
+    cur   = float(price.iloc[-1])
+    fc_e  = float(fc_mean.iloc[-1])
+    chg   = (fc_e - cur) / cur * 100
+    sign  = "+" if chg >= 0 else ""
     r_cur = float(rsi.iloc[-1])
+    seas  = seasonal_factor(str(price.index[-1]), forecast_days, asset_key)
+    seas_note = (f"{'📈' if seas > 0 else '📉'} Yếu tố mùa vụ: {seas*100:+.1f}% "
+                 f"({'thuận lợi' if seas > 0 else 'bất lợi'} cho kỳ này)")
 
-    # ── Seasonal context ──────────────────────────────────────────────────────
-    seas = seasonal_factor(str(price.index[-1]), forecast_days)
-    seas_note = f"{'📈' if seas > 0 else '📉'} Yếu tố mùa vụ: {seas*100:+.1f}% " \
-                f"({'thuận lợi' if seas > 0 else 'bất lợi'} cho kỳ này)"
-
-    # ═════════════════════════ DISPLAY ════════════════════════════════════════
-
-    # ── Gold metrics ──────────────────────────────────────────────────────────
+    # ── Metrics row ───────────────────────────────────────────────────────
     m1, m2, m3, m4 = st.columns(4)
 
-    # Live price (real-time) ưu tiên hơn giá đóng cửa
     if live_price:
         live_diff = live_price - cur
         m1.metric(
-            "⚡ Giá Live (Real-time)",
-            f"${live_price:,.2f}",
-            f"{live_diff:+.2f} so với phiên trước",
+            f"⚡ Giá Live ({a_short})",
+            fmt_price(live_price, asset_key),
+            f"{live_diff:+.{info['decimals']}f} so với phiên trước",
             delta_color="normal",
         )
     else:
-        m1.metric("💰 Giá Spot (Close)", f"${cur:,.0f}", f"Nguồn: {ticker}")
+        m1.metric(f"💰 Giá ({a_short})", fmt_price(cur, asset_key),
+                  f"Nguồn: {ticker}")
 
-    m2.metric(f"📅 Dự báo ({period_label(forecast_days)})", f"${fc_e:,.0f}",
+    m2.metric(f"📅 Dự báo ({period_label(forecast_days)})",
+              fmt_price(fc_e, asset_key),
               f"{sign}{chg:.1f}%", delta_color="normal")
-    m3.metric("📊 52W High / Low", f"${hi52:,.0f}", f"Low: ${lo52:,.0f}")
+    m3.metric("📊 52W High / Low",
+              fmt_price(hi52, asset_key), f"Low: {fmt_price(lo52, asset_key)}")
     m4.metric("📈 RSI (14)", f"{r_cur:.0f}",
               "Quá mua ⚠️" if r_cur > 70 else ("Quá bán ✅" if r_cur < 30 else "Bình thường"),
               delta_color="off")
 
-    # Ghi chú về nguồn giá
+    # Ghi chú nguồn giá
     if live_price:
         diff_pct = abs(live_price - cur) / cur * 100
         note_color = "#f9a825" if diff_pct > 0.5 else "#8b949e"
-        # Ghi chú delay nếu nguồn là COMEX futures
         delay_note = ""
-        if "COMEX" in live_src:
-            delay_note = " · ⏱ <i>Yahoo Finance delay ~15 phút — chênh $10-20 với giavang.org là bình thường</i>"
+        if "COMEX" in live_src or "Yahoo" in live_src:
+            delay_note = " · ⏱ <i>Delay ~15 phút so với giá real-time</i>"
         st.markdown(
             f"<p style='font-size:0.78rem;color:{note_color};margin:-8px 0 4px 0;'>"
-            f"⚡ Giá live: <b>${live_price:,.2f}</b> ({live_src}) · "
-            f"Giá đóng cửa phiên trước: <b>${cur:,.0f}</b> ({ticker}) · "
-            f"Lệch: <b>{live_price - cur:+.2f} USD</b>"
+            f"⚡ Live: <b>{fmt_price(live_price, asset_key)}</b> ({live_src}) · "
+            f"Phiên trước: <b>{fmt_price(cur, asset_key)}</b> ({ticker}) · "
+            f"Lệch: <b>{live_price - cur:+.{info['decimals']}f}</b>"
             f"{delay_note}</p>",
             unsafe_allow_html=True,
         )
 
     st.markdown("---")
 
-    # ── Macro dashboard ───────────────────────────────────────────────────────
-    macro_score_color = "#3fb950" if macro_score >= 3 else \
-                        "#f85149" if macro_score <= -3 else "#FFD700"
-
+    # ── Macro dashboard ───────────────────────────────────────────────────
+    macro_score_color = ("#3fb950" if macro_score >= 3 else
+                         "#f85149" if macro_score <= -3 else "#FFD700")
     st.markdown(
         f"#### 🌐 Môi trường vĩ mô &nbsp; "
         f"<span style='color:{macro_score_color};font-size:0.95rem;'>"
@@ -1314,13 +1724,12 @@ def main():
         unsafe_allow_html=True,
     )
 
-    # ── Hàng 1: 4 chỉ số cổ điển ─────────────────────────────────────────────
     mc1, mc2, mc3, mc4 = st.columns(4)
 
-    def macro_metric(col, label, key, fmt, low_good=False, pct_delta=False):
+    def _mm(col, label, key, fmt, low_good=False, pct_delta=False):
         if key not in macro_metrics:
             col.metric(label, "N/A"); return
-        m       = macro_metrics[key]
+        m = macro_metrics[key]
         val_str = f"{m['val']:{fmt}}"
         if m["chg"] is not None:
             delta = f"{m['chg']:+.1f}%" if pct_delta else f"{m['chg']:+.2f}"
@@ -1329,24 +1738,22 @@ def main():
         col.metric(label, val_str + m["unit"], delta,
                    delta_color="inverse" if low_good else "normal")
 
-    macro_metric(mc1, "💵 DXY (USD Index)",   "dxy",      ".1f",  low_good=True,  pct_delta=True)
-    macro_metric(mc2, "📉 Yield 10Y (%)",      "yield10y", ".2f",  low_good=True)
-    macro_metric(mc3, "😨 VIX (Fear Index)",   "vix",      ".0f",  low_good=False)
-    macro_metric(mc4, "📈 S&P 500",            "sp500",    ",.0f", low_good=False, pct_delta=True)
+    _mm(mc1, "💵 DXY (USD Index)",        "dxy",      ".1f",  low_good=True, pct_delta=True)
+    _mm(mc2, "📉 Yield 10Y (%)",           "yield10y", ".2f",  low_good=True)
+    _mm(mc3, "😨 VIX (Fear Index)",        "vix",      ".0f",  low_good=False)
+    _mm(mc4, "📈 S&P 500",                 "sp500",    ",.0f", low_good=False, pct_delta=True)
 
-    # ── Hàng 2: chỉ số mới (Oil, TIPS, Momentum, MA200) ─────────────────────
     mc5, mc6, mc7, mc8 = st.columns(4)
-    macro_metric(mc5, "🛢️ Dầu WTI ($/bbl)",   "oil",      ".1f",  low_good=False, pct_delta=True)
-    macro_metric(mc6, "📊 TIPS ETF (lãi suất thực)", "tips", ".2f", low_good=False, pct_delta=True)
+    _mm(mc5, "🛢️ Dầu WTI ($/bbl)",        "oil",      ".1f",  low_good=False, pct_delta=True)
+    _mm(mc6, "📊 TIPS ETF (lãi suất thực)", "tips",    ".2f",  low_good=False, pct_delta=True)
 
     if "momentum" in macro_metrics:
         mom = macro_metrics["momentum"]
-        mc7.metric("⚡ Momentum vàng (3T)",
-                   f"{mom['ret3m']:+.1f}%",
-                   f"6 tháng: {mom['ret6m']:+.1f}%",
+        mc7.metric(f"⚡ Momentum {a_short} (3T)",
+                   f"{mom['ret3m']:+.1f}%", f"6 tháng: {mom['ret6m']:+.1f}%",
                    delta_color="normal")
     else:
-        mc7.metric("⚡ Momentum vàng (3T)", "N/A")
+        mc7.metric(f"⚡ Momentum {a_short} (3T)", "N/A")
 
     if "ma200_dev" in macro_metrics:
         dev = macro_metrics["ma200_dev"]
@@ -1356,60 +1763,6 @@ def main():
     else:
         mc8.metric("📐 Lệch so MA200", "N/A")
 
-    # ── Giải thích các chỉ số ─────────────────────────────────────────────────
-    with st.expander("📖 Các chỉ số vĩ mô là gì? (nhấn để xem)", expanded=False):
-        st.markdown("""
-**💵 DXY — Chỉ số sức mạnh đồng USD**
-Đo lường giá trị USD so với rổ 6 đồng tiền lớn (EUR, JPY, GBP, CAD, SEK, CHF).
-- **Tại sao quan trọng với vàng?** Vàng định giá bằng USD — khi USD mạnh (DXY tăng), vàng trở nên đắt hơn với người dùng đồng tiền khác → cầu giảm → giá vàng giảm. USD yếu → ngược lại.
-- 🎯 *DXY giảm = tốt cho vàng | DXY tăng = xấu cho vàng*
-
----
-**📉 Yield 10Y — Lợi suất trái phiếu Kho bạc Mỹ 10 năm**
-Lãi suất chính phủ Mỹ trả cho trái phiếu kỳ hạn 10 năm — thước đo chi phí vốn và kỳ vọng lạm phát.
-- **Tại sao quan trọng?** Yield cao → trái phiếu sinh lãi tốt hơn → nhà đầu tư bán vàng mua trái phiếu. Yield thấp → vàng (không sinh lãi) cạnh tranh hơn.
-- 🎯 *Yield < 3.5% = rất tốt cho vàng | Yield > 4.5% = áp lực lớn*
-
----
-**😨 VIX — Chỉ số sợ hãi thị trường (CBOE Volatility Index)**
-Đo mức độ biến động kỳ vọng của S&P 500 trong 30 ngày tới, phản ánh tâm lý nhà đầu tư.
-- VIX < 15: thị trường bình tĩnh (tham lam) | 15–25: lo lắng | > 30: hoảng loạn
-- **Tại sao quan trọng?** VIX cao → nhà đầu tư hoảng sợ, đổ tiền vào vàng như "tài sản trú ẩn an toàn".
-- 🎯 *VIX > 30 = rất tốt cho vàng | VIX < 12 = ít hỗ trợ vàng*
-
----
-**📈 S&P 500 — Chỉ số chứng khoán 500 công ty lớn nhất Mỹ**
-Đại diện cho tâm lý "risk-on" (tìm lợi nhuận cao) hay "risk-off" (bảo toàn vốn).
-- **Tại sao quan trọng?** Khi chứng khoán tăng mạnh, nhà đầu tư ít cần vàng (đã có lợi nhuận tốt). Khi chứng khoán sụp đổ, vốn chạy vào vàng.
-- 🎯 *S&P giảm mạnh = tốt cho vàng | S&P tăng phi mã = kém hỗ trợ vàng*
-
----
-**🛢️ Dầu WTI — Giá dầu thô Tây Texas (West Texas Intermediate)**
-Dầu là nguyên liệu đầu vào của toàn bộ nền kinh tế, ảnh hưởng trực tiếp đến lạm phát.
-- **Tại sao quan trọng?** Dầu tăng → chi phí sản xuất tăng → lạm phát tăng → nhà đầu tư mua vàng để bảo vệ tài sản khỏi lạm phát (vàng = hàng rào lạm phát).
-- 🎯 *Dầu tăng > 10% trong 3 tháng = hỗ trợ vàng | Dầu giảm mạnh = áp lực lên vàng*
-
----
-**📊 TIPS ETF — Proxy Lãi suất Thực (Real Interest Rate)**
-iShares TIPS ETF (mã TIP) đại diện cho trái phiếu chính phủ Mỹ được bảo vệ chống lạm phát.
-Giá TIP tăng ≈ lãi suất thực đang giảm; Giá TIP giảm ≈ lãi suất thực đang tăng.
-- **Đây là yếu tố số 1 quan trọng nhất với vàng.** Lãi suất thực = Lãi suất danh nghĩa − Lạm phát. Khi lãi suất thực âm hoặc rất thấp → chi phí cơ hội giữ vàng gần bằng 0 → vàng rất hấp dẫn.
-- 🎯 *TIPS ETF tăng (lãi suất thực giảm) = rất tốt cho vàng | TIPS ETF giảm = áp lực lớn*
-
----
-**⚡ Momentum vàng (3T/6T)**
-Tỷ suất sinh lời của giá vàng trong 3 tháng và 6 tháng gần nhất.
-- Xu hướng giá thường có quán tính — tăng tiếp tục tăng, giảm tiếp tục giảm trong ngắn-trung hạn.
-- 🎯 *+10% trong 3 tháng = đà tăng mạnh, có thể tiếp diễn | Âm mạnh = cẩn thận*
-
----
-**📐 Lệch so MA200 (Mean Reversion)**
-Phần trăm giá vàng hiện tại cao/thấp hơn đường trung bình 200 ngày.
-- MA200 là "neo giá" dài hạn — giá thường có xu hướng quay về mức này sau khi lệch quá xa.
-- 🎯 *+25% so MA200 = rủi ro điều chỉnh cao | −15% so MA200 = vùng tích lũy hấp dẫn*
-        """)
-
-    # ── Chi tiết tín hiệu vĩ mô ───────────────────────────────────────────────
     with st.expander("📋 Chi tiết phân tích vĩ mô", expanded=False):
         for icon, text, _ in macro_signals:
             st.markdown(f"{icon} {text}")
@@ -1417,37 +1770,37 @@ Phần trăm giá vàng hiện tại cao/thấp hơn đường trung bình 200 n
 
     st.markdown("---")
 
-    # ── Chart ─────────────────────────────────────────────────────────────────
+    # ── Chart ─────────────────────────────────────────────────────────────
     ml = period_label(forecast_days)
     st.markdown(
-        f"#### Biểu đồ Giá Vàng · Dự báo {ml} tới · "
+        f"#### Biểu đồ {a_name} · Dự báo {ml} · "
         f"Cập nhật {datetime.now():%H:%M %d/%m/%Y}"
     )
     fig = build_chart(price, ma20, ma50, ma200, bb_up, bb_lo, hi52, lo52,
-                      fc_mean, fc_lo_s, fc_hi_s, rsi, sig_color, forecast_days)
+                      fc_mean, fc_lo_s, fc_hi_s, rsi, sig_color, forecast_days,
+                      asset_key)
     st.plotly_chart(fig, use_container_width=True,
                     config={"scrollZoom": True, "responsive": True,
                             "displayModeBar": True,
                             "modeBarButtonsToRemove": ["select2d", "lasso2d"],
-                            "toImageButtonOptions": {"filename": "gold_chart"}})
+                            "toImageButtonOptions": {"filename": f"{asset_key}_chart"}})
 
     st.markdown("---")
 
-    # ── Signal & Analysis ─────────────────────────────────────────────────────
+    # ── Signal box ────────────────────────────────────────────────────────
     sig_bg  = hex_rgba(sig_color, 0.12)
     sig_bdr = hex_rgba(sig_color, 0.45)
     st.markdown(
         f"""<div class="signal-box" style="background:{sig_bg};border:1px solid {sig_bdr};">
         <b style="color:{sig_color};font-size:1.05rem;">{sig_icon} NHẬN ĐỊNH TỔNG HỢP: {signal}</b><br>
         <span style="color:#8b949e;font-size:0.85rem;">
-        Giá Spot: <b style="color:#e6edf3;">${cur:,.0f}</b> &nbsp;→&nbsp;
-        Dự báo cuối kỳ: <b style="color:{sig_color};">${fc_e:,.0f}</b> ({sign}{chg:.1f}%)
+        Giá hiện tại: <b style="color:#e6edf3;">{fmt_price(cur, asset_key)}</b> &nbsp;→&nbsp;
+        Dự báo cuối kỳ: <b style="color:{sig_color};">{fmt_price(fc_e, asset_key)}</b> ({sign}{chg:.1f}%)
         &nbsp;·&nbsp; Macro: <b style="color:{macro_score_color};">{macro_label}</b>
         </span></div>""",
         unsafe_allow_html=True,
     )
 
-    # Tín hiệu nhanh (2 cột)
     col_t, col_m = st.columns(2)
     with col_t:
         st.markdown("**📐 Tín hiệu kỹ thuật:**")
@@ -1464,39 +1817,75 @@ Phần trăm giá vàng hiện tại cao/thấp hơn đường trung bình 200 n
 
     st.markdown("---")
 
-    # ── Narrative — Giải thích chi tiết tại sao tăng/giảm ───────────────────
-    st.markdown(f"#### 📝 Giải thích chi tiết — Tại sao giá vàng dự báo như vậy trong {period_label(forecast_days)}?")
-
+    # ── Narrative ─────────────────────────────────────────────────────────
+    st.markdown(f"#### 📝 Giải thích chi tiết — Tại sao {a_short} dự báo như vậy trong {period_label(forecast_days)}?")
     narrative = generate_narrative(
         price, ma20, ma50, ma200, rsi,
         fc_mean, fc_lo_s, fc_hi_s,
         macro_score, macro_signals, macro_metrics,
         forecast_days, seas,
     )
-
-    # Hiển thị từng phần trong expander riêng để gọn trên mobile
     sections = narrative.split("\n\n---\n\n")
     sec_icons = ["📐", "🌐", "📅", "🎯"]
     for i, sec in enumerate(sections):
         title_end = sec.find("\n\n")
         if title_end == -1:
-            st.markdown(sec)
-            continue
+            st.markdown(sec); continue
         title = sec[:title_end].replace("**", "").strip()
         body  = sec[title_end + 2:]
         icon  = sec_icons[i] if i < len(sec_icons) else "📌"
         with st.expander(title, expanded=(i == len(sections) - 1)):
             st.markdown(body)
 
-    # ── Footer ────────────────────────────────────────────────────────────────
+    # ── Footer ────────────────────────────────────────────────────────────
     st.markdown("---")
     st.markdown(
         f"<p style='color:#484f58;font-size:0.76rem;text-align:center;'>"
-        f"Nguồn: Yahoo Finance ({ticker}) · "
-        f"Mô hình: Holt-Winters + ARIMA(1,1,1) + Momentum + Macro (DXY/VIX/Yield/SP500) + Mùa vụ · "
+        f"Nguồn: {ticker} · Mô hình: Holt-Winters + ARIMA(1,1,1) + Momentum + Macro + Mùa vụ · "
         f"⚠️ Chỉ mang tính tham khảo, không phải khuyến nghị đầu tư.</p>",
         unsafe_allow_html=True,
     )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  MAIN APP
+# ══════════════════════════════════════════════════════════════════════════════
+
+def main():
+
+    # ── Header ────────────────────────────────────────────────────────────────
+    st.markdown("""
+    <div class="gold-header">
+        <h1>📊 MARKET TREND ANALYSIS</h1>
+        <p>Phân tích đa yếu tố vĩ mô + kỹ thuật + mùa vụ · Vàng · Bạc · Đồng · Dầu · USD/VND · Bitcoin</p>
+    </div>""", unsafe_allow_html=True)
+    st.markdown("---")
+
+    # ── Controls ──────────────────────────────────────────────────────────────
+    c1, c2, c3 = st.columns([3, 1, 3])
+    with c1:
+        forecast_days = st.radio(
+            "Kỳ dự báo:", list(PERIOD_LABELS.keys()),
+            format_func=lambda x: PERIOD_LABELS[x],
+            horizontal=True, label_visibility="collapsed"
+        )
+    with c2:
+        if st.button("🔄 Làm mới", use_container_width=True):
+            st.cache_data.clear()
+            st.rerun()
+
+    # ── Fetch macro một lần, chia sẻ cho tất cả tabs ─────────────────────────
+    with st.spinner("📡 Đang tải chỉ số vĩ mô..."):
+        macro = fetch_macro()
+
+    # ── Tabs ──────────────────────────────────────────────────────────────────
+    tab_keys   = list(ASSETS.keys())
+    tab_labels = [ASSETS[k]["tab"] for k in tab_keys]
+    tabs = st.tabs(tab_labels)
+
+    for tab, asset_key in zip(tabs, tab_keys):
+        with tab:
+            render_asset_tab(asset_key, macro, forecast_days)
 
 
 if __name__ == "__main__":
