@@ -985,6 +985,65 @@ def fetch_fear_greed() -> dict:
         return {"value": None, "label": "N/A", "label_en": "N/A", "color": "#8b949e", "ok": False}
 
 
+@st.cache_data(ttl=1800, show_spinner=False)
+def fetch_ohlcv(asset_key: str) -> pd.DataFrame:
+    """
+    Lấy dữ liệu OHLCV (Open/High/Low/Close/Volume) từ yfinance.
+    Dùng cho ADX, Stochastic, ATR thực (cần High/Low).
+    Trả về DataFrame rỗng nếu không lấy được.
+    """
+    ticker_map = {
+        "XAU":    "GC=F",
+        "XAG":    "SI=F",
+        "HG":     "HG=F",
+        "CL":     "CL=F",
+        "USDVND": "USDVND=X",
+        "BTC":    "BTC-USD",
+    }
+    ticker = ticker_map.get(asset_key, "GC=F")
+    try:
+        raw = yf.download(ticker, period="2y", interval="1d",
+                          progress=False, auto_adjust=True)
+        if raw is None or raw.empty:
+            return pd.DataFrame()
+        if isinstance(raw.columns, pd.MultiIndex):
+            raw.columns = raw.columns.get_level_values(0)
+        cols = [c for c in ["Open", "High", "Low", "Close", "Volume"] if c in raw.columns]
+        df = raw[cols].dropna(subset=["Close"])
+        return df if len(df) >= 50 else pd.DataFrame()
+    except Exception:
+        return pd.DataFrame()
+
+
+@st.cache_data(ttl=1800, show_spinner=False)
+def fetch_gvz() -> dict:
+    """
+    Gold Volatility Index (^GVZ) — chỉ số sợ hãi / biến động của thị trường vàng.
+    Tương tự VIX nhưng dành riêng cho vàng. Cao → bất ổn, cần mở rộng stop loss.
+    GVZ < 12: bình tĩnh · 12–18: bình thường · 18–25: lo ngại · >25: biến động mạnh.
+    """
+    try:
+        raw = yf.download("^GVZ", period="60d", interval="1d",
+                          progress=False, auto_adjust=True)
+        if isinstance(raw.columns, pd.MultiIndex):
+            raw.columns = raw.columns.get_level_values(0)
+        s = raw["Close"].dropna()
+        if len(s) < 3:
+            return {"value": None, "ok": False}
+        val  = float(s.iloc[-1])
+        prev = float(s.iloc[-6]) if len(s) >= 6 else val
+        chg  = val - prev
+
+        if   val < 12: level, color = "Thấp — Thị trường bình tĩnh", "#3fb950"
+        elif val < 18: level, color = "Bình thường", "#8b949e"
+        elif val < 25: level, color = "Cao — Lo ngại tăng", "#f9a825"
+        else:          level, color = "Rất cao ⚠️ — Biến động mạnh", "#f85149"
+
+        return {"value": val, "chg": chg, "level": level, "color": color, "ok": True}
+    except Exception:
+        return {"value": None, "level": "N/A", "color": "#8b949e", "ok": False}
+
+
 def _comex_days_to_expiry() -> int:
     """Tính số ngày đến khi hết hạn hợp đồng COMEX vàng front-month."""
     import calendar as _cal
@@ -1247,6 +1306,119 @@ def calc_macd(s: pd.Series, fast: int = 12, slow: int = 26,
     macd     = ema_fast - ema_slow
     signal   = macd.ewm(span=sig, adjust=False).mean()
     return macd, signal, macd - signal
+
+
+def kalman_smooth(prices: np.ndarray, Q: float = 1e-4, R: float = 5e-3) -> np.ndarray:
+    """
+    Bộ lọc Kalman 1 chiều — khử nhiễu ngắn hạn, giữ xu hướng thật.
+    Q = process noise (nhỏ → smooth hơn, phản ứng chậm hơn với đảo chiều)
+    R = measurement noise (lớn → tin model nhiều hơn, smooth hơn)
+    Không cần thư viện ngoài, chỉ dùng numpy.
+    """
+    n = len(prices)
+    x = float(prices[0])
+    P = 1.0
+    out = np.empty(n)
+    for i, z in enumerate(prices):
+        P   = P + Q
+        K   = P / (P + R)
+        x   = x + K * (float(z) - x)
+        P   = (1.0 - K) * P
+        out[i] = x
+    return out
+
+
+def calc_adx(df: pd.DataFrame, period: int = 14) -> dict:
+    """
+    Wilder's ADX (Average Directional Index) — đo độ mạnh xu hướng.
+    Cần DataFrame với cột High, Low, Close.
+    Trả về: adx (0–100), plus_di, minus_di, trend, strong (bool).
+    ADX < 20 → đi ngang, tín hiệu kỹ thuật kém tin cậy.
+    ADX 20–25 → xu hướng hình thành. ADX > 25 → xu hướng mạnh.
+    """
+    default = {"adx": 20.0, "plus_di": 20.0, "minus_di": 20.0,
+               "trend": "Không rõ xu hướng", "direction": "neutral", "strong": False}
+    if df.empty or len(df) < period + 5:
+        return default
+    if not {"High", "Low", "Close"}.issubset(df.columns):
+        return default
+
+    high  = df["High"].astype(float)
+    low   = df["Low"].astype(float)
+    close = df["Close"].astype(float)
+
+    # True Range
+    tr = pd.concat([
+        high - low,
+        (high - close.shift()).abs(),
+        (low  - close.shift()).abs(),
+    ], axis=1).max(axis=1)
+
+    # Directional Movement
+    up   = high.diff()
+    down = -low.diff()
+    pdm  = pd.Series(np.where((up > down) & (up > 0), up, 0.0), index=close.index)
+    mdm  = pd.Series(np.where((down > up) & (down > 0), down, 0.0), index=close.index)
+
+    # Wilder smoothing (EMA với alpha = 1/period)
+    alpha  = 1.0 / period
+    atr14  = tr.ewm(alpha=alpha, adjust=False).mean()
+    pdi14  = 100.0 * pdm.ewm(alpha=alpha, adjust=False).mean() / (atr14 + 1e-9)
+    mdi14  = 100.0 * mdm.ewm(alpha=alpha, adjust=False).mean() / (atr14 + 1e-9)
+    dx     = 100.0 * (pdi14 - mdi14).abs() / (pdi14 + mdi14 + 1e-9)
+    adx    = dx.ewm(alpha=alpha, adjust=False).mean()
+
+    adx_v = float(adx.iloc[-1])
+    pdi_v = float(pdi14.iloc[-1])
+    mdi_v = float(mdi14.iloc[-1])
+
+    if adx_v >= 40:
+        strength, strong = "Xu hướng RẤT MẠNH", True
+    elif adx_v >= 25:
+        strength, strong = "Xu hướng MẠNH", True
+    elif adx_v >= 20:
+        strength, strong = "Xu hướng vừa", False
+    else:
+        strength, strong = "Đi ngang / Tích lũy", False
+
+    direction = "up" if pdi_v > mdi_v else "down"
+    dir_vn    = "TĂNG" if direction == "up" else "GIẢM"
+
+    return {
+        "adx": adx_v, "plus_di": pdi_v, "minus_di": mdi_v,
+        "trend": f"{strength} · {dir_vn}",
+        "direction": direction, "strong": strong,
+    }
+
+
+def calc_stoch(df: pd.DataFrame, k_period: int = 14, d_period: int = 3) -> dict:
+    """
+    Stochastic Oscillator %K và %D.
+    Cần DataFrame với High, Low, Close (hoặc chỉ Close — dùng rolling min/max).
+    Trả về: k, d, signal ('oversold'/'overbought'/'buy'/'sell'/'neutral').
+    """
+    default = {"k": 50.0, "d": 50.0, "signal": "neutral"}
+    if df.empty or len(df) < k_period + d_period:
+        return default
+
+    close = df["Close"].astype(float)
+    high  = df["High"].astype(float)  if "High" in df.columns else close
+    low   = df["Low"].astype(float)   if "Low"  in df.columns else close
+
+    lo_k  = low.rolling(k_period).min()
+    hi_k  = high.rolling(k_period).max()
+    k_pct = 100.0 * (close - lo_k) / (hi_k - lo_k + 1e-9)
+    d_pct = k_pct.rolling(d_period).mean()
+
+    k_v, d_v = float(k_pct.iloc[-1]), float(d_pct.iloc[-1])
+
+    if   k_v < 20 and d_v < 20:              sig = "oversold"
+    elif k_v > 80 and d_v > 80:              sig = "overbought"
+    elif k_v > d_v and k_v < 50:             sig = "buy"
+    elif k_v < d_v and k_v > 50:             sig = "sell"
+    else:                                    sig = "neutral"
+
+    return {"k": k_v, "d": d_v, "signal": sig}
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1532,7 +1704,8 @@ def seasonal_factor(last_date_str: str, days: int, asset_key: str = "XAU") -> fl
 
 @st.cache_data(ttl=1800, show_spinner=False)
 def forecast(_price_values: np.ndarray, last_date_str: str,
-             days: int, macro_score: int = 0, asset_key: str = "XAU") -> tuple:
+             days: int, macro_score: int = 0, asset_key: str = "XAU",
+             ml_prob: float = 0.5) -> tuple:
     price = pd.Series(_price_values)
     train = price.tail(min(365, len(price)))
 
@@ -1600,6 +1773,9 @@ def forecast(_price_values: np.ndarray, last_date_str: str,
     # ── Seasonal adjustment ───────────────────────────────────────────────
     seas_adj = seasonal_factor(last_date_str, days, asset_key)
 
+    # ── Kalman-smoothed price (giảm nhiễu trước khi tính momentum) ──────
+    kal_prices = pd.Series(kalman_smooth(train.values), index=train.index)
+
     # ── Momentum adjustment ───────────────────────────────────────────────
     if days <= 14:
         n_mom      = min(5, len(train))    # Momentum 5 ngày cho giao dịch ngắn hạn
@@ -1609,7 +1785,8 @@ def forecast(_price_values: np.ndarray, last_date_str: str,
         n_mom      = min(66, len(train))
         mom_weight = 0.12 * (30 / max(days, 30)) ** 0.5
         mom_cap    = 0.08
-    ret_mom = float(train.iloc[-1]) / float(train.iloc[-n_mom]) - 1
+    # Dùng Kalman-smoothed prices để momentum ít bị nhiễu hơn
+    ret_mom = float(kal_prices.iloc[-1]) / float(kal_prices.iloc[-n_mom]) - 1
     mom_adj = np.clip(ret_mom * mom_weight, -mom_cap, mom_cap)
 
     # ── Mean reversion từ MA200 ───────────────────────────────────────────
@@ -1622,8 +1799,14 @@ def forecast(_price_values: np.ndarray, last_date_str: str,
     else:
         rev_adj  = 0.0
 
+    # ── ML directional bias ───────────────────────────────────────────────
+    # (ml_prob - 0.5) → [-0.5, +0.5] → scale → max ±5% adjustment
+    # Giảm ảnh hưởng cho dài hạn: ML chủ yếu đáng tin ngắn–trung hạn
+    ml_scale = 0.10 * min(1.0, 30 / max(days, 7))   # 10% at 7d, 3% at 90d, ...
+    ml_adj   = np.clip((ml_prob - 0.5) * ml_scale, -0.05, 0.05)
+
     # ── Apply adjustments ─────────────────────────────────────────────────
-    combined = base * (1 + macro_adj + seas_adj + mom_adj + rev_adj)
+    combined = base * (1 + macro_adj + seas_adj + mom_adj + rev_adj + ml_adj)
 
     # ── Confidence interval (~90%) — mở rộng theo căn bậc 2 thời gian ───
     vol    = train.pct_change().std()
@@ -1906,7 +2089,8 @@ def generate_narrative(price, ma20, ma50, ma200, rsi,
 # ══════════════════════════════════════════════════════════════════════════════
 
 def compute_signal(price, ma20, ma50, ma200, rsi,
-                   fc_mean, macro_score: int = 0) -> tuple:
+                   fc_mean, macro_score: int = 0,
+                   ml_result: dict = None) -> tuple:
     cur  = float(price.iloc[-1])
     r    = float(rsi.iloc[-1])
     fc_e = float(fc_mean.iloc[-1])
@@ -1955,6 +2139,26 @@ def compute_signal(price, ma20, ma50, ma200, rsi,
         score -= 1; notes.append(f"⚠️ Dự báo giảm nhẹ **{abs(chg):.1f}%**")
     else:
         notes.append(f"➡️ Dự báo biến động nhẹ **{chg:+.1f}%**")
+
+    # ── ML Directional Model ──────────────────────────────────────────────
+    if ml_result and ml_result.get("ok"):
+        ml_prob = ml_result["prob_up"]
+        ml_conf = ml_result["confidence"]
+        ml_sig  = ml_result["signal"]
+        ml_sc   = 0
+        if   ml_sig == "strong_buy":  ml_sc = +2
+        elif ml_sig == "buy":         ml_sc = +1
+        elif ml_sig == "strong_sell": ml_sc = -2
+        elif ml_sig == "sell":        ml_sc = -1
+        score += ml_sc
+        prob_pct = ml_prob * 100
+        conf_pct = ml_conf * 100
+        if ml_sc > 0:
+            notes.append(f"🤖 ML Model: {prob_pct:.0f}% xác suất TĂNG (tin cậy {conf_pct:.0f}%) — tín hiệu MUA")
+        elif ml_sc < 0:
+            notes.append(f"🤖 ML Model: {100-prob_pct:.0f}% xác suất GIẢM (tin cậy {conf_pct:.0f}%) — tín hiệu BÁN")
+        else:
+            notes.append(f"🤖 ML Model: {prob_pct:.0f}% xác suất tăng — Trung tính")
 
     if score >= 6:
         return "TĂNG MẠNH", "#3fb950", "🟢", notes
@@ -2256,15 +2460,119 @@ def whale_regime(whale_data: dict, asset_key: str) -> dict:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+#  ML DIRECTIONAL MODEL (GradientBoosting — dự báo hướng giá)
+# ══════════════════════════════════════════════════════════════════════════════
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def ml_directional_signal(_price_values: np.ndarray, days: int) -> dict:
+    """
+    GradientBoosting Classifier dự báo hướng giá sau `days` ngày.
+    Features: RSI14, RSI5, MACD hist, BB%B, momentum 3/5/10/20d,
+              MA20/MA50 deviation, volatility 10/20d, Kalman trend slope.
+    Train trên lịch sử — không có lookahead bias.
+    Kết quả: prob_up (0–1), signal, confidence.
+    """
+    from sklearn.ensemble import GradientBoostingClassifier
+    from sklearn.preprocessing import StandardScaler
+
+    prices = pd.Series(_price_values)
+    n      = len(prices)
+
+    if n < max(180, days * 4):
+        return {"prob_up": 0.5, "signal": "neutral", "confidence": 0.0, "ok": False}
+
+    # ── Feature engineering ───────────────────────────────────────────────
+    rsi14    = calc_rsi(prices, 14)
+    rsi5     = calc_rsi(prices, 5)
+    _, _, mh = calc_macd(prices)
+
+    bb_mid   = prices.rolling(20).mean()
+    bb_std   = prices.rolling(20).std()
+    bb_pct   = (prices - (bb_mid - 2 * bb_std)) / (4 * bb_std + 1e-9)
+
+    ma20 = prices.rolling(20).mean()
+    ma50 = prices.rolling(50).mean()
+
+    # Kalman-smoothed slope (10-day)
+    kal    = pd.Series(kalman_smooth(prices.values), index=prices.index)
+    k_slope = kal.pct_change(5)
+
+    feat = pd.DataFrame({
+        "rsi14":     rsi14,
+        "rsi5":      rsi5,
+        "macd_hist": mh,
+        "bb_pct":    bb_pct.clip(0, 1),
+        "mom3":      prices.pct_change(3),
+        "mom5":      prices.pct_change(5),
+        "mom10":     prices.pct_change(10),
+        "mom20":     prices.pct_change(20),
+        "ma20_dev":  prices / (ma20 + 1e-9) - 1,
+        "ma50_dev":  prices / (ma50 + 1e-9) - 1,
+        "vol10":     prices.pct_change().rolling(10).std(),
+        "vol20":     prices.pct_change().rolling(20).std(),
+        "k_slope":   k_slope,
+    }, index=prices.index)
+
+    # Target: giá sau `days` ngày cao hơn hiện tại?
+    target = (prices.shift(-days) > prices).astype(int)
+
+    combined = feat.join(target.rename("target")).dropna()
+    if len(combined) < 150 or combined["target"].nunique() < 2:
+        return {"prob_up": 0.5, "signal": "neutral", "confidence": 0.0, "ok": False}
+
+    # Tránh lookahead bias: chỉ train đến trước `days` ngày cuối
+    X_train  = combined.iloc[:-days][feat.columns]
+    y_train  = combined.iloc[:-days]["target"]
+    X_pred   = combined.iloc[[-1]][feat.columns]
+
+    if len(X_train) < 100 or y_train.nunique() < 2:
+        return {"prob_up": 0.5, "signal": "neutral", "confidence": 0.0, "ok": False}
+
+    try:
+        scaler   = StandardScaler()
+        Xtr      = scaler.fit_transform(X_train)
+        Xpr      = scaler.transform(X_pred)
+
+        clf = GradientBoostingClassifier(
+            n_estimators=100, max_depth=3, learning_rate=0.05,
+            subsample=0.8, min_samples_leaf=8, random_state=42
+        )
+        clf.fit(Xtr, y_train)
+
+        prob_up    = float(clf.predict_proba(Xpr)[0, 1])
+        confidence = abs(prob_up - 0.5) * 2          # 0 = không chắc, 1 = rất chắc
+
+        if   prob_up >= 0.65: signal = "strong_buy"
+        elif prob_up >= 0.55: signal = "buy"
+        elif prob_up <= 0.35: signal = "strong_sell"
+        elif prob_up <= 0.45: signal = "sell"
+        else:                 signal = "neutral"
+
+        return {
+            "prob_up":    round(prob_up, 3),
+            "prob_down":  round(1 - prob_up, 3),
+            "signal":     signal,
+            "confidence": round(confidence, 3),
+            "ok":         True,
+        }
+    except Exception:
+        return {"prob_up": 0.5, "signal": "neutral", "confidence": 0.0, "ok": False}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 #  SHORT-TERM TECHNICAL SIGNALS (giao dịch 1–14 ngày)
 # ══════════════════════════════════════════════════════════════════════════════
 
-def short_term_signals(price: pd.Series, asset_key: str) -> dict:
+def short_term_signals(price: pd.Series, asset_key: str,
+                       ohlcv: pd.DataFrame = None,
+                       ml_result: dict = None) -> dict:
     """
     Phân tích kỹ thuật ngắn hạn cho giao dịch 1–14 ngày.
-    Dùng RSI(5), MACD(12/26/9), Bollinger Band, Support/Resistance 20 ngày.
-    Trả về dict: action, entry, target, stop, R:R, signals, ...
+    Dùng RSI(5), MACD(12/26/9), Bollinger Band, Support/Resistance 20 ngày,
+    ADX (trend filter), Stochastic, ML directional signal.
+    Trả về dict: action, entry, target, stop, R:R, signals, adx, stoch, ...
     """
+    if ohlcv is None: ohlcv = pd.DataFrame()
     cur = float(price.iloc[-1])
 
     # ── RSI(5) — nhạy hơn RSI(14) cho giao dịch ngắn ─────────────────────
@@ -2299,6 +2607,17 @@ def short_term_signals(price: pd.Series, asset_key: str) -> dict:
 
     # ── Momentum 3 ngày ───────────────────────────────────────────────────
     mom3 = (cur / float(price.iloc[-4]) - 1) * 100 if len(price) >= 4 else 0.0
+
+    # ── ADX — đo độ mạnh xu hướng (cần OHLCV) ────────────────────────────
+    adx_data  = calc_adx(ohlcv)     # returns default if ohlcv empty
+    adx_val   = adx_data["adx"]
+    adx_strong = adx_data["strong"]
+    adx_dir   = adx_data["direction"]   # "up" / "down"
+
+    # ── Stochastic Oscillator ─────────────────────────────────────────────
+    stoch_data = calc_stoch(ohlcv)
+    stoch_k    = stoch_data["k"]
+    stoch_sig  = stoch_data["signal"]
 
     # ── Scoring ───────────────────────────────────────────────────────────
     score   = 0
@@ -2374,6 +2693,52 @@ def short_term_signals(price: pd.Series, asset_key: str) -> dict:
     else:
         signals.append(("➡️", f"Momentum 3 ngày: {mom3:+.1f}%", "gray"))
 
+    # ── ADX — Bộ lọc xu hướng (tín hiệu đáng tin hơn khi ADX > 25) ───────
+    if adx_val < 20:
+        signals.append(("⚠️", f"ADX = {adx_val:.0f} — Thị trường đang ĐI NGANG. Tín hiệu kỹ thuật kém tin cậy hơn. Nên chờ breakout.", "gray"))
+        # Giảm score về 0 nếu thị trường sideways (không có xu hướng rõ)
+        score = round(score * 0.5)
+    elif adx_val >= 25:
+        dir_match = (adx_dir == "up" and score > 0) or (adx_dir == "down" and score < 0)
+        if dir_match:
+            score += 1
+            signals.append(("✅", f"ADX = {adx_val:.0f} — Xu hướng MẠNH, xác nhận tín hiệu {adx_data['direction'].upper()}", "green"))
+        else:
+            signals.append(("⚠️", f"ADX = {adx_val:.0f} — Xu hướng mạnh nhưng NGƯỢC chiều tín hiệu. Thận trọng!", "red"))
+    else:
+        signals.append(("➡️", f"ADX = {adx_val:.0f} — Xu hướng vừa phải", "gray"))
+
+    # ── Stochastic Oscillator ─────────────────────────────────────────────
+    stoch_label_map = {
+        "oversold":   ("✅", "Stochastic %K={:.0f} — Quá bán (dưới 20) → Cơ hội MUA", "green"),
+        "overbought": ("🔴", "Stochastic %K={:.0f} — Quá mua (trên 80) → Cơ hội BÁN", "red"),
+        "buy":        ("✅", "Stochastic %K={:.0f} — %K cắt lên dưới 50 → Tín hiệu MUA", "green"),
+        "sell":       ("🔴", "Stochastic %K={:.0f} — %K cắt xuống trên 50 → Tín hiệu BÁN", "red"),
+        "neutral":    ("➡️", "Stochastic %K={:.0f} — Trung tính", "gray"),
+    }
+    s_ico, s_txt, s_col = stoch_label_map.get(stoch_sig, stoch_label_map["neutral"])
+    signals.append((s_ico, s_txt.format(stoch_k), s_col))
+    if stoch_sig == "oversold":   score += 1
+    elif stoch_sig == "overbought": score -= 1
+    elif stoch_sig == "buy":      score += 1
+    elif stoch_sig == "sell":     score -= 1
+
+    # ── ML Directional Signal ─────────────────────────────────────────────
+    if ml_result and ml_result.get("ok"):
+        ml_prob  = ml_result["prob_up"]
+        ml_conf  = ml_result["confidence"]
+        ml_sig   = ml_result["signal"]
+        if ml_sig in ("strong_buy", "buy"):
+            ml_sc = 2 if ml_sig == "strong_buy" else 1
+            score += ml_sc
+            signals.append(("🤖", f"ML Model: {ml_prob*100:.0f}% xác suất TĂNG (độ tin: {ml_conf*100:.0f}%) → MUA", "green"))
+        elif ml_sig in ("strong_sell", "sell"):
+            ml_sc = -2 if ml_sig == "strong_sell" else -1
+            score += ml_sc
+            signals.append(("🤖", f"ML Model: {(1-ml_prob)*100:.0f}% xác suất GIẢM (độ tin: {ml_conf*100:.0f}%) → BÁN", "red"))
+        else:
+            signals.append(("🤖", f"ML Model: {ml_prob*100:.0f}% xác suất tăng — Trung tính", "gray"))
+
     # ── Action ────────────────────────────────────────────────────────────
     if score >= 5:
         action = "MUA MẠNH"; a_color = "#3fb950"; a_icon = "🚀"
@@ -2422,6 +2787,8 @@ def short_term_signals(price: pd.Series, asset_key: str) -> dict:
         "rr":           rr,
         "atr":          atr,
         "mom3":         mom3,
+        "adx":          adx_data,
+        "stoch":        stoch_data,
         "signals":      signals,
     }
 
@@ -2478,16 +2845,30 @@ def render_asset_tab(asset_key: str, macro: dict, forecast_days: int):
     whale_contrib  = round(whale_result["score"] * 0.25)
     combined_macro = max(-12, min(12, macro_score + fed_contrib + whale_contrib))
 
-    # ── Forecast ──────────────────────────────────────────────────────────
+    # ── OHLCV (cho ADX + Stochastic) ─────────────────────────────────────
+    with st.spinner("📐 Tải OHLCV + tính ADX..."):
+        ohlcv    = fetch_ohlcv(asset_key)
+        adx_data = calc_adx(ohlcv)
+        stoch_d  = calc_stoch(ohlcv)
+
+    # ── ML Directional Signal ─────────────────────────────────────────────
+    with st.spinner("🤖 Chạy mô hình ML dự báo hướng..."):
+        ml_result = ml_directional_signal(price.values, forecast_days)
+
+    # ── GVZ (Gold Volatility) — chỉ cho XAU ──────────────────────────────
+    gvz_data = fetch_gvz() if asset_key == "XAU" else {"ok": False}
+
+    # ── Forecast (tích hợp ML bias) ───────────────────────────────────────
     with st.spinner(f"🔮 Chạy mô hình dự báo {a_short}..."):
+        ml_prob_val = ml_result.get("prob_up", 0.5) if ml_result.get("ok") else 0.5
         fc_mean, fc_lo_s, fc_hi_s = forecast(
             price.values, str(price.index[-1]), forecast_days,
-            combined_macro, asset_key
+            combined_macro, asset_key, ml_prob_val
         )
 
-    # ── Signal ────────────────────────────────────────────────────────────
+    # ── Signal (tích hợp ML) ──────────────────────────────────────────────
     signal, sig_color, sig_icon, tech_notes = compute_signal(
-        price, ma20, ma50, ma200, rsi, fc_mean, combined_macro
+        price, ma20, ma50, ma200, rsi, fc_mean, combined_macro, ml_result
     )
 
     cur   = float(price.iloc[-1])
@@ -2500,7 +2881,7 @@ def render_asset_tab(asset_key: str, macro: dict, forecast_days: int):
                  f"({'thuận lợi' if seas > 0 else 'bất lợi'} cho kỳ này)")
 
     # ── Metrics row ───────────────────────────────────────────────────────
-    m1, m2, m3, m4 = st.columns(4)
+    m1, m2, m3, m4, m5 = st.columns(5)
 
     if live_price:
         live_diff = live_price - cur
@@ -2523,6 +2904,22 @@ def render_asset_tab(asset_key: str, macro: dict, forecast_days: int):
               "Quá mua ⚠️" if r_cur > 70 else ("Quá bán ✅" if r_cur < 30 else "Bình thường"),
               delta_color="off")
 
+    # ML probability metric
+    if ml_result.get("ok"):
+        ml_p  = ml_result["prob_up"]
+        ml_lbl = "TĂNG" if ml_p >= 0.55 else ("GIẢM" if ml_p <= 0.45 else "TRUNG TÍNH")
+        ml_clr = "normal" if ml_p >= 0.55 else ("inverse" if ml_p <= 0.45 else "off")
+        m5.metric("🤖 ML Probability",
+                  f"{ml_p*100:.0f}% {ml_lbl}",
+                  f"Độ tin: {ml_result['confidence']*100:.0f}%",
+                  delta_color=ml_clr,
+                  help="GradientBoosting Classifier dự báo xác suất giá tăng. "
+                       "Features: RSI, MACD, Bollinger, Momentum, MA deviation, Kalman slope. "
+                       "Train trên lịch sử không có lookahead bias. "
+                       "≥65% = MUA · ≤35% = BÁN · 45–55% = Trung tính.")
+    else:
+        m5.metric("🤖 ML Probability", "N/A", "Chưa đủ dữ liệu", delta_color="off")
+
     # Ghi chú nguồn giá
     if live_price:
         diff_pct = abs(live_price - cur) / cur * 100
@@ -2543,7 +2940,7 @@ def render_asset_tab(asset_key: str, macro: dict, forecast_days: int):
 
     # ── Short-term Trading Panel (chỉ hiển thị khi kỳ dự báo ≤ 14 ngày) ──
     if forecast_days in SHORT_TERM_DAYS:
-        st_sig = short_term_signals(price, asset_key)
+        st_sig = short_term_signals(price, asset_key, ohlcv, ml_result)
         ac     = st_sig["action_color"]
         ac_bg  = hex_rgba(ac, 0.13)
         ac_bd  = hex_rgba(ac, 0.50)
@@ -2619,11 +3016,29 @@ def render_asset_tab(asset_key: str, macro: dict, forecast_days: int):
                           "up": "↗️ MACD dương", "down": "↘️ MACD âm"}.get(st_sig["macd_cross"], "—")
             bb_emoji   = "🟢 Gần BB dưới" if st_sig["bb_pos"] < 0.25 else \
                          ("🔴 Gần BB trên" if st_sig["bb_pos"] > 0.75 else "⚪ Giữa BB")
+            # ADX + Stochastic info
+            adx_r  = st_sig["adx"]
+            stch_r = st_sig["stoch"]
+            adx_emoji  = "🟢 Mạnh" if adx_r["strong"] else "⚪ Yếu/Sideways"
+            stch_emoji = {"oversold":"🟢 Quá bán","overbought":"🔴 Quá mua",
+                          "buy":"↗️ Mua","sell":"↘️ Bán","neutral":"⚪ Trung tính"}.get(stch_r["signal"],"⚪")
+            # ML info
+            ml_info = ""
+            if ml_result and ml_result.get("ok"):
+                ml_info = f"\n- **ML Model:** {ml_result['prob_up']*100:.0f}% tăng — {ml_result['signal'].replace('_',' ').upper()}"
+            # GVZ info (XAU only)
+            gvz_info = ""
+            if gvz_data.get("ok"):
+                gvz_info = f"\n- **GVZ (Vàng Volatility):** {gvz_data['value']:.1f} — {gvz_data['level']}"
+
             st.markdown(
                 f"- **RSI(5):** {st_sig['rsi5']:.0f} — {rsi5_emoji}\n"
                 f"- **MACD:** {macd_emoji}\n"
                 f"- **Bollinger Band:** {bb_emoji} ({st_sig['bb_pos']*100:.0f}%)\n"
+                f"- **ADX:** {adx_r['adx']:.0f} — {adx_emoji} ({adx_r['trend']})\n"
+                f"- **Stochastic %K:** {stch_r['k']:.0f} — {stch_emoji}\n"
                 f"- **Momentum 3 ngày:** {st_sig['mom3']:+.2f}%"
+                + ml_info + gvz_info
             )
 
         # ── Signal detail expander ────────────────────────────────────────
@@ -2916,6 +3331,18 @@ def render_asset_tab(asset_key: str, macro: dict, forecast_days: int):
         st.markdown("**📐 Tín hiệu kỹ thuật:**")
         for note in tech_notes:
             st.markdown(f"- {note}")
+        # ADX
+        adx_str = f"ADX = {adx_data['adx']:.0f} — {adx_data['trend']}"
+        adx_ico = "✅" if adx_data["strong"] else "➡️"
+        st.markdown(f"- {adx_ico} {adx_str}")
+        # Stochastic
+        stch_vn = {"oversold":"Quá bán","overbought":"Quá mua",
+                   "buy":"Mua","sell":"Bán","neutral":"Trung tính"}.get(stoch_d["signal"],"")
+        st.markdown(f"- 📊 Stochastic %K = {stoch_d['k']:.0f} · %D = {stoch_d['d']:.0f} — {stch_vn}")
+        # GVZ (XAU only)
+        if gvz_data.get("ok"):
+            gvz_ico = "⚠️" if gvz_data["value"] >= 18 else "✅"
+            st.markdown(f"- {gvz_ico} GVZ (Vàng Volatility): {gvz_data['value']:.1f} — {gvz_data['level']}")
     with col_m:
         st.markdown("**🌐 Tín hiệu vĩ mô:**")
         shown = 0
