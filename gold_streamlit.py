@@ -63,12 +63,20 @@ st.markdown("""
 # ══════════════════════════════════════════════════════════════════════════════
 
 PERIOD_LABELS = {
+    # ── Giao dịch ngắn hạn ────────────────────────────────────────────────
+    1:   "Ngày mai",
+    3:   "3 ngày tới",
+    7:   "1 tuần tới",
+    14:  "2 tuần tới",
+    # ── Đầu tư dài hạn ────────────────────────────────────────────────────
     30:  "1 tháng tới",
     60:  "2 tháng tới",
     90:  "3 tháng tới",
     180: "6 tháng tới",
     365: "1 năm tới",
 }
+
+SHORT_TERM_DAYS = {1, 3, 7, 14}   # Kỳ giao dịch ngắn hạn
 
 # ── Asset metadata ─────────────────────────────────────────────────────────
 ASSETS = {
@@ -1234,6 +1242,17 @@ def calc_rsi(s: pd.Series, period: int = 14) -> pd.Series:
     l = (-d.clip(upper=0)).ewm(com=period - 1, adjust=False).mean()
     return 100 - 100 / (1 + g / (l + 1e-9))
 
+
+def calc_macd(s: pd.Series, fast: int = 12, slow: int = 26,
+              sig: int = 9) -> tuple:
+    """Trả về (macd_line, signal_line, histogram)."""
+    ema_fast = s.ewm(span=fast, adjust=False).mean()
+    ema_slow = s.ewm(span=slow, adjust=False).mean()
+    macd     = ema_fast - ema_slow
+    signal   = macd.ewm(span=sig, adjust=False).mean()
+    return macd, signal, macd - signal
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 #  MACRO REGIME ANALYSIS
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1539,23 +1558,40 @@ def forecast(_price_values: np.ndarray, last_date_str: str,
     except Exception:
         pass
 
-    # ── Model C: Log-return momentum (60 ngày gần, damped) ───────────────
+    # ── Model C: Log-return momentum (damped, ngắn/dài hạn khác nhau) ───
     log_p = np.log(train.values)
-    w     = min(60, len(log_p))
-    slope = LinearRegression().fit(
+    if days <= 14:
+        # Ngắn hạn: dùng 10 ngày gần, damping nhẹ hơn để bám sát trend
+        w, damp = min(10, len(log_p)), 0.75
+    else:
+        # Dài hạn: 60 ngày, damping mạnh tránh extrapolate quá mức
+        w, damp = min(60, len(log_p)), 0.45
+    slope   = LinearRegression().fit(
         np.arange(w).reshape(-1, 1), log_p[-w:]
-    ).coef_[0] * 0.45  # damped để tránh extrapolate quá mức
+    ).coef_[0] * damp
     lr_vals = np.exp(log_p[-1] + slope * np.arange(1, days + 1))
 
     # ── Ensemble ──────────────────────────────────────────────────────────
-    if hw_vals is not None and arima_vals is not None:
-        base = 0.45 * hw_vals + 0.35 * arima_vals + 0.20 * lr_vals
-    elif hw_vals is not None:
-        base = 0.60 * hw_vals + 0.40 * lr_vals
-    elif arima_vals is not None:
-        base = 0.60 * arima_vals + 0.40 * lr_vals
+    if days <= 14:
+        # Ngắn hạn: nghiêng về momentum (kỹ thuật), ít HW hơn
+        if hw_vals is not None and arima_vals is not None:
+            base = 0.20 * hw_vals + 0.35 * arima_vals + 0.45 * lr_vals
+        elif hw_vals is not None:
+            base = 0.30 * hw_vals + 0.70 * lr_vals
+        elif arima_vals is not None:
+            base = 0.45 * arima_vals + 0.55 * lr_vals
+        else:
+            base = lr_vals
     else:
-        base = lr_vals
+        # Dài hạn: giữ nguyên trọng số gốc
+        if hw_vals is not None and arima_vals is not None:
+            base = 0.45 * hw_vals + 0.35 * arima_vals + 0.20 * lr_vals
+        elif hw_vals is not None:
+            base = 0.60 * hw_vals + 0.40 * lr_vals
+        elif arima_vals is not None:
+            base = 0.60 * arima_vals + 0.40 * lr_vals
+        else:
+            base = lr_vals
 
     # ── Macro adjustment: sqrt-damped để tránh cộng tuyến tính quá mức ──
     # Cũ: score * 0.0035 * (days/30) → 1 năm score=8 ra +34% (sai)
@@ -1568,12 +1604,17 @@ def forecast(_price_values: np.ndarray, last_date_str: str,
     # ── Seasonal adjustment ───────────────────────────────────────────────
     seas_adj = seasonal_factor(last_date_str, days, asset_key)
 
-    # ── Momentum adjustment (3 tháng gần nhất của giá vàng) ──────────────
-    n3m      = min(66, len(train))
-    ret_3m   = float(train.iloc[-1]) / float(train.iloc[-n3m]) - 1
-    # Momentum đóng góp tối đa 12%, giảm dần cho kỳ dài (mean reversion)
-    mom_weight = 0.12 * (30 / max(days, 30)) ** 0.5
-    mom_adj  = np.clip(ret_3m * mom_weight, -0.08, 0.08)
+    # ── Momentum adjustment ───────────────────────────────────────────────
+    if days <= 14:
+        n_mom      = min(5, len(train))    # Momentum 5 ngày cho giao dịch ngắn hạn
+        mom_weight = 0.08                  # Tác động thấp — kỹ thuật chiếm chủ đạo
+        mom_cap    = 0.03                  # Cap ±3% cho ngắn hạn
+    else:
+        n_mom      = min(66, len(train))
+        mom_weight = 0.12 * (30 / max(days, 30)) ** 0.5
+        mom_cap    = 0.08
+    ret_mom = float(train.iloc[-1]) / float(train.iloc[-n_mom]) - 1
+    mom_adj = np.clip(ret_mom * mom_weight, -mom_cap, mom_cap)
 
     # ── Mean reversion từ MA200 ───────────────────────────────────────────
     if len(price) >= 200:
@@ -2219,6 +2260,177 @@ def whale_regime(whale_data: dict, asset_key: str) -> dict:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+#  SHORT-TERM TECHNICAL SIGNALS (giao dịch 1–14 ngày)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def short_term_signals(price: pd.Series, asset_key: str) -> dict:
+    """
+    Phân tích kỹ thuật ngắn hạn cho giao dịch 1–14 ngày.
+    Dùng RSI(5), MACD(12/26/9), Bollinger Band, Support/Resistance 20 ngày.
+    Trả về dict: action, entry, target, stop, R:R, signals, ...
+    """
+    cur = float(price.iloc[-1])
+
+    # ── RSI(5) — nhạy hơn RSI(14) cho giao dịch ngắn ─────────────────────
+    rsi5_val = float(calc_rsi(price, 5).iloc[-1])
+
+    # ── MACD(12/26/9) ─────────────────────────────────────────────────────
+    macd_line, macd_sig_line, macd_hist = calc_macd(price)
+    macd_val   = float(macd_line.iloc[-1])
+    mhist_now  = float(macd_hist.iloc[-1])
+    mhist_prev = float(macd_hist.iloc[-2]) if len(macd_hist) > 1 else 0.0
+
+    if   mhist_now > 0 and mhist_prev <= 0: macd_cross = "golden"
+    elif mhist_now < 0 and mhist_prev >= 0: macd_cross = "dead"
+    elif mhist_now > 0:                      macd_cross = "up"
+    else:                                    macd_cross = "down"
+
+    # ── Bollinger Band position (20 ngày) ─────────────────────────────────
+    bb_mid_v = float(price.rolling(20).mean().iloc[-1])
+    bb_std_v = float(price.rolling(20).std().iloc[-1])
+    bb_up_v  = bb_mid_v + 2 * bb_std_v
+    bb_lo_v  = bb_mid_v - 2 * bb_std_v
+    bb_width = bb_up_v - bb_lo_v
+    bb_pos   = (cur - bb_lo_v) / bb_width if bb_width > 0 else 0.5
+
+    # ── Support / Resistance (swing high/low 20 ngày) ─────────────────────
+    recent20   = price.tail(20)
+    support    = float(recent20.min())
+    resistance = float(recent20.max())
+
+    # ── ATR proxy (std dev 14 ngày) — dùng để đặt target/stop ────────────
+    atr = max(float(price.tail(14).std()), cur * 0.003)
+
+    # ── Momentum 3 ngày ───────────────────────────────────────────────────
+    mom3 = (cur / float(price.iloc[-4]) - 1) * 100 if len(price) >= 4 else 0.0
+
+    # ── Scoring ───────────────────────────────────────────────────────────
+    score   = 0
+    signals = []
+
+    # RSI(5)
+    if rsi5_val < 20:
+        score += 3
+        signals.append(("✅", f"RSI(5) = {rsi5_val:.0f} — Quá bán cực mạnh → Cơ hội MUA rất tốt", "green"))
+    elif rsi5_val < 35:
+        score += 2
+        signals.append(("✅", f"RSI(5) = {rsi5_val:.0f} — Quá bán → Xem xét MUA", "green"))
+    elif rsi5_val < 45:
+        score += 1
+        signals.append(("✅", f"RSI(5) = {rsi5_val:.0f} — Hơi quá bán → Nghiêng MUA", "green"))
+    elif rsi5_val > 80:
+        score -= 3
+        signals.append(("🔴", f"RSI(5) = {rsi5_val:.0f} — Quá mua cực mạnh → Cơ hội BÁN / chốt lời", "red"))
+    elif rsi5_val > 65:
+        score -= 2
+        signals.append(("🔴", f"RSI(5) = {rsi5_val:.0f} — Quá mua → Cẩn thận, xem xét BÁN", "red"))
+    elif rsi5_val > 55:
+        score -= 1
+        signals.append(("🔴", f"RSI(5) = {rsi5_val:.0f} — Hơi quá mua → Nghiêng BÁN", "red"))
+    else:
+        signals.append(("➡️", f"RSI(5) = {rsi5_val:.0f} — Vùng trung tính (45–55)", "gray"))
+
+    # MACD
+    if macd_cross == "golden":
+        score += 2
+        signals.append(("✅", "MACD Golden Cross — vừa cắt lên → Tín hiệu MUA mạnh", "green"))
+    elif macd_cross == "dead":
+        score -= 2
+        signals.append(("🔴", "MACD Dead Cross — vừa cắt xuống → Tín hiệu BÁN mạnh", "red"))
+    elif macd_cross == "up":
+        score += 1
+        signals.append(("✅", f"MACD dương ({macd_val:+.4g}) — Đà tăng đang duy trì", "green"))
+    else:
+        score -= 1
+        signals.append(("🔴", f"MACD âm ({macd_val:+.4g}) — Đà giảm đang duy trì", "red"))
+
+    # Bollinger Band
+    if bb_pos <= 0.10:
+        score += 2
+        signals.append(("✅", f"Giá sát BB dưới ({bb_pos*100:.0f}%) — Quá bán ngắn hạn, thường hồi phục", "green"))
+    elif bb_pos <= 0.25:
+        score += 1
+        signals.append(("✅", f"Giá gần BB dưới ({bb_pos*100:.0f}%) — Vùng hỗ trợ Bollinger", "green"))
+    elif bb_pos >= 0.90:
+        score -= 2
+        signals.append(("🔴", f"Giá sát BB trên ({bb_pos*100:.0f}%) — Quá mua, nguy cơ đảo chiều", "red"))
+    elif bb_pos >= 0.75:
+        score -= 1
+        signals.append(("🔴", f"Giá gần BB trên ({bb_pos*100:.0f}%) — Cẩn thận áp lực bán", "red"))
+    else:
+        signals.append(("➡️", f"Giá giữa BB ({bb_pos*100:.0f}%) — Trung tính", "gray"))
+
+    # Price vs S/R 20 ngày
+    if cur <= support + atr * 0.2:
+        score += 1
+        signals.append(("✅", "Giá đang ở vùng hỗ trợ 20 ngày — Điểm MUA tiềm năng", "green"))
+    elif cur >= resistance - atr * 0.2:
+        score -= 1
+        signals.append(("🔴", "Giá đang ở vùng kháng cự 20 ngày — Điểm BÁN tiềm năng", "red"))
+
+    # Momentum 3 ngày
+    if mom3 < -2.5:
+        score -= 1
+        signals.append(("🔴", f"Momentum 3 ngày: {mom3:+.1f}% — Đà giảm ngắn hạn mạnh", "red"))
+    elif mom3 > 2.5:
+        score += 1
+        signals.append(("✅", f"Momentum 3 ngày: {mom3:+.1f}% — Đà tăng ngắn hạn mạnh", "green"))
+    else:
+        signals.append(("➡️", f"Momentum 3 ngày: {mom3:+.1f}%", "gray"))
+
+    # ── Action ────────────────────────────────────────────────────────────
+    if score >= 5:
+        action = "MUA MẠNH"; a_color = "#3fb950"; a_icon = "🚀"
+    elif score >= 2:
+        action = "MUA"; a_color = "#76c3a0"; a_icon = "📈"
+    elif score <= -5:
+        action = "BÁN MẠNH"; a_color = "#f85149"; a_icon = "🔻"
+    elif score <= -2:
+        action = "BÁN / CHỐT LỜI"; a_color = "#ff7b54"; a_icon = "📉"
+    else:
+        action = "QUAN SÁT / TRUNG TÍNH"; a_color = "#FFD700"; a_icon = "⏸️"
+
+    # ── Entry / Target / Stop ─────────────────────────────────────────────
+    if score >= 2:          # Buy bias
+        entry  = cur
+        target = min(resistance, cur + atr * 2.0)
+        stop   = max(support * 0.998, cur - atr * 1.2)
+    elif score <= -2:       # Sell bias
+        entry  = cur
+        target = max(support, cur - atr * 2.0)
+        stop   = min(resistance * 1.002, cur + atr * 1.2)
+    else:                   # Neutral
+        entry  = cur
+        target = cur + atr * 0.8
+        stop   = cur - atr * 0.6
+
+    gain = abs(target - entry)
+    loss = abs(entry  - stop)
+    rr   = round(gain / loss, 2) if loss > 1e-9 else 0.0
+
+    return {
+        "score":        score,
+        "action":       action,
+        "action_color": a_color,
+        "action_icon":  a_icon,
+        "rsi5":         rsi5_val,
+        "macd_val":     macd_val,
+        "macd_cross":   macd_cross,
+        "macd_hist":    mhist_now,
+        "bb_pos":       bb_pos,
+        "support":      support,
+        "resistance":   resistance,
+        "entry":        entry,
+        "target":       target,
+        "stop":         stop,
+        "rr":           rr,
+        "atr":          atr,
+        "mom3":         mom3,
+        "signals":      signals,
+    }
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 #  ASSET TAB RENDERER
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -2332,6 +2544,105 @@ def render_asset_tab(asset_key: str, macro: dict, forecast_days: int):
         )
 
     st.markdown("---")
+
+    # ── Short-term Trading Panel (chỉ hiển thị khi kỳ dự báo ≤ 14 ngày) ──
+    if forecast_days in SHORT_TERM_DAYS:
+        st_sig = short_term_signals(price, asset_key)
+        ac     = st_sig["action_color"]
+        ac_bg  = hex_rgba(ac, 0.13)
+        ac_bd  = hex_rgba(ac, 0.50)
+
+        st.markdown(
+            f"### ⚡ Bảng Giao Dịch Ngắn Hạn — {period_label(forecast_days)}",
+        )
+
+        # ── Action banner ─────────────────────────────────────────────────
+        st.markdown(
+            f"""<div style="background:{ac_bg};border:2px solid {ac_bd};border-radius:12px;
+            padding:14px 20px;margin-bottom:12px;">
+            <span style="color:{ac};font-size:1.4rem;font-weight:800;">
+            {st_sig['action_icon']} {st_sig['action']}</span>
+            &nbsp;&nbsp;
+            <span style="color:#8b949e;font-size:0.9rem;">
+            Điểm kỹ thuật: {st_sig['score']:+d} &nbsp;·&nbsp;
+            {a_short} hiện tại: <b style="color:#e6edf3;">{fmt_price(cur, asset_key)}</b>
+            </span></div>""",
+            unsafe_allow_html=True,
+        )
+
+        # ── Key metrics: Entry / Target / Stop / R:R ──────────────────────
+        t1, t2, t3, t4 = st.columns(4)
+        t1.metric(
+            "📍 Giá vào lệnh (Entry)",
+            fmt_price(st_sig["entry"], asset_key),
+            "Giá hiện tại",
+            delta_color="off",
+            help="Vùng giá đề xuất vào lệnh. Nên vào dần (DCA) thay vì all-in một lần.",
+        )
+        tgt_chg = (st_sig["target"] - cur) / cur * 100
+        t2.metric(
+            "🎯 Mục tiêu lợi nhuận (Target)",
+            fmt_price(st_sig["target"], asset_key),
+            f"{tgt_chg:+.1f}%",
+            delta_color="normal",
+            help="Kháng cự gần nhất hoặc mức giá mục tiêu dựa trên ATR. Chốt lời dần khi chạm.",
+        )
+        stp_chg = (st_sig["stop"] - cur) / cur * 100
+        t3.metric(
+            "🛑 Cắt lỗ (Stop Loss)",
+            fmt_price(st_sig["stop"], asset_key),
+            f"{stp_chg:+.1f}%",
+            delta_color="inverse",
+            help="Mức giá cắt lỗ. PHẢI đặt lệnh stop loss ngay khi vào lệnh để bảo vệ vốn.",
+        )
+        rr_color = "normal" if st_sig["rr"] >= 1.5 else "off"
+        t4.metric(
+            "⚖️ Tỷ lệ Lợi nhuận/Rủi ro (R:R)",
+            f"1 : {st_sig['rr']:.1f}",
+            "Tốt ✅" if st_sig["rr"] >= 2 else ("Chấp nhận ⚠️" if st_sig["rr"] >= 1.5 else "Thấp 🔴"),
+            delta_color=rr_color,
+            help="Tỷ lệ R:R ≥ 2 là lý tưởng. Tối thiểu ≥ 1.5. Dưới 1.0 nên bỏ qua giao dịch.",
+        )
+
+        # ── Support / Resistance + Technical indicators ───────────────────
+        sr1, sr2 = st.columns(2)
+        with sr1:
+            st.markdown("**📊 Hỗ trợ & Kháng cự (20 ngày):**")
+            s_color = "#3fb950"; r_color = "#f85149"
+            st.markdown(
+                f"- 🟢 **Hỗ trợ (Support):** {fmt_price(st_sig['support'], asset_key)}"
+                f" &nbsp;({(st_sig['support']-cur)/cur*100:+.1f}%)\n"
+                f"- 🔴 **Kháng cự (Resistance):** {fmt_price(st_sig['resistance'], asset_key)}"
+                f" &nbsp;({(st_sig['resistance']-cur)/cur*100:+.1f}%)\n"
+                f"- 📏 **ATR proxy (14 ngày):** {fmt_price(st_sig['atr'], asset_key)}"
+            )
+        with sr2:
+            st.markdown("**📈 Chỉ báo kỹ thuật ngắn hạn:**")
+            rsi5_emoji = "🔴 Quá mua" if st_sig["rsi5"] > 65 else ("🟢 Quá bán" if st_sig["rsi5"] < 35 else "⚪ Trung tính")
+            macd_emoji = {"golden": "🟢 Golden Cross ↑", "dead": "🔴 Dead Cross ↓",
+                          "up": "↗️ MACD dương", "down": "↘️ MACD âm"}.get(st_sig["macd_cross"], "—")
+            bb_emoji   = "🟢 Gần BB dưới" if st_sig["bb_pos"] < 0.25 else \
+                         ("🔴 Gần BB trên" if st_sig["bb_pos"] > 0.75 else "⚪ Giữa BB")
+            st.markdown(
+                f"- **RSI(5):** {st_sig['rsi5']:.0f} — {rsi5_emoji}\n"
+                f"- **MACD:** {macd_emoji}\n"
+                f"- **Bollinger Band:** {bb_emoji} ({st_sig['bb_pos']*100:.0f}%)\n"
+                f"- **Momentum 3 ngày:** {st_sig['mom3']:+.2f}%"
+            )
+
+        # ── Signal detail expander ────────────────────────────────────────
+        with st.expander("🔍 Chi tiết tín hiệu kỹ thuật ngắn hạn", expanded=False):
+            for icon, text, _ in st_sig["signals"]:
+                st.markdown(f"{icon} {text}")
+            st.markdown(
+                "\n---\n"
+                f"*⚠️ Lưu ý quan trọng: Phân tích kỹ thuật ngắn hạn chỉ mang tính tham khảo. "
+                "Vàng/bạc/hàng hoá có thể biến động mạnh bất ngờ do tin tức vĩ mô (Fed, xung đột, "
+                "dữ liệu CPI...). Luôn dùng stop loss và không vào quá 10-15% danh mục cho một giao dịch. "
+                "Kết hợp với phân tích vĩ mô bên dưới để có quyết định tốt hơn.*"
+            )
+
+        st.markdown("---")
 
     # ── Macro dashboard ───────────────────────────────────────────────────
     macro_score_color = ("#3fb950" if macro_score >= 3 else
@@ -2708,12 +3019,24 @@ def main():
     st.markdown("---")
 
     # ── Controls ──────────────────────────────────────────────────────────────
-    c1, c2, c3 = st.columns([3, 1, 3])
+    c1, c2, c3 = st.columns([4, 1, 2])
     with c1:
+        mode = st.radio(
+            "Chế độ:",
+            ["⚡ Giao dịch ngắn hạn (1–14 ngày)", "📈 Đầu tư dài hạn (1–12 tháng)"],
+            horizontal=True,
+            label_visibility="collapsed",
+        )
+        if "Giao dịch" in mode:
+            _opts = {1: "Ngày mai", 3: "3 ngày tới", 7: "1 tuần tới", 14: "2 tuần tới"}
+        else:
+            _opts = {30: "1 tháng tới", 60: "2 tháng tới", 90: "3 tháng tới",
+                     180: "6 tháng tới", 365: "1 năm tới"}
         forecast_days = st.radio(
-            "Kỳ dự báo:", list(PERIOD_LABELS.keys()),
-            format_func=lambda x: PERIOD_LABELS[x],
-            horizontal=True, label_visibility="collapsed"
+            "Kỳ dự báo:", list(_opts.keys()),
+            format_func=lambda x: _opts[x],
+            horizontal=True,
+            label_visibility="collapsed",
         )
     with c2:
         if st.button("🔄 Làm mới", use_container_width=True):
