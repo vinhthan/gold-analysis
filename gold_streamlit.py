@@ -216,6 +216,143 @@ TRUMP_WARSH_DYNAMIC = {
     "compromise_prob":  15,  # Xác suất thỏa hiệp giữa chừng (%)
 }
 
+# ── Bảng giải thích thuật ngữ — hiển thị trong tab app ─────────────────────
+GLOSSARY = {
+    # ── Kỹ thuật ──────────────────────────────────────────────────────────
+    "MA20 / MA50 / MA200":
+        "Moving Average (Đường trung bình động) 20/50/200 ngày. Tính bằng trung bình cộng giá "
+        "đóng cửa trong N ngày gần nhất. MA20 = ngắn hạn, MA50 = trung hạn, MA200 = dài hạn. "
+        "Giá nằm TRÊN MA200 = xu hướng tăng dài hạn được xác nhận.",
+    "RSI (14)":
+        "Relative Strength Index — Chỉ báo động lượng. Đo tốc độ và độ lớn thay đổi giá trong 14 "
+        "ngày. Thang 0–100. >70 = Quá mua (overbought) → nguy cơ điều chỉnh. <30 = Quá bán "
+        "(oversold) → khả năng hồi phục. 40–60 = Trung tính.",
+    "Bollinger Bands (BB)":
+        "Dải Bollinger = MA20 ± 2 độ lệch chuẩn. Khi giá chạm dải trên = overbought, "
+        "chạm dải dưới = oversold. Dải co lại = biến động thấp, sắp có đột phá lớn.",
+    "52W High / Low":
+        "52-Week High/Low — Giá cao nhất/thấp nhất trong 52 tuần (1 năm) qua. "
+        "Giá phá vỡ 52W High = tín hiệu tăng mạnh. Giá gần 52W Low = vùng hỗ trợ quan trọng.",
+
+    # ── Vĩ mô ─────────────────────────────────────────────────────────────
+    "DXY (Dollar Index)":
+        "US Dollar Index — Chỉ số sức mạnh USD so với rổ 6 đồng tiền chính "
+        "(EUR 57.6%, JPY 13.6%, GBP 11.9%, CAD 9.1%, SEK 4.2%, CHF 3.6%). "
+        "DXY tăng = USD mạnh → áp lực giảm vàng/bạc. DXY giảm = USD yếu → hỗ trợ hàng hóa.",
+    "Yield 10Y (TNX)":
+        "10-Year US Treasury Yield — Lợi suất trái phiếu kho bạc Mỹ kỳ hạn 10 năm. "
+        "Là lãi suất tham chiếu quan trọng nhất thế giới. Yield tăng = chi phí vay vốn tăng, "
+        "USD hấp dẫn hơn → áp lực giảm vàng. Yield giảm → hỗ trợ vàng.",
+    "VIX (Fear Index)":
+        "CBOE Volatility Index — Chỉ số sợ hãi thị trường. Đo biến động kỳ vọng 30 ngày "
+        "của S&P 500 từ giá options. <15 = Tự tin/tham lam. 15–25 = Trung tính. "
+        "25–35 = Lo lắng. >35 = Hoảng loạn → tiền chạy vào vàng (safe haven).",
+    "S&P 500 (SPX)":
+        "Standard & Poor's 500 — Chỉ số cổ phiếu 500 công ty lớn nhất Mỹ. "
+        "Đại diện cho tâm lý risk-on/risk-off. S&P tăng = risk-on → tiền rời khỏi vàng. "
+        "S&P giảm mạnh = risk-off → tiền đổ vào vàng và tài sản an toàn.",
+    "TIPS ETF (TIP)":
+        "iShares TIPS Bond ETF — Quỹ trái phiếu bảo vệ lạm phát (Treasury Inflation-Protected). "
+        "TIP tăng giá = lãi suất thực đang giảm → hỗ trợ vàng. Proxy gián tiếp cho lãi suất thực.",
+
+    # ── Lãi suất & Fed ────────────────────────────────────────────────────
+    "FEDFUNDS":
+        "Federal Funds Effective Rate — Lãi suất liên ngân hàng qua đêm (overnight) tại Mỹ. "
+        "Đây là lãi suất chính sách của Fed, quyết định chi phí vốn toàn cầu. "
+        "Hiện tại Fed target 2.5% là lãi suất trung tính (neutral rate).",
+    "DFII10 (Lãi suất thực)":
+        "10-Year Treasury Inflation-Indexed Security Yield — Lãi suất thực (real interest rate) "
+        "kỳ hạn 10 năm. = Yield danh nghĩa − Lạm phát kỳ vọng. "
+        "ĐÂY LÀ INDICATOR QUAN TRỌNG NHẤT CỦA VÀNG: Tương quan âm -0.90. "
+        "DFII10 < 0% = vàng không có chi phí cơ hội → BUY mạnh. "
+        "DFII10 > 2% = chi phí cơ hội cao → áp lực bán vàng.",
+    "T5YIFR (Kỳ vọng lạm phát)":
+        "5-Year, 5-Year Forward Inflation Expectation Rate — Kỳ vọng lạm phát trung bình "
+        "5 năm, bắt đầu từ 5 năm nữa. Đây là thước đo mà Fed theo dõi sát nhất. "
+        "Target của Fed là 2%. >2.75% = lạm phát mất kiểm soát → Fed không thể cắt lãi. "
+        "<2.0% = áp lực deflation → Fed có lý do cắt lãi.",
+    "T10Y2Y (Yield Curve)":
+        "10Y Treasury Yield trừ 2Y Treasury Yield — Đường cong lợi suất. "
+        "BÌNH THƯỜNG: 10Y > 2Y (dương) = kinh tế khỏe mạnh. "
+        "ĐẢO NGƯỢC (âm): 2Y > 10Y = thị trường kỳ vọng kinh tế suy thoái và Fed sẽ cắt lãi. "
+        "Lịch sử: đảo ngược → 6-18 tháng sau thường xảy ra suy thoái.",
+    "WALCL (Fed Balance Sheet)":
+        "Weekly Assets of Large Commercial Banks — Tổng tài sản trên bảng cân đối của Fed (nghìn tỷ USD). "
+        "QE (Quantitative Easing = nới lỏng định lượng): Fed mua trái phiếu → bảng tăng → thanh khoản nhiều → hỗ trợ vàng/BTC. "
+        "QT (Quantitative Tightening = thắt chặt): Fed bán trái phiếu → bảng giảm → rút thanh khoản → áp lực giảm tài sản.",
+    "Neutral Rate (Lãi suất trung tính)":
+        "Mức lãi suất mà ở đó nền kinh tế không tăng trưởng quá nóng cũng không suy thoái. "
+        "Fed ước tính neutral rate ≈ 2.5%. Nếu FEDFUNDS > 2.5% = chính sách thắt chặt (restrictive). "
+        "Nếu FEDFUNDS < 2.5% = chính sách nới lỏng (accommodative).",
+
+    # ── Cá mập & ETF ──────────────────────────────────────────────────────
+    "ETF (Exchange-Traded Fund)":
+        "Quỹ giao dịch trên sàn. Cho phép nhà đầu tư tổ chức mua/bán hàng hóa gián tiếp. "
+        "GLD (SPDR Gold) = 1 share ≈ 0.094 oz vàng. SLV (iShares Silver) ≈ 0.94 oz bạc. "
+        "IBIT (BlackRock Bitcoin) ≈ 0.001 BTC. COPX = cổ phiếu công ty đồng. USO = dầu WTI.",
+    "AUM (Assets Under Management)":
+        "Tổng tài sản đang được quản lý. Dùng như proxy cho dòng tiền tổ chức. "
+        "AUM của GLD tăng = tổ chức đang mua vàng. AUM giảm = tổ chức đang bán vàng.",
+    "Open Interest (OI)":
+        "Số lượng hợp đồng futures đang mở chưa được tất toán. "
+        "OI tăng = tổ chức đang vào vị thế mới (bullish hoặc bearish). "
+        "OI giảm + giá giảm = tổ chức đang thoát lệnh mua (bearish). "
+        "OI rất cao = sắp có biến động mạnh khi hợp đồng đáo hạn.",
+    "COT (Commitment of Traders)":
+        "Báo cáo định vị nhà giao dịch từ CFTC (Commodity Futures Trading Commission — Mỹ). "
+        "Phát hành mỗi thứ Sáu. Phân loại: Commercial (hedgers), Non-Commercial (hedge funds/speculators). "
+        "Large Speculators Net Long tăng = cá mập đang mua → bullish signal.",
+    "Fear & Greed Index":
+        "Chỉ số sợ hãi và tham lam của thị trường crypto (Alternative.me). "
+        "Tổng hợp từ: volatility, market momentum, social media, surveys, dominance, trends. "
+        "0–25 = Cực kỳ sợ hãi (mua khi người khác sợ). 75–100 = Cực kỳ tham lam (cẩn thận đỉnh).",
+
+    # ── Tỷ lệ & tín hiệu ──────────────────────────────────────────────────
+    "Gold/Silver Ratio (G/S Ratio)":
+        "Số ounce bạc cần để mua 1 ounce vàng. Trung bình lịch sử: 65–70. "
+        "Tỷ lệ > 80: Bạc đang rẻ tương đối so với vàng → nhiều khả năng bạc sẽ tăng mạnh hơn. "
+        "Tỷ lệ < 50: Vàng đang rẻ hơn tương đối. Hiện tại khi tỷ lệ cao → cơ hội mua bạc tốt.",
+    "Momentum":
+        "Tốc độ và sức mạnh của xu hướng giá. Momentum dương = giá đang tăng nhanh. "
+        "Momentum 3T (3 tháng) và 6T (6 tháng) đo đà tăng/giảm trung hạn. "
+        "Momentum mạnh thường tiếp tục — nhưng khi quá mạnh → rủi ro đảo chiều đột ngột.",
+    "Lệch MA200 (Deviation from MA200)":
+        "Phần trăm giá hiện tại cao hơn hoặc thấp hơn đường MA200. "
+        "> +25%: Overbought dài hạn → lịch sử thường xảy ra điều chỉnh. "
+        "< -15%: Giá trị hấp dẫn dài hạn → cơ hội mua tốt. "
+        "MA200 là 'chân trời' của xu hướng dài hạn.",
+
+    # ── Mô hình dự báo ────────────────────────────────────────────────────
+    "Holt-Winters (HW)":
+        "Mô hình dự báo chuỗi thời gian — bộ ba số mũ mũ hóa (triple exponential smoothing). "
+        "Bắt được trend dài hạn có damping (xu hướng yếu dần theo thời gian). "
+        "Trọng số trong ensemble: 45%.",
+    "ARIMA (1,1,1)":
+        "AutoRegressive Integrated Moving Average — Mô hình tự hồi quy tích hợp trung bình động. "
+        "Bắt được cấu trúc tự tương quan của chuỗi giá. Trọng số: 35%.",
+    "Momentum Model":
+        "Mô hình hồi quy log-return trên 60 ngày gần nhất, có damping 45%. "
+        "Đại diện cho xu hướng kỹ thuật ngắn-trung hạn. Trọng số: 20%.",
+    "CI 90% (Confidence Interval)":
+        "Khoảng tin cậy 90% — Vùng giá mà xác suất 90% giá thực tế sẽ nằm trong. "
+        "Vùng rộng = bất định cao (dự báo dài). Vùng hẹp = dự báo ngắn hạn tự tin hơn. "
+        "KHÔNG phải đảm bảo — sự kiện bất ngờ (geopolitical, Fed shock) có thể phá vỡ mọi CI.",
+
+    # ── Futures tickers ───────────────────────────────────────────────────
+    "GC=F":
+        "COMEX Gold Futures — Hợp đồng tương lai vàng tại sở COMEX New York. "
+        "Đơn vị: troy ounce. Cao hơn giá spot ~$10-30 do chi phí lưu trữ và lãi suất.",
+    "SI=F":
+        "COMEX Silver Futures — Hợp đồng tương lai bạc tại COMEX.",
+    "HG=F":
+        "COMEX Copper Futures — Hợp đồng tương lai đồng. Đơn vị USD/pound (lb). "
+        "'Dr. Copper': Đồng được coi là chỉ báo sức khỏe kinh tế toàn cầu vì ứng dụng công nghiệp rộng.",
+    "CL=F":
+        "NYMEX WTI Crude Oil Futures — Hợp đồng tương lai dầu thô WTI (West Texas Intermediate) "
+        "tại sở NYMEX. Benchmark dầu Mỹ. Đơn vị: USD/barrel (thùng, 159 lít).",
+}
+
+
 def period_label(days: int) -> str:
     return PERIOD_LABELS.get(days, f"{days} ngày tới")
 
@@ -582,10 +719,13 @@ def fetch_fred_rates() -> dict:
     from io import StringIO as _SI
 
     series = {
-        "fedfunds":  "FEDFUNDS",   # Lãi suất Fed Funds hiện tại
-        "yield2y":   "DGS2",       # 2-Year Treasury (predictor tốt nhất của Fed)
-        "curve":     "T10Y2Y",     # 10Y - 2Y spread (yield curve)
-        "curve_3m":  "T10Y3M",     # 10Y - 3M spread (recession indicator)
+        "fedfunds":    "FEDFUNDS",  # Lãi suất Fed Funds hiện tại
+        "yield2y":     "DGS2",      # 2-Year Treasury (predictor tốt nhất của Fed)
+        "curve":       "T10Y2Y",    # 10Y - 2Y spread (yield curve)
+        "curve_3m":    "T10Y3M",    # 10Y - 3M spread (recession indicator)
+        "real_rate":   "DFII10",    # 10Y Real Interest Rate — lãi suất thực, driver số 1 của vàng
+        "inflation5y": "T5YIFR",    # 5Y5Y Forward Inflation Expectation — kỳ vọng lạm phát
+        "fed_balance": "WALCL",     # Fed Balance Sheet (nghìn tỷ USD) — QT vs QE cycle
     }
     result = {}
     for key, sid in series.items():
@@ -735,6 +875,44 @@ def fed_policy_analysis(fred_data: dict, macro: dict) -> dict:
     metrics["warsh_net"]        = warsh_net
     metrics["effective_trump"]  = effective_trump
 
+    # ── 6. REAL INTEREST RATE — DFII10 (driver số 1 của vàng) ────────────
+    # Lãi suất thực = Yield danh nghĩa − Lạm phát kỳ vọng
+    # Tương quan âm -0.90 với giá vàng — đây là indicator quan trọng nhất
+    real_rate = None
+    if "real_rate" in fred_data and len(fred_data["real_rate"]) > 0:
+        real_rate = float(fred_data["real_rate"].iloc[-1])
+        metrics["real_rate"] = real_rate
+        if real_rate < 0:
+            score += 2
+            signals.append(("✅", f"Lãi suất thực (DFII10): {real_rate:.2f}% — ÂM → vàng/bạc không có chi phí cơ hội, tương quan -0.90 với giá vàng → BUY signal mạnh", "green"))
+        elif real_rate < 0.5:
+            score += 1
+            signals.append(("✅", f"Lãi suất thực (DFII10): {real_rate:.2f}% — thấp → hỗ trợ tài sản không sinh lãi (vàng, bạc, BTC)", "green"))
+        elif real_rate > 2.5:
+            score -= 2
+            signals.append(("🔴", f"Lãi suất thực (DFII10): {real_rate:.2f}% — rất cao → chi phí cơ hội giữ vàng lớn → áp lực giảm mạnh", "red"))
+        elif real_rate > 1.5:
+            score -= 1
+            signals.append(("⚠️", f"Lãi suất thực (DFII10): {real_rate:.2f}% — cao → áp lực nhẹ lên vàng/bạc", "orange"))
+        else:
+            signals.append(("➡️", f"Lãi suất thực (DFII10): {real_rate:.2f}% — trung tính (0.5–1.5%)", "gray"))
+
+    # ── 7. INFLATION EXPECTATIONS — T5YIFR (kỳ vọng lạm phát 5 năm) ─────
+    # 5Y5Y = thị trường kỳ vọng lạm phát trung bình 5 năm, bắt đầu từ 5 năm nữa
+    # Fed target 2% — nếu > 2.75% thi Fed không thể cắt lãi dù áp lực từ Trump
+    inflation_exp = None
+    if "inflation5y" in fred_data and len(fred_data["inflation5y"]) > 0:
+        inflation_exp = float(fred_data["inflation5y"].iloc[-1])
+        metrics["inflation_exp"] = inflation_exp
+        if inflation_exp > 2.75:
+            score -= 1  # Lạm phát cao → Fed không thể cắt lãi
+            signals.append(("⚠️", f"Kỳ vọng lạm phát 5Y5Y (T5YIFR): {inflation_exp:.2f}% — trên target, Fed khó cắt lãi. Nhưng vàng ĐƯỢC lợi kép: hedge lạm phát", "orange"))
+        elif inflation_exp > 2.25:
+            signals.append(("➡️", f"Kỳ vọng lạm phát 5Y5Y: {inflation_exp:.2f}% — được neo ổn định gần target 2%", "gray"))
+        elif inflation_exp < 2.0:
+            score += 1  # Lạm phát thấp → Fed có thể cắt lãi
+            signals.append(("✅", f"Kỳ vọng lạm phát 5Y5Y: {inflation_exp:.2f}% — thấp → áp lực deflation → Fed có lý do cắt lãi sớm hơn", "green"))
+
     # ── Clamp & label ─────────────────────────────────────────────────────
     score = max(-5, min(5, score))
 
@@ -767,9 +945,40 @@ def fed_policy_analysis(fred_data: dict, macro: dict) -> dict:
         "prob_hold":    round(100 - prob_cut),
         "current_rate": current_rate,
         "curve_val":    curve_val,
+        "real_rate":    real_rate,
+        "inflation_exp": inflation_exp,
         "signals":      signals,
         "metrics":      metrics,
     }
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def fetch_fear_greed() -> dict:
+    """
+    Fear & Greed Index từ alternative.me — miễn phí, không cần API key.
+    Dùng cho BTC tab. Cũng hữu ích cho gold (nghịch chiều với sợ hãi).
+    Score: 0–25 Extreme Fear · 26–45 Fear · 46–55 Neutral · 56–75 Greed · 76–100 Extreme Greed
+    """
+    import requests as _req
+    try:
+        r = _req.get("https://api.alternative.me/fng/?limit=1",
+                     timeout=8, headers={"User-Agent": "Mozilla/5.0"})
+        data = r.json()["data"][0]
+        val   = int(data["value"])
+        label = data["value_classification"]
+        if val <= 25:
+            color = "#f85149"; vn = "Cực kỳ sợ hãi"
+        elif val <= 45:
+            color = "#ff7b54"; vn = "Sợ hãi"
+        elif val <= 55:
+            color = "#FFD700"; vn = "Trung tính"
+        elif val <= 75:
+            color = "#76c3a0"; vn = "Tham lam"
+        else:
+            color = "#3fb950"; vn = "Cực kỳ tham lam"
+        return {"value": val, "label": vn, "label_en": label, "color": color, "ok": True}
+    except Exception:
+        return {"value": None, "label": "N/A", "label_en": "N/A", "color": "#8b949e", "ok": False}
 
 
 def _comex_days_to_expiry() -> int:
@@ -2148,14 +2357,14 @@ def render_asset_tab(asset_key: str, macro: dict, forecast_days: int):
         col.metric(label, val_str + m["unit"], delta,
                    delta_color="inverse" if low_good else "normal")
 
-    _mm(mc1, "💵 DXY (USD Index)",        "dxy",      ".1f",  low_good=True, pct_delta=True)
-    _mm(mc2, "📉 Yield 10Y (%)",           "yield10y", ".2f",  low_good=True)
-    _mm(mc3, "😨 VIX (Fear Index)",        "vix",      ".0f",  low_good=False)
-    _mm(mc4, "📈 S&P 500",                 "sp500",    ",.0f", low_good=False, pct_delta=True)
+    _mm(mc1, "💵 DXY — Sức mạnh USD",      "dxy",      ".1f",  low_good=True, pct_delta=True)
+    _mm(mc2, "📉 Yield 10Y — Lợi suất TP","yield10y", ".2f",  low_good=True)
+    _mm(mc3, "😨 VIX — Chỉ số sợ hãi",    "vix",      ".0f",  low_good=False)
+    _mm(mc4, "📈 S&P 500 — CK Mỹ",        "sp500",    ",.0f", low_good=False, pct_delta=True)
 
     mc5, mc6, mc7, mc8 = st.columns(4)
-    _mm(mc5, "🛢️ Dầu WTI ($/bbl)",        "oil",      ".1f",  low_good=False, pct_delta=True)
-    _mm(mc6, "📊 TIPS ETF (lãi suất thực)", "tips",    ".2f",  low_good=False, pct_delta=True)
+    _mm(mc5, "🛢️ Dầu WTI — Giá dầu",      "oil",      ".1f",  low_good=False, pct_delta=True)
+    _mm(mc6, "📊 TIPS — Lãi suất thực proxy", "tips",  ".2f",  low_good=False, pct_delta=True)
 
     if "momentum" in macro_metrics:
         mom = macro_metrics["momentum"]
@@ -2197,24 +2406,83 @@ def render_asset_tab(asset_key: str, macro: dict, forecast_days: int):
         unsafe_allow_html=True,
     )
 
+    real_rate_val   = fed_result.get("real_rate")
+    inflation_val   = fed_result.get("inflation_exp")
+    walcl_val       = None
+    if "fed_balance" in fred_data and len(fred_data["fed_balance"]) >= 2:
+        walcl_s   = fred_data["fed_balance"]
+        walcl_val = float(walcl_s.iloc[-1]) / 1e6  # convert to tỷ USD (original in triệu)
+
     fc1, fc2, fc3, fc4 = st.columns(4)
     fc1.metric("🎯 Fed Hướng đi", fed_direction,
-               f"Điểm tổng hợp: {fed_score:+d}/5", delta_color="off")
+               f"Điểm tổng hợp: {fed_score:+d}/5", delta_color="off",
+               help="Hướng chính sách lãi suất dự kiến dựa trên yield curve, momentum 2Y, Warsh/Trump factor, lãi suất thực và kỳ vọng lạm phát.")
     fc2.metric("✂️ Xác suất Cắt lãi", f"{fed_prob_cut}%",
                f"Giữ/Tăng lãi: {fed_prob_hold}%",
-               delta_color="normal" if fed_prob_cut > 50 else "inverse")
+               delta_color="normal" if fed_prob_cut > 50 else "inverse",
+               help="Xác suất Fed CẮT lãi trong 6–9 tháng tới. Tính từ 7 yếu tố: dữ liệu FRED + tính cách Trump & Warsh.")
     if cur_rate is not None:
-        fc3.metric("🏛️ Fed Funds Rate", f"{cur_rate:.2f}%",
+        fc3.metric("🏛️ FEDFUNDS — Lãi suất Fed", f"{cur_rate:.2f}%",
                    f"Neutral 2.50% · Gap {cur_rate - 2.5:+.2f}%",
-                   delta_color="inverse")
+                   delta_color="inverse",
+                   help="Federal Funds Rate: Lãi suất liên ngân hàng qua đêm. Neutral rate = 2.5% (không kích thích cũng không thắt chặt kinh tế).")
     else:
-        fc3.metric("🏛️ Fed Funds Rate", "N/A")
+        fc3.metric("🏛️ FEDFUNDS — Lãi suất Fed", "N/A")
     if curve_val is not None:
-        fc4.metric("📐 Yield Curve (10Y–2Y)", f"{curve_val:+.2f}%",
-                   "Đảo ngược → kỳ vọng cắt lãi" if curve_val < 0 else "Bình thường/dốc",
-                   delta_color="normal" if curve_val < 0 else "inverse")
+        fc4.metric("📐 T10Y2Y — Yield Curve", f"{curve_val:+.2f}%",
+                   "⚠️ Đảo ngược → suy thoái sắp tới" if curve_val < -0.5 else ("Đảo ngược nhẹ" if curve_val < 0 else "Bình thường"),
+                   delta_color="normal" if curve_val < 0 else "inverse",
+                   help="10Y Treasury Yield trừ 2Y Treasury Yield. Âm = đảo ngược = thị trường kỳ vọng suy thoái và Fed cắt lãi. Lịch sử: đảo ngược → 6-18T sau thường có suy thoái.")
     else:
-        fc4.metric("📐 Yield Curve (10Y–2Y)", "N/A")
+        fc4.metric("📐 T10Y2Y — Yield Curve", "N/A")
+
+    fc5, fc6, fc7, fc8 = st.columns(4)
+    if real_rate_val is not None:
+        rr_delta = "⚡ BUY vàng/bạc mạnh!" if real_rate_val < 0 else ("Tốt" if real_rate_val < 0.5 else ("Áp lực cao" if real_rate_val > 2.0 else "Trung tính"))
+        fc5.metric("🔑 DFII10 — Lãi suất thực", f"{real_rate_val:.2f}%",
+                   rr_delta,
+                   delta_color="normal" if real_rate_val < 0.5 else "inverse",
+                   help="10Y Real Interest Rate = Yield danh nghĩa − Lạm phát kỳ vọng. DRIVER SỐ 1 CỦA VÀNG: tương quan âm -0.90. Âm = không có chi phí cơ hội giữ vàng → BUY. Cao = chi phí cơ hội lớn → SELL.")
+    else:
+        fc5.metric("🔑 DFII10 — Lãi suất thực", "N/A",
+                   help="FRED DFII10: 10-Year Real Treasury Yield. Driver số 1 của vàng.")
+    if inflation_val is not None:
+        inf_delta = "Trên target 2% → Fed thắt" if inflation_val > 2.5 else ("Neo ổn định" if inflation_val > 2.0 else "Thấp → Fed có thể cắt")
+        fc6.metric("📊 T5YIFR — Kỳ vọng lạm phát", f"{inflation_val:.2f}%",
+                   inf_delta,
+                   delta_color="inverse" if inflation_val > 2.5 else "normal",
+                   help="5-Year, 5-Year Forward Inflation Expectation: Kỳ vọng lạm phát trung bình 5 năm (bắt đầu từ 5 năm nữa). Fed target 2%. >2.75% = lạm phát mất neo → Fed không thể cắt lãi.")
+    else:
+        fc6.metric("📊 T5YIFR — Kỳ vọng lạm phát", "N/A",
+                   help="FRED T5YIFR: 5Y5Y Forward Inflation Expectation. Chỉ số lạm phát dài hạn mà Fed theo dõi sát.")
+    if walcl_val is not None:
+        walcl_chg = None
+        if len(fred_data["fed_balance"]) >= 5:
+            walcl_prev = float(fred_data["fed_balance"].iloc[-5]) / 1e6
+            walcl_chg  = walcl_val - walcl_prev
+        fc7.metric("🏦 WALCL — Bảng cân đối Fed", f"${walcl_val:.2f}T",
+                   f"{'QT: rút {abs(walcl_chg):.2f}T' if walcl_chg and walcl_chg < 0 else ('QE: bơm +{walcl_chg:.2f}T' if walcl_chg and walcl_chg > 0 else 'Ổn định')}",
+                   delta_color="normal" if walcl_chg and walcl_chg > 0 else "inverse",
+                   help="Fed Balance Sheet (nghìn tỷ USD). QE = Fed mua TP, bơm tiền → tốt cho vàng/BTC. QT = Fed bán TP, hút tiền → áp lực giảm tài sản rủi ro.")
+    else:
+        fc7.metric("🏦 WALCL — Bảng cân đối Fed", "N/A",
+                   help="FRED WALCL: Tổng tài sản trên bảng cân đối của Fed. QE vs QT.")
+
+    # Gold/Silver ratio (hiển thị trong cả XAU và XAG tab)
+    if asset_key in ("XAU", "XAG"):
+        try:
+            _gold_p   = float(fetch_price("XAU")[0].iloc[-1])
+            _silver_p = float(fetch_price("XAG")[0].iloc[-1])
+            gs_ratio  = _gold_p / _silver_p
+            gs_delta  = "Bạc rẻ so với vàng → cơ hội mua bạc" if gs_ratio > 80 else ("Bình thường" if gs_ratio > 60 else "Vàng rẻ tương đối")
+            fc8.metric("⚖️ Gold/Silver Ratio", f"{gs_ratio:.1f}",
+                       gs_delta,
+                       delta_color="inverse" if gs_ratio > 80 else "off",
+                       help="Số ounce bạc cần để mua 1 ounce vàng. TB lịch sử 65–70. >80 = bạc đang rất rẻ so với vàng → lịch sử thường kéo về trung bình bằng cách bạc tăng mạnh hơn.")
+        except Exception:
+            fc8.metric("⚖️ Gold/Silver Ratio", "N/A")
+    else:
+        fc8.empty()
 
     with st.expander("🔍 Ngoại cảm: Trump · Warsh · Xung đột cấu trúc", expanded=False):
         conflict = TRUMP_WARSH_DYNAMIC["conflict_level"]
@@ -2372,11 +2640,53 @@ def render_asset_tab(asset_key: str, macro: dict, forecast_days: int):
         with st.expander(title, expanded=(i == len(sections) - 1)):
             st.markdown(body)
 
+    # ── BTC: Fear & Greed Index ───────────────────────────────────────────
+    if asset_key == "BTC":
+        fg = fetch_fear_greed()
+        st.markdown("#### 😱 Crypto Fear & Greed Index")
+        fg1, fg2, fg3 = st.columns(3)
+        if fg["ok"]:
+            fg_val = fg["value"]
+            fg_lbl = fg["label"]
+            fg_clr = fg["color"]
+            fg1.metric(
+                "😱 Fear & Greed Index",
+                f"{fg_val} / 100",
+                fg_lbl,
+                delta_color="off",
+                help="Chỉ số sợ hãi và tham lam crypto từ alternative.me. 0–25 = Cực sợ (mua khi người khác sợ). 75–100 = Cực tham lam (cẩn thận đỉnh). Tổng hợp từ: volatility, momentum, social media, surveys, dominance, Google Trends.",
+            )
+            fg2.markdown(
+                f"<div style='padding:12px;border-radius:8px;background:{hex_rgba(fg_clr,0.15)};"
+                f"border:1px solid {hex_rgba(fg_clr,0.4)};margin-top:8px;'>"
+                f"<span style='color:{fg_clr};font-size:1.8rem;font-weight:700;'>{fg_val}</span>"
+                f"<br><span style='color:{fg_clr};font-size:0.9rem;'>{fg_lbl}</span>"
+                f"<br><span style='color:#8b949e;font-size:0.75rem;'>0 = Cực sợ · 100 = Cực tham lam</span></div>",
+                unsafe_allow_html=True,
+            )
+            fg3.markdown(
+                f"*Ý nghĩa với BTC:*\n"
+                f"- Cực sợ hãi ({fg_val} ≤ 25): Thường là cơ hội mua tốt\n"
+                f"- Cực tham lam ({fg_val} ≥ 75): Thị trường có thể đang đỉnh\n"
+                f"- Kết hợp với macro + whale để quyết định"
+            )
+        else:
+            fg1.metric("😱 Fear & Greed", "N/A", "Không tải được")
+        st.markdown("---")
+
+    # ── Glossary (Bảng giải thích thuật ngữ) ─────────────────────────────
+    with st.expander("📖 Giải thích thuật ngữ — Các từ viết tắt trong app là gì?", expanded=False):
+        st.markdown("*Nhấp vào mỗi mục để đọc giải thích chi tiết*\n")
+        for term, explanation in GLOSSARY.items():
+            st.markdown(f"**{term}**")
+            st.markdown(f"&nbsp;&nbsp;&nbsp;{explanation}\n")
+            st.markdown("---")
+
     # ── Footer ────────────────────────────────────────────────────────────
     st.markdown("---")
     st.markdown(
         f"<p style='color:#484f58;font-size:0.76rem;text-align:center;'>"
-        f"Nguồn: {ticker} · Mô hình: HW + ARIMA + Momentum + Macro + Fed (Trump/Warsh) + Cá Mập + Mùa vụ · "
+        f"Nguồn: {ticker} · Mô hình: HW + ARIMA + Momentum + Macro + Fed (DFII10/T5YIFR/Trump/Warsh) + Cá Mập + Mùa vụ · "
         f"Điểm tổng hợp: Macro {macro_score:+d} + Fed {fed_contrib:+d} + Whale {whale_contrib:+d} = {combined_macro:+d} · "
         f"⚠️ Chỉ mang tính tham khảo, không phải khuyến nghị đầu tư.</p>",
         unsafe_allow_html=True,
