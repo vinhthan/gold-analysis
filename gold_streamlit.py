@@ -730,6 +730,8 @@ def fetch_fred_rates() -> dict:
         "real_rate":   "DFII10",    # 10Y Real Interest Rate — lãi suất thực, driver số 1 của vàng
         "inflation5y": "T5YIFR",    # 5Y5Y Forward Inflation Expectation — kỳ vọng lạm phát
         "fed_balance": "WALCL",     # Fed Balance Sheet (nghìn tỷ USD) — QT vs QE cycle
+        "breakeven5y": "T5YIE",     # 5-Year Breakeven Inflation — kỳ vọng lạm phát thị trường (daily)
+        "m2":          "M2SL",      # M2 Money Supply — cung tiền (monthly), bullish cho vàng khi tăng
     }
     result = {}
     for key, sid in series.items():
@@ -1042,6 +1044,115 @@ def fetch_gvz() -> dict:
         return {"value": val, "chg": chg, "level": level, "color": color, "ok": True}
     except Exception:
         return {"value": None, "level": "N/A", "color": "#8b949e", "ok": False}
+
+
+@st.cache_data(ttl=86400, show_spinner=False)
+def fetch_cot_data(asset_key: str) -> dict:
+    """
+    COT Disaggregated — dữ liệu vị thế Managed Money (quỹ đầu cơ) từ CFTC.
+    Nguồn: CFTC Public Reporting API (miễn phí, cập nhật thứ Sáu hàng tuần).
+    Tín hiệu: MM tăng mua ròng → Bullish · MM giảm vị thế → Bearish.
+    Vị thế cực đoan (>80th / <20th percentile) → tín hiệu đảo chiều (contrarian).
+    """
+    import requests as _req
+
+    # Tên thị trường trong dữ liệu CFTC
+    market_kw = {
+        "XAU":    "GOLD",
+        "XAG":    "SILVER",
+        "HG":     "COPPER",
+        "CL":     "CRUDE OIL, LIGHT",
+    }.get(asset_key)
+
+    if not market_kw:
+        return {"ok": False, "reason": "Không có COT cho asset này"}
+
+    try:
+        # CFTC Socrata API — disaggregated futures (Managed Money positions)
+        url = (
+            "https://publicreporting.cftc.gov/resource/6dca-aqww.json"
+            f"?$where=market_and_exchange_names+like+%27{market_kw.replace(' ','+')}%25%27"
+            "&$limit=20&$order=report_date_as_mm_dd_yyyy+DESC"
+        )
+        r    = _req.get(url, timeout=12,
+                        headers={"User-Agent": "Mozilla/5.0", "Accept": "application/json"})
+        data = r.json()
+
+        if not isinstance(data, list) or len(data) < 2:
+            return {"ok": False, "reason": "API trả về dữ liệu rỗng"}
+
+        records = []
+        for row in data:
+            try:
+                date_str = str(row.get("report_date_as_mm_dd_yyyy", ""))[:10]
+                mm_long  = float(row.get("m_money_positions_long_all",  0) or 0)
+                mm_short = float(row.get("m_money_positions_short_all", 0) or 0)
+                if mm_long == 0 and mm_short == 0:
+                    continue
+                records.append({"date": date_str, "long": mm_long, "short": mm_short,
+                                 "net": mm_long - mm_short})
+            except Exception:
+                continue
+
+        if len(records) < 2:
+            return {"ok": False, "reason": "Không đủ dữ liệu COT"}
+
+        records.sort(key=lambda x: x["date"], reverse=True)
+        latest  = records[0]
+        prev1   = records[1]
+        prev4   = records[4] if len(records) > 4 else records[-1]
+
+        net_now  = latest["net"]
+        chg_1w   = net_now - prev1["net"]
+        chg_4w   = net_now - prev4["net"]
+
+        # Percentile so với 20 tuần gần nhất
+        all_nets = [r["net"] for r in records]
+        pct_rank = sum(1 for n in all_nets if n <= net_now) / len(all_nets) * 100
+
+        # Scoring
+        score = 0
+        signals = []
+
+        # Trend momentum (tuần này vs tuần trước và 4 tuần trước)
+        if chg_1w > 5000 and chg_4w > 10000:
+            score += 2
+            signals.append(f"✅ MM tăng mua mạnh 1W +{chg_1w:,.0f} / 4W +{chg_4w:,.0f} → Bullish")
+        elif chg_1w > 0:
+            score += 1
+            signals.append(f"✅ MM tăng mua nhẹ 1W +{chg_1w:,.0f} → Nghiêng Bullish")
+        elif chg_1w < -5000 and chg_4w < -10000:
+            score -= 2
+            signals.append(f"🔴 MM giảm bán mạnh 1W {chg_1w:,.0f} / 4W {chg_4w:,.0f} → Bearish")
+        elif chg_1w < 0:
+            score -= 1
+            signals.append(f"🔴 MM giảm nhẹ 1W {chg_1w:,.0f} → Nghiêng Bearish")
+
+        # Contrarian extreme signals
+        if pct_rank >= 85 and chg_1w < 0:
+            score -= 1
+            signals.append(f"⚠️ Vị thế cực đoan LONG ({pct_rank:.0f}th percentile) và đang giảm → Nguy cơ điều chỉnh")
+        elif pct_rank <= 15 and chg_1w > 0:
+            score += 1
+            signals.append(f"✅ Vị thế cực đoan SHORT ({pct_rank:.0f}th percentile) và đang đảo chiều → Short squeeze")
+
+        score = max(-3, min(3, score))
+
+        return {
+            "ok":          True,
+            "date":        latest["date"],
+            "net":         net_now,
+            "long":        latest["long"],
+            "short":       latest["short"],
+            "chg_1w":      chg_1w,
+            "chg_4w":      chg_4w,
+            "pct_rank":    round(pct_rank, 1),
+            "score":       score,
+            "signals":     signals,
+        }
+
+    except Exception as e:
+        return {"ok": False, "reason": str(e)}
 
 
 def _comex_days_to_expiry() -> int:
@@ -1419,6 +1530,85 @@ def calc_stoch(df: pd.DataFrame, k_period: int = 14, d_period: int = 3) -> dict:
     else:                                    sig = "neutral"
 
     return {"k": k_v, "d": d_v, "signal": sig}
+
+
+def calc_cci(df: pd.DataFrame, period: int = 20) -> dict:
+    """
+    Commodity Channel Index — xác định điểm đảo chiều theo chu kỳ.
+    CCI > +100 = quá mua / CCI < -100 = quá bán.
+    Cần High, Low, Close.
+    """
+    if df.empty or len(df) < period + 1 or not {"High", "Low", "Close"}.issubset(df.columns):
+        return {"cci": 0.0, "signal": "neutral", "ok": False}
+
+    tp  = (df["High"].astype(float) + df["Low"].astype(float) + df["Close"].astype(float)) / 3
+    ma  = tp.rolling(period).mean()
+    mad = tp.rolling(period).apply(lambda x: np.mean(np.abs(x - x.mean())), raw=True)
+    cci = (tp - ma) / (0.015 * mad + 1e-9)
+    v   = float(cci.iloc[-1])
+
+    if   v >  200: sig = "extreme_overbought"
+    elif v >  100: sig = "overbought"
+    elif v < -200: sig = "extreme_oversold"
+    elif v < -100: sig = "oversold"
+    else:          sig = "neutral"
+
+    return {"cci": round(v, 1), "signal": sig, "ok": True}
+
+
+def calc_obv(df: pd.DataFrame) -> dict:
+    """
+    On Balance Volume — theo dõi dòng tiền tổ chức qua volume.
+    OBV tăng trong khi giá đi ngang / giảm = tích lũy ngầm → tín hiệu MUA.
+    OBV giảm trong khi giá đi ngang / tăng = phân phối ngầm → tín hiệu BÁN.
+    """
+    if df.empty or "Volume" not in df.columns:
+        return {"signal": "neutral", "divergence": None, "slope_pct": 0.0, "ok": False}
+
+    close  = df["Close"].astype(float)
+    volume = df["Volume"].astype(float).replace(0, np.nan).fillna(method="ffill")
+
+    if volume.isna().all() or float(volume.sum()) < 1:
+        return {"signal": "neutral", "divergence": None, "slope_pct": 0.0, "ok": False}
+
+    direction = np.sign(close.diff().fillna(0))
+    obv       = (volume * direction).cumsum()
+    obv_ma20  = obv.rolling(20).mean()
+
+    obv_v     = float(obv.iloc[-1])
+    obv_ma_v  = float(obv_ma20.iloc[-1])
+
+    # Slope % — OBV thay đổi bao nhiêu trong 10 ngày qua
+    n = min(10, len(obv) - 1)
+    denom     = abs(float(obv.iloc[-n - 1])) + 1e-9
+    obv_slope = (float(obv.iloc[-1]) - float(obv.iloc[-n - 1])) / denom * 100
+
+    # Price slope — giá thay đổi bao nhiêu trong 10 ngày qua
+    p_slope   = (float(close.iloc[-1]) / float(close.iloc[-n - 1]) - 1) * 100
+
+    # Divergence detection
+    divergence = None
+    if   p_slope >  2.0 and obv_slope < -1.0: divergence = "bearish"   # Giá tăng, OBV giảm → fake rally
+    elif p_slope < -2.0 and obv_slope >  1.0: divergence = "bullish"   # Giá giảm, OBV tăng → tích lũy
+
+    # Trend signal
+    if   obv_v > obv_ma_v and obv_slope > 0: signal = "bullish"
+    elif obv_v < obv_ma_v and obv_slope < 0: signal = "bearish"
+    else:                                    signal = "neutral"
+
+    # Score contribution
+    score = 0
+    if signal   == "bullish":   score += 1
+    elif signal == "bearish":   score -= 1
+    if divergence == "bullish": score += 1
+    elif divergence == "bearish": score -= 1
+
+    return {
+        "signal": signal, "divergence": divergence,
+        "slope_pct": round(obv_slope, 1),
+        "p_slope": round(p_slope, 1),
+        "score": score, "ok": True,
+    }
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -2529,18 +2719,36 @@ def ml_directional_signal(_price_values: np.ndarray, days: int) -> dict:
         return {"prob_up": 0.5, "signal": "neutral", "confidence": 0.0, "ok": False}
 
     try:
+        from sklearn.ensemble import (GradientBoostingClassifier,
+                                      RandomForestClassifier, VotingClassifier)
+        from sklearn.neural_network import MLPClassifier
+
         scaler   = StandardScaler()
         Xtr      = scaler.fit_transform(X_train)
         Xpr      = scaler.transform(X_pred)
 
-        clf = GradientBoostingClassifier(
-            n_estimators=100, max_depth=3, learning_rate=0.05,
+        # ── 3-Model Soft Voting Ensemble ──────────────────────────────────
+        gb  = GradientBoostingClassifier(
+            n_estimators=80, max_depth=3, learning_rate=0.05,
             subsample=0.8, min_samples_leaf=8, random_state=42
         )
-        clf.fit(Xtr, y_train)
+        rf  = RandomForestClassifier(
+            n_estimators=80, max_depth=5, min_samples_leaf=8,
+            random_state=42, n_jobs=-1
+        )
+        mlp = MLPClassifier(
+            hidden_layer_sizes=(48, 24), activation="relu",
+            max_iter=300, random_state=42, early_stopping=False,
+            alpha=0.01    # L2 regularisation để tránh overfitting
+        )
+        ensemble = VotingClassifier(
+            estimators=[("gb", gb), ("rf", rf), ("mlp", mlp)],
+            voting="soft"
+        )
+        ensemble.fit(Xtr, y_train)
 
-        prob_up    = float(clf.predict_proba(Xpr)[0, 1])
-        confidence = abs(prob_up - 0.5) * 2          # 0 = không chắc, 1 = rất chắc
+        prob_up    = float(ensemble.predict_proba(Xpr)[0, 1])
+        confidence = abs(prob_up - 0.5) * 2   # 0 = không chắc, 1 = rất chắc
 
         if   prob_up >= 0.65: signal = "strong_buy"
         elif prob_up >= 0.55: signal = "buy"
@@ -2554,9 +2762,11 @@ def ml_directional_signal(_price_values: np.ndarray, days: int) -> dict:
             "signal":     signal,
             "confidence": round(confidence, 3),
             "ok":         True,
+            "model":      "Ensemble (GBM + RF + MLP)",
         }
-    except Exception:
-        return {"prob_up": 0.5, "signal": "neutral", "confidence": 0.0, "ok": False}
+    except Exception as e:
+        return {"prob_up": 0.5, "signal": "neutral", "confidence": 0.0,
+                "ok": False, "error": str(e)}
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -2723,7 +2933,37 @@ def short_term_signals(price: pd.Series, asset_key: str,
     elif stoch_sig == "buy":      score += 1
     elif stoch_sig == "sell":     score -= 1
 
-    # ── ML Directional Signal ─────────────────────────────────────────────
+    # ── OBV (On Balance Volume) ───────────────────────────────────────────
+    obv_data = calc_obv(ohlcv)
+    if obv_data.get("ok"):
+        obv_sig = obv_data["signal"]
+        obv_div = obv_data["divergence"]
+        if obv_div == "bullish":
+            score += 2
+            signals.append(("✅", f"OBV Divergence BULLISH — Giá giảm nhưng volume MUA tăng → Tích lũy ngầm", "green"))
+        elif obv_div == "bearish":
+            score -= 2
+            signals.append(("🔴", f"OBV Divergence BEARISH — Giá tăng nhưng volume BÁN tăng → Phân phối ngầm", "red"))
+        elif obv_sig == "bullish":
+            score += 1
+            signals.append(("✅", f"OBV Trend BULLISH — Dòng tiền tổ chức đang chảy vào", "green"))
+        elif obv_sig == "bearish":
+            score -= 1
+            signals.append(("🔴", f"OBV Trend BEARISH — Dòng tiền tổ chức đang rút ra", "red"))
+        else:
+            signals.append(("➡️", f"OBV trung tính — Dòng tiền chưa rõ hướng", "gray"))
+
+    # ── CCI (Commodity Channel Index) ─────────────────────────────────────
+    cci_data = calc_cci(ohlcv)
+    if cci_data.get("ok"):
+        cv = cci_data["cci"]
+        if   cv > 200:  score -= 1; signals.append(("🔴", f"CCI = {cv:.0f} — Cực kỳ quá mua → Nguy cơ đảo chiều giảm", "red"))
+        elif cv > 100:  score -= 0; signals.append(("⚠️", f"CCI = {cv:.0f} — Quá mua → Thận trọng", "orange"))
+        elif cv < -200: score += 1; signals.append(("✅", f"CCI = {cv:.0f} — Cực kỳ quá bán → Cơ hội tăng", "green"))
+        elif cv < -100: signals.append(("✅", f"CCI = {cv:.0f} — Quá bán → Xem xét mua", "green"))
+        else:           signals.append(("➡️", f"CCI = {cv:.0f} — Trung tính", "gray"))
+
+    # ── ML Directional Signal (3-model Ensemble) ──────────────────────────
     if ml_result and ml_result.get("ok"):
         ml_prob  = ml_result["prob_up"]
         ml_conf  = ml_result["confidence"]
@@ -2731,13 +2971,13 @@ def short_term_signals(price: pd.Series, asset_key: str,
         if ml_sig in ("strong_buy", "buy"):
             ml_sc = 2 if ml_sig == "strong_buy" else 1
             score += ml_sc
-            signals.append(("🤖", f"ML Model: {ml_prob*100:.0f}% xác suất TĂNG (độ tin: {ml_conf*100:.0f}%) → MUA", "green"))
+            signals.append(("🤖", f"ML Ensemble: {ml_prob*100:.0f}% xác suất TĂNG (tin cậy {ml_conf*100:.0f}%) → MUA", "green"))
         elif ml_sig in ("strong_sell", "sell"):
             ml_sc = -2 if ml_sig == "strong_sell" else -1
             score += ml_sc
-            signals.append(("🤖", f"ML Model: {(1-ml_prob)*100:.0f}% xác suất GIẢM (độ tin: {ml_conf*100:.0f}%) → BÁN", "red"))
+            signals.append(("🤖", f"ML Ensemble: {(1-ml_prob)*100:.0f}% xác suất GIẢM (tin cậy {ml_conf*100:.0f}%) → BÁN", "red"))
         else:
-            signals.append(("🤖", f"ML Model: {ml_prob*100:.0f}% xác suất tăng — Trung tính", "gray"))
+            signals.append(("🤖", f"ML Ensemble: {ml_prob*100:.0f}% xác suất tăng — Trung tính", "gray"))
 
     # ── Action ────────────────────────────────────────────────────────────
     if score >= 5:
@@ -2840,23 +3080,32 @@ def render_asset_tab(asset_key: str, macro: dict, forecast_days: int):
         whale_data_raw = fetch_whale_data(asset_key)
         whale_result   = whale_regime(whale_data_raw, asset_key)
 
-    # ── Combined macro score (Macro + Fed + Whale) ───────────────────────
-    fed_contrib    = round(fed_result["score"] * 0.35)
-    whale_contrib  = round(whale_result["score"] * 0.25)
-    combined_macro = max(-12, min(12, macro_score + fed_contrib + whale_contrib))
-
-    # ── OHLCV (cho ADX + Stochastic) ─────────────────────────────────────
-    with st.spinner("📐 Tải OHLCV + tính ADX..."):
+    # ── OHLCV + ADX + Stochastic + OBV + CCI ─────────────────────────────
+    with st.spinner("📐 Tải OHLCV + tính ADX / OBV / CCI..."):
         ohlcv    = fetch_ohlcv(asset_key)
         adx_data = calc_adx(ohlcv)
         stoch_d  = calc_stoch(ohlcv)
+        obv_d    = calc_obv(ohlcv)
+        cci_d    = calc_cci(ohlcv)
 
-    # ── ML Directional Signal ─────────────────────────────────────────────
-    with st.spinner("🤖 Chạy mô hình ML dự báo hướng..."):
+    # ── COT (Commitment of Traders — CFTC Official) ───────────────────────
+    with st.spinner("📋 Tải dữ liệu COT từ CFTC..."):
+        cot_result = fetch_cot_data(asset_key)
+
+    # ── ML Directional Signal (3-model Ensemble) ──────────────────────────
+    with st.spinner("🤖 Chạy ML Ensemble (GBM + RF + MLP)..."):
         ml_result = ml_directional_signal(price.values, forecast_days)
 
     # ── GVZ (Gold Volatility) — chỉ cho XAU ──────────────────────────────
     gvz_data = fetch_gvz() if asset_key == "XAU" else {"ok": False}
+
+    # ── Combined macro score (Macro + Fed + Whale + COT) ─────────────────
+    fed_contrib    = round(fed_result["score"]  * 0.35)
+    whale_contrib  = round(whale_result["score"] * 0.25)
+    cot_contrib    = round(cot_result.get("score", 0) * 0.30) if cot_result.get("ok") else 0
+    obv_contrib    = round(obv_d.get("score", 0) * 0.20) if obv_d.get("ok") else 0
+    combined_macro = max(-12, min(12,
+        macro_score + fed_contrib + whale_contrib + cot_contrib + obv_contrib))
 
     # ── Forecast (tích hợp ML bias) ───────────────────────────────────────
     with st.spinner(f"🔮 Chạy mô hình dự báo {a_short}..."):
@@ -3295,6 +3544,62 @@ def render_asset_tab(asset_key: str, macro: dict, forecast_days: int):
 
     st.markdown("---")
 
+    # ── COT — Commitment of Traders (CFTC) ────────────────────────────────
+    if cot_result.get("ok"):
+        cot_score  = cot_result["score"]
+        cot_color  = "#3fb950" if cot_score > 0 else ("#f85149" if cot_score < 0 else "#FFD700")
+        cot_label  = (
+            "Tích lũy mạnh" if cot_score >= 2 else
+            "Tích lũy nhẹ"  if cot_score == 1 else
+            "Trung tính"    if cot_score == 0 else
+            "Phân phối nhẹ" if cot_score == -1 else
+            "Phân phối mạnh"
+        )
+        st.markdown(
+            f"#### 📋 COT — Quỹ đầu cơ (CFTC Chính thức) &nbsp;"
+            f"<span style='color:{cot_color};font-size:0.95rem;'>"
+            f"[ {cot_label} · Điểm: {cot_score:+d} ]</span>",
+            unsafe_allow_html=True,
+        )
+        cc1, cc2, cc3, cc4 = st.columns(4)
+        cc1.metric(
+            "📅 Báo cáo COT",
+            cot_result["date"],
+            "Cập nhật thứ Sáu hàng tuần",
+            delta_color="off",
+        )
+        cc2.metric(
+            "📊 Net Long (Hedge Fund)",
+            f"{cot_result['net']:,.0f}",
+            f"1W: {cot_result['chg_1w']:+,.0f}",
+            delta_color="normal" if cot_result["chg_1w"] >= 0 else "inverse",
+        )
+        cc3.metric(
+            "📈 Thay đổi 4 tuần",
+            f"{cot_result['chg_4w']:+,.0f}",
+            "Tích lũy" if cot_result["chg_4w"] > 0 else "Phân phối",
+            delta_color="normal" if cot_result["chg_4w"] >= 0 else "inverse",
+        )
+        cc4.metric(
+            "📐 Percentile (20 tuần)",
+            f"{cot_result['pct_rank']:.0f}th",
+            "Extreme Long" if cot_result["pct_rank"] >= 85 else (
+                "Extreme Short" if cot_result["pct_rank"] <= 15 else "Trung bình"),
+            delta_color="off",
+        )
+        with st.expander("🔍 Chi tiết COT (Commitment of Traders)", expanded=False):
+            for sig in cot_result.get("signals", []):
+                st.markdown(sig)
+            st.markdown(
+                f"\n*Đóng góp vào dự báo: COT score {cot_score:+d} × 30% = {cot_contrib:+d} điểm*\n\n"
+                f"*Dữ liệu: CFTC (Commodity Futures Trading Commission) — Managed Money "
+                f"Long/Short positions. Cập nhật mỗi thứ Sáu lúc 15:30 ET.*"
+            )
+    else:
+        st.info("📋 COT: Không tải được dữ liệu CFTC (chỉ có cho XAU/XAG/HG/CL)", icon="ℹ️")
+
+    st.markdown("---")
+
     # ── Chart ─────────────────────────────────────────────────────────────
     ml = period_label(forecast_days)
     st.markdown(
@@ -3420,8 +3725,10 @@ def render_asset_tab(asset_key: str, macro: dict, forecast_days: int):
     st.markdown("---")
     st.markdown(
         f"<p style='color:#484f58;font-size:0.76rem;text-align:center;'>"
-        f"Nguồn: {ticker} · Mô hình: HW + ARIMA + Momentum + Macro + Fed (DFII10/T5YIFR/Trump/Warsh) + Cá Mập + Mùa vụ · "
-        f"Điểm tổng hợp: Macro {macro_score:+d} + Fed {fed_contrib:+d} + Whale {whale_contrib:+d} = {combined_macro:+d} · "
+        f"Nguồn: {ticker} · Mô hình: HW + ARIMA + Momentum + Ensemble ML (GBM+RF+MLP) + Kalman + "
+        f"Macro + Fed (DFII10/T5YIFR/T5YIE/M2SL) + Whale + COT (CFTC) + OBV + CCI + ADX + Stochastic + GVZ · "
+        f"Điểm tổng hợp: Macro {macro_score:+d} + Fed {fed_contrib:+d} + Whale {whale_contrib:+d} "
+        f"+ COT {cot_contrib:+d} + OBV {obv_contrib:+d} = {combined_macro:+d} · "
         f"⚠️ Chỉ mang tính tham khảo, không phải khuyến nghị đầu tư.</p>",
         unsafe_allow_html=True,
     )
