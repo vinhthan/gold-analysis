@@ -182,6 +182,40 @@ MACRO_TICKERS = {
     "TIP":      "tips",
 }
 
+# ── Personality Profiles — encoded từ hành vi lịch sử quan sát được ────────
+# Scale: -3 (rất tiêu cực) đến +3 (rất tích cực) cho từng đặc điểm
+TRUMP_PROFILE = {
+    "rate_preference":     -3,  # Luôn muốn lãi suất thấp nhất có thể
+    "growth_priority":      3,  # GDP & thị trường > mọi mục tiêu khác
+    "inflation_tolerance":  2,  # Chấp nhận lạm phát cao hơn mức thông thường
+    "market_as_scorecard":  3,  # S&P 500 = điểm số nhiệm kỳ
+    "tariff_weapon":        3,  # Thuế quan = vũ khí đàm phán chính
+    "fed_pressure":         3,  # Sẵn sàng tấn công Fed công khai
+    "unpredictability":     3,  # Bất ngờ có chủ đích là chiến thuật
+    "dollar_preference":   -2,  # Muốn USD yếu để xuất khẩu tốt
+    "deal_orientation":     3,  # Mọi thứ đều là deal — sẽ xuống thang nếu có lợi
+}
+
+WARSH_PROFILE = {
+    "hawkish_bias":         2,  # Tự nhiên là diều hâu (hawk)
+    "rules_based":          2,  # Thích Taylor Rule hơn discretion
+    "qe_skepticism":        3,  # Phê phán QE mạnh nhất lịch sử Fed
+    "credibility_priority": 3,  # Fed credibility > áp lực chính trị
+    "wall_street_dna":      2,  # Morgan Stanley background → market-savvy
+    "political_savvy":      2,  # Từng ở Nhà Trắng → biết survive chính trị
+    "druckenmiller_view":   2,  # Ảnh hưởng từ Druckenmiller: macro dài hạn
+    "communication":        2,  # Trực tiếp và rõ ràng hơn Powell
+    "trump_resistance":     1,  # Sẽ kháng cự Trump nhưng không đối đầu công khai
+}
+
+# Tóm tắt xung đột cấu trúc Trump-Warsh cho UI
+TRUMP_WARSH_DYNAMIC = {
+    "conflict_level":   3,   # Mâu thuẫn cao (Trump muốn cắt, Warsh muốn giữ)
+    "trump_wins_prob":  35,  # Xác suất Trump thuyết phục được Warsh (%)
+    "warsh_wins_prob":  50,  # Xác suất Warsh giữ vững lập trường (%)
+    "compromise_prob":  15,  # Xác suất thỏa hiệp giữa chừng (%)
+}
+
 def period_label(days: int) -> str:
     return PERIOD_LABELS.get(days, f"{days} ngày tới")
 
@@ -536,6 +570,206 @@ def fetch_macro() -> dict[str, pd.Series]:
         except Exception:
             pass
     return result
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def fetch_fred_rates() -> dict:
+    """
+    Lấy dữ liệu lãi suất từ FRED (St. Louis Fed) — miễn phí, không cần API key.
+    Series: FEDFUNDS, DGS2, T10Y2Y, T10Y3M
+    """
+    import requests as _req
+    from io import StringIO as _SI
+
+    series = {
+        "fedfunds":  "FEDFUNDS",   # Lãi suất Fed Funds hiện tại
+        "yield2y":   "DGS2",       # 2-Year Treasury (predictor tốt nhất của Fed)
+        "curve":     "T10Y2Y",     # 10Y - 2Y spread (yield curve)
+        "curve_3m":  "T10Y3M",     # 10Y - 3M spread (recession indicator)
+    }
+    result = {}
+    for key, sid in series.items():
+        try:
+            url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={sid}"
+            r = _req.get(url, timeout=12,
+                        headers={"User-Agent": "Mozilla/5.0"})
+            df = pd.read_csv(_SI(r.text), parse_dates=["DATE"], index_col="DATE")
+            s = df.iloc[:, 0]
+            s = pd.to_numeric(s, errors="coerce").dropna()
+            if len(s) >= 10:
+                result[key] = s
+        except Exception:
+            pass
+    return result
+
+
+def fed_policy_analysis(fred_data: dict, macro: dict) -> dict:
+    """
+    Phân tích chính sách Fed kết hợp ngoại cảm:
+    1. Yield curve thực tế (FRED data)
+    2. Momentum 2Y Treasury (thị trường đang bet gì?)
+    3. Khoảng cách Fed rate vs Neutral rate (2.5%)
+    4. Warsh Hawkish Factor (tính cách diều hâu)
+    5. Trump Pressure Factor (áp lực từ Nhà Trắng)
+
+    Returns dict với score, direction, signals, metrics.
+    Score: -5 (cắt lãi mạnh) → +5 (tăng lãi mạnh)
+    """
+    score = 0
+    signals = []
+    metrics = {}
+
+    # ── 1. Yield Curve (T10Y2Y) — tín hiệu thị trường số 1 ──────────────
+    curve_val = None
+    for key in ("curve", "curve_3m"):
+        if key in fred_data and len(fred_data[key]) > 0:
+            curve_val = float(fred_data[key].iloc[-1])
+            break
+
+    if curve_val is not None:
+        metrics["curve"] = curve_val
+        if curve_val < -0.75:
+            score += 3
+            signals.append(("✅", f"Yield Curve đảo ngược sâu {curve_val:.2f}% → thị trường kỳ vọng cắt lãi mạnh trong 6-12T", "green"))
+        elif curve_val < -0.25:
+            score += 2
+            signals.append(("✅", f"Yield Curve âm {curve_val:.2f}% → áp lực cắt lãi đang tích tụ", "green"))
+        elif curve_val < 0:
+            score += 1
+            signals.append(("✅", f"Yield Curve hơi âm {curve_val:.2f}% → nhẹ nghiêng về cắt lãi", "green"))
+        elif curve_val > 1.5:
+            score -= 2
+            signals.append(("🔴", f"Yield Curve dốc mạnh +{curve_val:.2f}% → chưa cần cắt lãi, tăng trưởng ổn", "red"))
+        else:
+            signals.append(("➡️", f"Yield Curve +{curve_val:.2f}% — flat/trung tính", "gray"))
+
+    # ── 2. 2Y Treasury Momentum — best forward predictor ─────────────────
+    if "yield2y" in fred_data and len(fred_data["yield2y"]) >= 20:
+        y2 = fred_data["yield2y"]
+        cur_2y  = float(y2.iloc[-1])
+        prev_2y = float(y2.iloc[-20])
+        chg_2y  = cur_2y - prev_2y
+        metrics["yield2y"]     = cur_2y
+        metrics["yield2y_chg"] = chg_2y
+
+        if chg_2y < -0.4:
+            score += 3
+            signals.append(("✅", f"2Y Yield giảm mạnh {chg_2y:.2f}% — thị trường đang bet mạnh cắt lãi", "green"))
+        elif chg_2y < -0.15:
+            score += 2
+            signals.append(("✅", f"2Y Yield giảm {chg_2y:.2f}% — kỳ vọng cắt lãi tăng lên", "green"))
+        elif chg_2y < -0.05:
+            score += 1
+            signals.append(("✅", f"2Y Yield giảm nhẹ {chg_2y:.2f}%", "green"))
+        elif chg_2y > 0.4:
+            score -= 3
+            signals.append(("🔴", f"2Y Yield tăng mạnh {chg_2y:.2f}% — thị trường bet tăng/giữ lãi", "red"))
+        elif chg_2y > 0.15:
+            score -= 2
+            signals.append(("🔴", f"2Y Yield tăng {chg_2y:.2f}% — kỳ vọng tăng lãi", "red"))
+        elif chg_2y > 0.05:
+            score -= 1
+            signals.append(("⚠️", f"2Y Yield tăng nhẹ {chg_2y:.2f}%", "orange"))
+
+    # ── 3. Fed Rate vs Neutral (2.5%) ─────────────────────────────────────
+    current_rate = None
+    if "fedfunds" in fred_data and len(fred_data["fedfunds"]) > 0:
+        current_rate = float(fred_data["fedfunds"].iloc[-1])
+        neutral = 2.5
+        gap = current_rate - neutral
+        metrics["fedfunds"]    = current_rate
+        metrics["neutral_gap"] = gap
+
+        if gap > 2.5:
+            score += 3
+            signals.append(("✅", f"Fed rate {current_rate:.2f}% — cách neutral {gap:.1f}% → áp lực cắt lãi rất lớn", "green"))
+        elif gap > 1.5:
+            score += 2
+            signals.append(("✅", f"Fed rate {current_rate:.2f}% — trên neutral {gap:.1f}%", "green"))
+        elif gap > 0.5:
+            score += 1
+            signals.append(("✅", f"Fed rate {current_rate:.2f}% — hơi trên neutral", "green"))
+        elif gap < -0.5:
+            score -= 1
+            signals.append(("🔴", f"Fed rate {current_rate:.2f}% — dưới neutral → còn dư địa tăng lãi", "red"))
+
+    # ── 4. WARSH HAWKISH FACTOR (ngoại cảm tính cách) ────────────────────
+    # Warsh diều hâu → luôn giữ lãi cao hơn kỳ vọng thị trường 1 bậc
+    w_hawkish = WARSH_PROFILE["hawkish_bias"]     # +2
+    w_cred    = WARSH_PROFILE["credibility_priority"]  # +3 (coi trọng uy tín > áp lực)
+    w_resist  = WARSH_PROFILE["trump_resistance"]  # +1
+    warsh_net = -(w_hawkish * 0.5 + w_cred * 0.2 + w_resist * 0.1)  # → âm = hawkish
+    score += round(warsh_net)
+    signals.append(("🦅", f"Warsh Factor: hawkish DNA (bias {warsh_net:.1f}) → lãi cao hơn thị trường kỳ vọng", "orange"))
+
+    # ── 5. TRUMP PRESSURE FACTOR (ngoại cảm áp lực chính trị) ────────────
+    trump_pressure = 0
+    trump_signal   = ""
+
+    # Trump áp lực mạnh hơn khi thị trường giảm
+    if "sp500" in macro and len(macro["sp500"]) >= 22:
+        sp_chg = (float(macro["sp500"].iloc[-1]) / float(macro["sp500"].iloc[-22]) - 1) * 100
+        metrics["sp500_chg"] = sp_chg
+        if sp_chg < -12:
+            trump_pressure = 3
+            trump_signal   = f"S&P {sp_chg:.1f}% → Trump áp lực tối đa, gần như chắc chắn gây áp lực công khai Warsh"
+        elif sp_chg < -6:
+            trump_pressure = 2
+            trump_signal   = f"S&P {sp_chg:.1f}% → Trump sẽ công khai chỉ trích Fed"
+        elif sp_chg < -2:
+            trump_pressure = 1
+            trump_signal   = f"S&P {sp_chg:.1f}% → Trump bắt đầu gây áp lực ngầm"
+        elif sp_chg > 8:
+            trump_pressure = -1
+            trump_signal   = f"S&P +{sp_chg:.1f}% → Trump hài lòng, ít áp lực Fed"
+
+    # Trump pressure offset bởi Warsh resistance:
+    # Warsh sẽ kháng cự được khoảng 50-60% áp lực
+    warsh_resistance = WARSH_PROFILE["trump_resistance"]  # 1
+    effective_trump  = trump_pressure * (1 - warsh_resistance * 0.3)
+    score += round(effective_trump)
+    if trump_signal:
+        signals.append(("⚡", f"Trump Pressure: {trump_signal}", "orange"))
+
+    metrics["trump_pressure"]   = trump_pressure
+    metrics["warsh_net"]        = warsh_net
+    metrics["effective_trump"]  = effective_trump
+
+    # ── Clamp & label ─────────────────────────────────────────────────────
+    score = max(-5, min(5, score))
+
+    if score >= 3:
+        direction = "CẮT LÃI SỚM (6-9T)"
+        d_color   = "#3fb950"
+        prob_cut  = min(88, 55 + score * 6)
+    elif score >= 1:
+        direction = "NGHIÊNG VỀ CẮT LÃI"
+        d_color   = "#76c3a0"
+        prob_cut  = min(70, 52 + score * 6)
+    elif score <= -3:
+        direction = "GIỮ HOẶC TĂNG LÃI"
+        d_color   = "#f85149"
+        prob_cut  = max(12, 48 + score * 6)
+    elif score <= -1:
+        direction = "NGHIÊNG VỀ GIỮ LÃI"
+        d_color   = "#ff7b54"
+        prob_cut  = max(30, 48 + score * 6)
+    else:
+        direction = "KHÔNG XÁC ĐỊNH / PHỤ THUỘC DATA MỚI"
+        d_color   = "#FFD700"
+        prob_cut  = 50
+
+    return {
+        "score":        score,
+        "direction":    direction,
+        "color":        d_color,
+        "prob_cut":     round(prob_cut),
+        "prob_hold":    round(100 - prob_cut),
+        "current_rate": current_rate,
+        "curve_val":    curve_val,
+        "signals":      signals,
+        "metrics":      metrics,
+    }
 
 
 def _comex_days_to_expiry() -> int:
@@ -1615,6 +1849,167 @@ def build_chart(p, m20, m50, m200, bbu, bbl, hi52, lo52,
     return fig
 
 # ══════════════════════════════════════════════════════════════════════════════
+#  WHALE (INSTITUTIONAL POSITIONING) DATA
+# ══════════════════════════════════════════════════════════════════════════════
+
+@st.cache_data(ttl=1800, show_spinner=False)
+def fetch_whale_data(asset_key: str) -> dict:
+    """
+    Dữ liệu định vị cá mập (institutional positioning):
+    - ETF AUM flow proxy (price × volume trend của GLD/SLV/IBIT/USO/COPX)
+    - Volume momentum (smart money footprint)
+    - Futures Open Interest (yfinance)
+    Returns dict với etf_flow, vol, oi, score, signals
+    """
+    etf_map = {
+        "XAU":    ("GLD",  "vàng"),
+        "XAG":    ("SLV",  "bạc"),
+        "HG":     ("COPX", "đồng"),
+        "CL":     ("USO",  "dầu WTI"),
+        "USDVND": (None,   "USD/VND"),
+        "BTC":    ("IBIT", "Bitcoin"),
+    }
+    fut_map = {
+        "XAU":    "GC=F",
+        "XAG":    "SI=F",
+        "HG":     "HG=F",
+        "CL":     "CL=F",
+        "USDVND": None,
+        "BTC":    None,
+    }
+
+    etf_ticker, asset_vn = etf_map.get(asset_key, (None, asset_key))
+    fut_ticker = fut_map.get(asset_key)
+    score  = 0
+    signals = []
+    result  = {"etf_flow": None, "vol": None, "oi": None, "score": 0, "signals": []}
+
+    # ── 1. ETF AUM Flow Proxy ────────────────────────────────────────────────
+    if etf_ticker:
+        try:
+            raw = yf.download(etf_ticker, period="3mo", interval="1d",
+                              progress=False, auto_adjust=True)
+            if not raw.empty:
+                if isinstance(raw.columns, pd.MultiIndex):
+                    raw.columns = raw.columns.get_level_values(0)
+                price_s = raw["Close"].dropna()
+                vol_s   = raw["Volume"].dropna()
+
+                if len(price_s) >= 20:
+                    # AUM proxy: 20-day MA now vs 20-day MA from 60 days ago
+                    p20  = float(price_s.rolling(20).mean().iloc[-1])
+                    tail60 = price_s.tail(60)
+                    p60  = float(tail60.rolling(20).mean().dropna().iloc[0]) if len(tail60) >= 20 else float(tail60.iloc[0])
+                    aum_chg = (p20 / p60 - 1) * 100 if p60 > 0 else 0
+                    result["etf_flow"] = {
+                        "ticker": etf_ticker, "aum_chg": aum_chg,
+                        "price": float(price_s.iloc[-1]),
+                    }
+
+                    if aum_chg > 5:
+                        score += 2
+                        signals.append(("🐋", f"ETF {etf_ticker} AUM +{aum_chg:.1f}% (20d MA now vs 60d ago) → tổ chức đang tích lũy {asset_vn} mạnh", "green"))
+                    elif aum_chg > 2:
+                        score += 1
+                        signals.append(("📈", f"ETF {etf_ticker} AUM +{aum_chg:.1f}% → tổ chức mua nhẹ {asset_vn}", "green"))
+                    elif aum_chg < -5:
+                        score -= 2
+                        signals.append(("📉", f"ETF {etf_ticker} AUM {aum_chg:.1f}% → tổ chức phân phối {asset_vn}", "red"))
+                    elif aum_chg < -2:
+                        score -= 1
+                        signals.append(("⚠️", f"ETF {etf_ticker} AUM {aum_chg:.1f}% → xả hàng nhẹ {asset_vn}", "orange"))
+                    else:
+                        signals.append(("➡️", f"ETF {etf_ticker}: AUM ổn định ({aum_chg:+.1f}%) — cá mập chưa hành động rõ ràng", "gray"))
+
+                    # Volume surge (5d vs 90d)
+                    if len(vol_s) >= 10:
+                        avg_vol  = float(vol_s.tail(60).mean()) if len(vol_s) >= 60 else float(vol_s.mean())
+                        rec_vol  = float(vol_s.tail(5).mean())
+                        vol_ratio = rec_vol / avg_vol if avg_vol > 0 else 1.0
+                        result["vol"] = {"ratio": vol_ratio, "ticker": etf_ticker}
+
+                        if vol_ratio > 2.0:
+                            score += 1
+                            signals.append(("⚡", f"Khối lượng {etf_ticker} tăng vọt {vol_ratio:.1f}× avg → có thể block trading (cá mập vào lệnh lớn)", "green"))
+                        elif vol_ratio > 1.5:
+                            signals.append(("📊", f"Khối lượng {etf_ticker}: {vol_ratio:.1f}× avg — hoạt động tổ chức gia tăng", "green"))
+                        elif vol_ratio < 0.5:
+                            signals.append(("🔇", f"Khối lượng {etf_ticker} rất thấp ({vol_ratio:.1f}× avg) — cá mập vắng mặt", "gray"))
+                        else:
+                            signals.append(("➡️", f"Khối lượng {etf_ticker}: {vol_ratio:.1f}× avg — bình thường", "gray"))
+        except Exception:
+            pass
+
+    # ── 2. Futures Open Interest ─────────────────────────────────────────────
+    if fut_ticker:
+        try:
+            tk  = yf.Ticker(fut_ticker)
+            inf = tk.info
+            oi  = inf.get("openInterest")
+            if oi and int(oi) > 0:
+                result["oi"] = {"value": int(oi), "ticker": fut_ticker}
+                oi_label = "tập trung lớn → sắp có biến động mạnh" if oi > 400000 else "mức trung bình"
+                signals.append(("📌", f"Open Interest {fut_ticker}: {oi:,} hợp đồng — {oi_label}", "gray"))
+        except Exception:
+            pass
+
+    result["score"]   = max(-5, min(5, score))
+    result["signals"] = signals
+    return result
+
+
+def whale_regime(whale_data: dict, asset_key: str) -> dict:
+    """
+    Phân tích định vị cá mập và đưa ra nhận định tổng hợp.
+    Trả về score, label, color, signals, cot_note.
+    """
+    score    = whale_data.get("score", 0)
+    signals  = whale_data.get("signals", [])
+    a_name   = ASSETS[asset_key]["short"]
+
+    etf  = whale_data.get("etf_flow")
+    vol  = whale_data.get("vol")
+    cot_signal = ""
+
+    # ── Double confirmation (ETF + Volume) ───────────────────────────────────
+    if etf and vol:
+        if etf["aum_chg"] > 3 and vol["ratio"] > 1.3:
+            score += 1
+            cot_signal = (f"📣 XÁC NHẬN KÉP: ETF tăng +{etf['aum_chg']:.1f}% "
+                          f"+ volume {vol['ratio']:.1f}× → cá mập đang tích lũy {a_name} mạnh")
+        elif etf["aum_chg"] < -3 and vol["ratio"] > 1.3:
+            score -= 1
+            cot_signal = (f"📣 XÁC NHẬN KÉP: ETF giảm {etf['aum_chg']:.1f}% "
+                          f"+ volume {vol['ratio']:.1f}× → cá mập đang phân phối {a_name}")
+
+    score = max(-5, min(5, score))
+
+    if score >= 3:
+        label = f"CÁ MẬP TÍCH LŨY {a_name.upper()}"
+        color = "#3fb950"
+    elif score >= 1:
+        label = "TÍCH CỰC NHẸ (CÁ MẬP MUA)"
+        color = "#76c3a0"
+    elif score <= -3:
+        label = f"CÁ MẬP PHÂN PHỐI {a_name.upper()}"
+        color = "#f85149"
+    elif score <= -1:
+        label = "TIÊU CỰC NHẸ (CÁ MẬP BÁN)"
+        color = "#ff7b54"
+    else:
+        label = "TRUNG TÍNH (CÁ MẬP CHƯA HÀNH ĐỘNG)"
+        color = "#FFD700"
+
+    return {
+        "score":    score,
+        "label":    label,
+        "color":    color,
+        "signals":  signals,
+        "cot_note": cot_signal,
+    }
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 #  ASSET TAB RENDERER
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -1651,16 +2046,31 @@ def render_asset_tab(asset_key: str, macro: dict, forecast_days: int):
         macro, price, asset_key
     )
 
+    # ── Fed Policy Analysis (FRED + personality) ──────────────────────────
+    with st.spinner("🏦 Phân tích chính sách Fed..."):
+        fred_data  = fetch_fred_rates()
+        fed_result = fed_policy_analysis(fred_data, macro)
+
+    # ── Whale Positioning (ETF flow + OI + volume) ────────────────────────
+    with st.spinner("🐋 Tải dữ liệu cá mập..."):
+        whale_data_raw = fetch_whale_data(asset_key)
+        whale_result   = whale_regime(whale_data_raw, asset_key)
+
+    # ── Combined macro score (Macro + Fed + Whale) ───────────────────────
+    fed_contrib    = round(fed_result["score"] * 0.35)
+    whale_contrib  = round(whale_result["score"] * 0.25)
+    combined_macro = max(-12, min(12, macro_score + fed_contrib + whale_contrib))
+
     # ── Forecast ──────────────────────────────────────────────────────────
     with st.spinner(f"🔮 Chạy mô hình dự báo {a_short}..."):
         fc_mean, fc_lo_s, fc_hi_s = forecast(
             price.values, str(price.index[-1]), forecast_days,
-            macro_score, asset_key
+            combined_macro, asset_key
         )
 
     # ── Signal ────────────────────────────────────────────────────────────
     signal, sig_color, sig_icon, tech_notes = compute_signal(
-        price, ma20, ma50, ma200, rsi, fc_mean, macro_score
+        price, ma20, ma50, ma200, rsi, fc_mean, combined_macro
     )
 
     cur   = float(price.iloc[-1])
@@ -1770,6 +2180,131 @@ def render_asset_tab(asset_key: str, macro: dict, forecast_days: int):
 
     st.markdown("---")
 
+    # ── Fed Policy Radar ──────────────────────────────────────────────────
+    fed_score     = fed_result["score"]
+    fed_color     = fed_result["color"]
+    fed_direction = fed_result["direction"]
+    fed_prob_cut  = fed_result["prob_cut"]
+    fed_prob_hold = fed_result["prob_hold"]
+    fed_signals   = fed_result["signals"]
+    cur_rate      = fed_result.get("current_rate")
+    curve_val     = fed_result.get("curve_val")
+
+    st.markdown(
+        f"#### 🏦 Fed Radar — Trump · Warsh · Lãi suất &nbsp;"
+        f"<span style='color:{fed_color};font-size:0.95rem;'>"
+        f"[ {fed_direction} · Điểm: {fed_score:+d} ]</span>",
+        unsafe_allow_html=True,
+    )
+
+    fc1, fc2, fc3, fc4 = st.columns(4)
+    fc1.metric("🎯 Fed Hướng đi", fed_direction,
+               f"Điểm tổng hợp: {fed_score:+d}/5", delta_color="off")
+    fc2.metric("✂️ Xác suất Cắt lãi", f"{fed_prob_cut}%",
+               f"Giữ/Tăng lãi: {fed_prob_hold}%",
+               delta_color="normal" if fed_prob_cut > 50 else "inverse")
+    if cur_rate is not None:
+        fc3.metric("🏛️ Fed Funds Rate", f"{cur_rate:.2f}%",
+                   f"Neutral 2.50% · Gap {cur_rate - 2.5:+.2f}%",
+                   delta_color="inverse")
+    else:
+        fc3.metric("🏛️ Fed Funds Rate", "N/A")
+    if curve_val is not None:
+        fc4.metric("📐 Yield Curve (10Y–2Y)", f"{curve_val:+.2f}%",
+                   "Đảo ngược → kỳ vọng cắt lãi" if curve_val < 0 else "Bình thường/dốc",
+                   delta_color="normal" if curve_val < 0 else "inverse")
+    else:
+        fc4.metric("📐 Yield Curve (10Y–2Y)", "N/A")
+
+    with st.expander("🔍 Ngoại cảm: Trump · Warsh · Xung đột cấu trúc", expanded=False):
+        conflict = TRUMP_WARSH_DYNAMIC["conflict_level"]
+        t_win    = TRUMP_WARSH_DYNAMIC["trump_wins_prob"]
+        w_win    = TRUMP_WARSH_DYNAMIC["warsh_wins_prob"]
+        comp     = TRUMP_WARSH_DYNAMIC["compromise_prob"]
+        st.markdown(
+            f"**⚡ Xung đột Trump–Warsh** (cấp độ {conflict}/3 — MÂU THUẪN CAO)\n\n"
+            f"| Kịch bản | Xác suất |\n"
+            f"|---|---|\n"
+            f"| Trump thuyết phục Warsh cắt lãi | **{t_win}%** |\n"
+            f"| Warsh giữ vững lập trường hawkish | **{w_win}%** |\n"
+            f"| Thỏa hiệp ở giữa | **{comp}%** |\n\n"
+            f"**🦅 Kevin Warsh** *(Fed Chair từ 22/5/2026)*: Diều hâu (hawkish) · Rules-based "
+            f"(Taylor Rule) · QE skeptic mạnh nhất lịch sử · Morgan Stanley + Nhà Trắng "
+            f"+ Druckenmiller background · Ưu tiên uy tín Fed > áp lực chính trị\n\n"
+            f"**🇺🇸 Donald Trump**: Luôn muốn lãi suất thấp nhất có thể · Coi S&P 500 là "
+            f"điểm số nhiệm kỳ · Thuế quan = vũ khí đàm phán · Sẵn sàng tấn công Fed "
+            f"công khai · Muốn USD yếu để hỗ trợ xuất khẩu"
+        )
+        st.markdown("---\n**📊 Tín hiệu lãi suất thực tế (FRED Data):**")
+        for icon, text, _ in fed_signals:
+            st.markdown(f"{icon} {text}")
+        st.markdown(
+            f"\n*Đóng góp vào dự báo: Fed score {fed_score:+d} × 35% = {fed_contrib:+d} điểm*"
+        )
+
+    st.markdown("---")
+
+    # ── Whale Positioning ─────────────────────────────────────────────────
+    w_score   = whale_result["score"]
+    w_color   = whale_result["color"]
+    w_label   = whale_result["label"]
+    w_signals = whale_result["signals"]
+    w_cot     = whale_result.get("cot_note", "")
+    etf_flow  = whale_data_raw.get("etf_flow")
+    vol_data  = whale_data_raw.get("vol")
+    oi_data   = whale_data_raw.get("oi")
+
+    st.markdown(
+        f"#### 🐋 Cá Mập (Institutional Positioning) &nbsp;"
+        f"<span style='color:{w_color};font-size:0.95rem;'>"
+        f"[ {w_label} · Điểm: {w_score:+d} ]</span>",
+        unsafe_allow_html=True,
+    )
+
+    wc1, wc2, wc3 = st.columns(3)
+    if etf_flow:
+        etf_chg = etf_flow["aum_chg"]
+        wc1.metric(
+            f"🏦 ETF {etf_flow['ticker']} (AUM Proxy)",
+            f"{etf_chg:+.1f}%",
+            "Tổ chức đang MUA" if etf_chg > 2 else ("Tổ chức đang BÁN" if etf_chg < -2 else "Trung tính"),
+            delta_color="normal" if etf_chg > 0 else "inverse",
+        )
+    else:
+        wc1.metric("🏦 ETF Flow", "Không có dữ liệu")
+
+    if vol_data:
+        vr = vol_data["ratio"]
+        wc2.metric(
+            f"📊 Volume Ratio ({vol_data.get('ticker','')} 5d/avg)",
+            f"{vr:.1f}×",
+            "Block trading!" if vr > 2 else ("Tổ chức hoạt động" if vr > 1.5 else ("Bình thường" if vr > 0.7 else "Thanh khoản kém")),
+            delta_color="normal" if vr > 1.3 else "off",
+        )
+    else:
+        wc2.metric("📊 Volume Ratio", "N/A")
+
+    if oi_data:
+        wc3.metric("📌 Open Interest", f"{oi_data['value']:,}",
+                   oi_data["ticker"], delta_color="off")
+    else:
+        wc3.metric("📌 Open Interest", "N/A")
+
+    if w_signals or w_cot:
+        with st.expander("🔍 Chi tiết định vị cá mập (ETF flow · Volume · OI)", expanded=False):
+            if w_cot:
+                st.markdown(f"**{w_cot}**\n")
+                st.markdown("---")
+            for icon, text, _ in w_signals:
+                st.markdown(f"{icon} {text}")
+            st.markdown(
+                f"\n*Đóng góp vào dự báo: Whale score {w_score:+d} × 25% = {whale_contrib:+d} điểm*\n\n"
+                f"*Lưu ý: COT (Commitment of Traders) chính thức từ CFTC cập nhật mỗi thứ Sáu. "
+                f"App dùng ETF AUM flow + volume momentum + Open Interest làm proxy thời gian thực.*"
+            )
+
+    st.markdown("---")
+
     # ── Chart ─────────────────────────────────────────────────────────────
     ml = period_label(forecast_days)
     st.markdown(
@@ -1841,7 +2376,8 @@ def render_asset_tab(asset_key: str, macro: dict, forecast_days: int):
     st.markdown("---")
     st.markdown(
         f"<p style='color:#484f58;font-size:0.76rem;text-align:center;'>"
-        f"Nguồn: {ticker} · Mô hình: Holt-Winters + ARIMA(1,1,1) + Momentum + Macro + Mùa vụ · "
+        f"Nguồn: {ticker} · Mô hình: HW + ARIMA + Momentum + Macro + Fed (Trump/Warsh) + Cá Mập + Mùa vụ · "
+        f"Điểm tổng hợp: Macro {macro_score:+d} + Fed {fed_contrib:+d} + Whale {whale_contrib:+d} = {combined_macro:+d} · "
         f"⚠️ Chỉ mang tính tham khảo, không phải khuyến nghị đầu tư.</p>",
         unsafe_allow_html=True,
     )
