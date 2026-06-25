@@ -63,20 +63,16 @@ st.markdown("""
 # ══════════════════════════════════════════════════════════════════════════════
 
 PERIOD_LABELS = {
-    # ── Giao dịch ngắn hạn ────────────────────────────────────────────────
     1:   "Ngày mai",
     3:   "3 ngày tới",
     7:   "1 tuần tới",
-    14:  "2 tuần tới",
-    # ── Đầu tư dài hạn ────────────────────────────────────────────────────
     30:  "1 tháng tới",
-    60:  "2 tháng tới",
     90:  "3 tháng tới",
     180: "6 tháng tới",
     365: "1 năm tới",
 }
 
-SHORT_TERM_DAYS = {1, 3, 7, 14}   # Kỳ giao dịch ngắn hạn
+SHORT_TERM_DAYS = {1, 3, 7}   # Kỳ giao dịch ngắn hạn
 
 # ── Asset metadata ─────────────────────────────────────────────────────────
 ASSETS = {
@@ -3019,24 +3015,12 @@ def main():
     st.markdown("---")
 
     # ── Controls ──────────────────────────────────────────────────────────────
-    c1, c2, c3 = st.columns([4, 1, 2])
+    c1, c2, c3 = st.columns([3, 1, 3])
     with c1:
-        mode = st.radio(
-            "Chế độ:",
-            ["⚡ Giao dịch ngắn hạn (1–14 ngày)", "📈 Đầu tư dài hạn (1–12 tháng)"],
-            horizontal=True,
-            label_visibility="collapsed",
-        )
-        if "Giao dịch" in mode:
-            _opts = {1: "Ngày mai", 3: "3 ngày tới", 7: "1 tuần tới", 14: "2 tuần tới"}
-        else:
-            _opts = {30: "1 tháng tới", 60: "2 tháng tới", 90: "3 tháng tới",
-                     180: "6 tháng tới", 365: "1 năm tới"}
         forecast_days = st.radio(
-            "Kỳ dự báo:", list(_opts.keys()),
-            format_func=lambda x: _opts[x],
-            horizontal=True,
-            label_visibility="collapsed",
+            "Kỳ dự báo:", list(PERIOD_LABELS.keys()),
+            format_func=lambda x: PERIOD_LABELS[x],
+            horizontal=True, label_visibility="collapsed"
         )
     with c2:
         if st.button("🔄 Làm mới", use_container_width=True):
