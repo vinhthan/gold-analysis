@@ -1888,7 +1888,7 @@ def calc_obv(df: pd.DataFrame) -> dict:
         return {"signal": "neutral", "divergence": None, "slope_pct": 0.0, "ok": False}
 
     close  = df["Close"].astype(float)
-    volume = df["Volume"].astype(float).replace(0, np.nan).fillna(method="ffill")
+    volume = df["Volume"].astype(float).replace(0, np.nan).ffill()
 
     if volume.isna().all() or float(volume.sum()) < 1:
         return {"signal": "neutral", "divergence": None, "slope_pct": 0.0, "ok": False}
