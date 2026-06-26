@@ -3243,6 +3243,230 @@ def fetch_credit_stress(fred_data: dict) -> dict:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+#  HEDGE FUND FRAMEWORK — Macro Regime + Cross-Asset Alignment
+# ══════════════════════════════════════════════════════════════════════════════
+
+def detect_macro_regime(fred_data: dict, macro: dict) -> dict:
+    """
+    Phân loại môi trường kinh tế theo khung Bridgewater All Weather:
+    2 chiều độc lập — GROWTH (tăng trưởng) × INFLATION (lạm phát).
+
+    5 chế độ:
+    ┌────────────────┬─────────────────┬────────────────────┐
+    │                │  Lạm phát cao   │  Lạm phát thấp     │
+    ├────────────────┼─────────────────┼────────────────────┤
+    │ Tăng trưởng ↑  │ TĂNG TRƯỞNG NÓNG│ GOLDILOCKS         │
+    │ Tăng trưởng ↓  │ ĐÌNH LẠM 🔥     │ RỦI RO GIẢM PHÁT  │
+    │ Khủng hoảng    │      CRISIS 🚨  │                    │
+    └────────────────┴─────────────────┴────────────────────┘
+    Vàng mạnh nhất: ĐÌNH LẠM > CRISIS > TĂNG TRƯỞNG NÓNG
+    """
+    g_pts = 0   # growth points
+    i_pts = 0   # inflation points
+    details: list[str] = []
+    vix_val = None
+
+    # ── GROWTH INDICATORS ──────────────────────────────────────────────────
+    # 1. S&P 500 momentum 3 tháng
+    if "sp500" in macro and len(macro["sp500"]) >= 63:
+        sp_chg = (float(macro["sp500"].iloc[-1]) / float(macro["sp500"].iloc[-63]) - 1) * 100
+        if   sp_chg > 12: g_pts += 2; details.append(f"S&P 3M +{sp_chg:.1f}% → Tăng trưởng rất mạnh")
+        elif sp_chg > 4:  g_pts += 1; details.append(f"S&P 3M +{sp_chg:.1f}% → Tăng trưởng ổn định")
+        elif sp_chg < -12:g_pts -= 2; details.append(f"S&P 3M {sp_chg:.1f}% → Suy giảm nghiêm trọng ⚠️")
+        elif sp_chg < -4: g_pts -= 1; details.append(f"S&P 3M {sp_chg:.1f}% → Tăng trưởng đang yếu")
+
+    # 2. Yield Curve (10Y-2Y)
+    for k in ("curve", "curve_3m"):
+        if k in fred_data and len(fred_data[k]) > 0:
+            cv = float(fred_data[k].iloc[-1])
+            if   cv >  0.75: g_pts += 1; details.append(f"Yield Curve +{cv:.2f}% → Tăng trưởng dài hạn kỳ vọng")
+            elif cv < -0.75: g_pts -= 2; details.append(f"Yield Curve {cv:.2f}% → Đảo ngược sâu = Cảnh báo suy thoái")
+            elif cv < -0.25: g_pts -= 1; details.append(f"Yield Curve {cv:.2f}% → Đảo ngược nhẹ")
+            break
+
+    # 3. High Yield Credit Spread
+    if "credit_oas" in fred_data and len(fred_data["credit_oas"]) > 0:
+        oas = float(fred_data["credit_oas"].iloc[-1])
+        if   oas < 3.2: g_pts += 1; details.append(f"HY OAS {oas:.2f}% → Tín dụng bình thường, doanh nghiệp khoẻ")
+        elif oas > 6.5: g_pts -= 2; details.append(f"HY OAS {oas:.2f}% → KHỦNG HOẢNG tín dụng ⚠️")
+        elif oas > 4.5: g_pts -= 1; details.append(f"HY OAS {oas:.2f}% → Căng thẳng tín dụng đáng kể")
+
+    # 4. VIX (fear gauge)
+    if "vix" in macro and len(macro["vix"]) > 0:
+        vix_val = float(macro["vix"].iloc[-1])
+        if   vix_val < 14: g_pts += 1; details.append(f"VIX {vix_val:.0f} → Thị trường cực kỳ bình tĩnh")
+        elif vix_val > 40: g_pts -= 2; details.append(f"VIX {vix_val:.0f} → KHỦNG HOẢNG hệ thống ⚠️")
+        elif vix_val > 28: g_pts -= 1; details.append(f"VIX {vix_val:.0f} → Sợ hãi cao")
+
+    # ── INFLATION INDICATORS ───────────────────────────────────────────────
+    # 5. 5Y Breakeven Inflation (thị trường kỳ vọng)
+    if "breakeven5y" in fred_data and len(fred_data["breakeven5y"]) > 0:
+        bei = float(fred_data["breakeven5y"].iloc[-1])
+        if   bei > 3.0:  i_pts += 2; details.append(f"5Y Breakeven {bei:.2f}% → Kỳ vọng lạm phát rất cao")
+        elif bei > 2.5:  i_pts += 1; details.append(f"5Y Breakeven {bei:.2f}% → Lạm phát trên target 2%")
+        elif bei < 1.8:  i_pts -= 1; details.append(f"5Y Breakeven {bei:.2f}% → Nguy cơ giảm phát")
+
+    # 6. 5Y5Y Forward Inflation Expectation
+    if "inflation5y" in fred_data and len(fred_data["inflation5y"]) > 0:
+        t5 = float(fred_data["inflation5y"].iloc[-1])
+        if   t5 > 2.75:  i_pts += 1; details.append(f"T5YIFR {t5:.2f}% → Lạm phát dài hạn mất neo")
+        elif t5 < 2.0:   i_pts -= 1; details.append(f"T5YIFR {t5:.2f}% → Kỳ vọng lạm phát được neo")
+
+    # 7. Dầu WTI momentum (supply-side inflation proxy)
+    if "oil" in macro and len(macro["oil"]) >= 63:
+        oil_chg = (float(macro["oil"].iloc[-1]) / float(macro["oil"].iloc[-63]) - 1) * 100
+        if   oil_chg > 30:  i_pts += 2; details.append(f"Dầu WTI 3M +{oil_chg:.1f}% → Sốc lạm phát chi phí đẩy")
+        elif oil_chg > 12:  i_pts += 1; details.append(f"Dầu WTI 3M +{oil_chg:.1f}% → Áp lực lạm phát rõ ràng")
+        elif oil_chg < -20: i_pts -= 1; details.append(f"Dầu WTI 3M {oil_chg:.1f}% → Giảm áp lực lạm phát")
+
+    g = max(-4, min(4, g_pts))
+    i = max(-4, min(4, i_pts))
+
+    # ── Phân loại chế độ ─────────────────────────────────────────────────
+    is_crisis = (vix_val is not None and vix_val > 42) or (g <= -3)
+
+    if is_crisis:
+        regime, name, bias  = "crisis",           "KHỦNG HOẢNG",         +3
+        emoji, color        = "🚨", "#f85149"
+        gold_outlook        = "Rất thuận lợi — Vàng là tài sản trú ẩn số 1 trong khủng hoảng"
+        desc = "VIX cực cao + tín dụng bùng nổ + thị trường sụp. Lịch sử: vàng tăng mạnh nhất giai đoạn này."
+    elif g <= 0 and i > 0:
+        regime, name, bias  = "stagflation",      "ĐÌNH LẠM",            +3
+        emoji, color        = "🔥", "#3fb950"
+        gold_outlook        = "Rất thuận lợi — Môi trường TỐT NHẤT cho vàng trong lịch sử"
+        desc = "Tăng trưởng yếu + Lạm phát cao (1970s style, 2022). Cổ phiếu + trái phiếu đều bị áp lực. Vàng là kênh trú ẩn lý tưởng nhất."
+    elif g > 0 and i > 0:
+        regime, name, bias  = "inflationary_boom","TĂNG TRƯỞNG NÓNG",    +1
+        emoji, color        = "📈", "#76c3a0"
+        gold_outlook        = "Thuận lợi — Vàng được hỗ trợ qua kênh lạm phát, cạnh tranh với cổ phiếu"
+        desc = "Kinh tế mạnh + Lạm phát cao. Vàng hoạt động tốt như hedge lạm phát nhưng cổ phiếu cũng tăng mạnh. Phân bổ hợp lý giữa hai kênh."
+    elif g > 0 and i <= 0:
+        regime, name, bias  = "goldilocks",       "GOLDILOCKS",          -2
+        emoji, color        = "🌟", "#ff7b54"
+        gold_outlook        = "Bất lợi — Kinh tế tốt, lạm phát thấp = môi trường xấu nhất cho vàng"
+        desc = "Kinh tế phát triển ổn định + Lạm phát thấp. USD mạnh, lãi suất thực cao. Nhà đầu tư ưu tiên cổ phiếu. Vàng thiếu catalyst."
+    else:
+        regime, name, bias  = "deflation_risk",   "RỦI RO GIẢM PHÁT",   +0
+        emoji, color        = "❄️", "#8b949e"
+        gold_outlook        = "Trung tính — Phức tạp: ngắn hạn bất lợi, dài hạn kích thích"
+        desc = "Tăng trưởng yếu + Lạm phát thấp. Ngắn hạn: DXY mạnh, commodities yếu. Dài hạn: chính phủ/Fed sẽ tung gói kích thích → bullish vàng sau đó."
+
+    return {
+        "regime":         regime, "name_vn": name, "gold_bias": bias,
+        "growth_score":   g,      "inflation_score": i,
+        "gold_outlook":   gold_outlook, "desc_vn": desc,
+        "emoji":          emoji,  "color": color, "details": details,
+    }
+
+
+def calc_cross_asset_alignment(macro: dict, fred_data: dict) -> dict:
+    """
+    Đo lường sự đồng thuận của 7 yếu tố cross-asset theo chiều tăng của vàng.
+    Hedge fund dùng loại tín hiệu này để lọc false positives từ từng chỉ báo đơn lẻ.
+
+    Nguyên tắc: Khi nhiều yếu tố độc lập cùng nói một điều → độ tin cậy tăng
+    Khi phân kỳ → thận trọng, giảm size vị thế.
+    """
+    bulls: list[str] = []
+    bears: list[str] = []
+    neutrals: list[str] = []
+
+    def _chg3m(series: pd.Series) -> float | None:
+        if len(series) >= 63:
+            return (float(series.iloc[-1]) / float(series.iloc[-63]) - 1) * 100
+        return None
+
+    def _chg1m(series: pd.Series) -> float | None:
+        if len(series) >= 22:
+            return (float(series.iloc[-1]) / float(series.iloc[-22]) - 1) * 100
+        return None
+
+    # 1. DXY — USD yếu → vàng tăng (tương quan âm ~-0.80)
+    if "dxy" in macro and len(macro["dxy"]) > 0:
+        chg = _chg3m(macro["dxy"])
+        if chg is not None:
+            if   chg < -3:  bulls.append(f"💵 DXY {chg:.1f}% (3M) — USD yếu → Vàng được định giá lại cao hơn")
+            elif chg > +3:  bears.append(f"💵 DXY +{chg:.1f}% (3M) — USD mạnh → Áp lực giảm vàng")
+            else:           neutrals.append(f"💵 DXY {chg:+.1f}% (3M) — USD trung tính")
+
+    # 2. 10Y Treasury Yield — giảm → chi phí cơ hội vàng giảm
+    if "yield10y" in macro and len(macro["yield10y"]) > 0:
+        if len(macro["yield10y"]) >= 63:
+            d = float(macro["yield10y"].iloc[-1]) - float(macro["yield10y"].iloc[-63])
+            if   d < -0.4:  bulls.append(f"📉 10Y Yield {d:+.2f}% (3M) — Lãi suất giảm → Chi phí cơ hội vàng giảm")
+            elif d > +0.4:  bears.append(f"📈 10Y Yield {d:+.2f}% (3M) — Lãi suất tăng → Áp lực vàng")
+            else:           neutrals.append(f"📊 10Y Yield {d:+.2f}% (3M) — Lãi suất trung tính")
+
+    # 3. S&P 500 — giảm → risk-off → cầu safe haven tăng
+    if "sp500" in macro and len(macro["sp500"]) > 0:
+        chg = _chg3m(macro["sp500"])
+        if chg is not None:
+            if   chg < -8:  bulls.append(f"📉 S&P {chg:.1f}% (3M) — Risk-off mạnh → Dòng tiền vào vàng")
+            elif chg < -3:  bulls.append(f"📉 S&P {chg:.1f}% (3M) — Risk-off → Hỗ trợ safe haven")
+            elif chg > +12: bears.append(f"📈 S&P +{chg:.1f}% (3M) — Risk-on mạnh → Ưu tiên cổ phiếu")
+            else:           neutrals.append(f"📊 S&P {chg:+.1f}% (3M) — Cổ phiếu trung tính")
+
+    # 4. VIX — cao → sợ hãi → cầu safe haven
+    if "vix" in macro and len(macro["vix"]) > 0:
+        vix = float(macro["vix"].iloc[-1])
+        if   vix > 28:  bulls.append(f"😨 VIX {vix:.0f} — Sợ hãi cao → Cầu vàng safe haven")
+        elif vix > 20:  bulls.append(f"😰 VIX {vix:.0f} — Căng thẳng — Hỗ trợ nhẹ")
+        elif vix < 14:  bears.append(f"😊 VIX {vix:.0f} — Thị trường cực kỳ bình tĩnh → Ít cầu vàng")
+        else:           neutrals.append(f"😐 VIX {vix:.0f} — Trung tính")
+
+    # 5. Lãi suất thực DFII10 — âm là driver số 1 của vàng
+    if "real_rate" in fred_data and len(fred_data["real_rate"]) > 0:
+        rr = float(fred_data["real_rate"].iloc[-1])
+        if   rr < 0:    bulls.append(f"🔑 Lãi suất thực {rr:.2f}% — ÂM = Không có chi phí cơ hội giữ vàng")
+        elif rr < 0.5:  bulls.append(f"🔑 Lãi suất thực {rr:.2f}% — Thấp → Thuận lợi cho vàng")
+        elif rr > 2.0:  bears.append(f"🔑 Lãi suất thực {rr:.2f}% — Cao → Chi phí cơ hội lớn")
+        else:           neutrals.append(f"🔑 Lãi suất thực {rr:.2f}% — Trung tính")
+
+    # 6. Dầu WTI — tăng → lạm phát → vàng tăng theo
+    if "oil" in macro and len(macro["oil"]) > 0:
+        chg = _chg1m(macro["oil"])
+        if chg is not None:
+            if   chg > 12:  bulls.append(f"🛢️ Dầu +{chg:.1f}% (1M) — Lạm phát chi phí đẩy → Hỗ trợ vàng")
+            elif chg < -15: bears.append(f"🛢️ Dầu {chg:.1f}% (1M) — Giảm phát + risk-off → Áp lực vàng")
+            else:           neutrals.append(f"🛢️ Dầu {chg:+.1f}% (1M) — Trung tính")
+
+    # 7. HY Credit OAS — nới rộng → căng thẳng → safe haven
+    if "credit_oas" in fred_data and len(fred_data["credit_oas"]) >= 5:
+        oas = float(fred_data["credit_oas"].iloc[-1])
+        oas_chg = oas - float(fred_data["credit_oas"].iloc[-5])
+        if   oas > 4.5 or oas_chg > 0.5:
+            bulls.append(f"🏦 HY OAS {oas:.2f}% (Δ{oas_chg:+.2f}W) — Credit stress → Safe haven demand")
+        elif oas < 3.0 and oas_chg < 0:
+            bears.append(f"🏦 HY OAS {oas:.2f}% — Thu hẹp → Risk-on, ít cầu safe haven")
+        else:
+            neutrals.append(f"🏦 HY OAS {oas:.2f}% — Trung tính")
+
+    b = len(bulls); br = len(bears); n = len(neutrals)
+    total_directional = b + br
+
+    if total_directional == 0:
+        score, alignment_pct = 0, 50
+    else:
+        net   = b - br
+        score = max(-3, min(3, round(net / max(total_directional, 1) * 3)))
+        alignment_pct = round(b / total_directional * 100)
+
+    if b >= 6:   label, color = f"🟢 SIÊU HỘI TỤ — {b}/7 yếu tố đồng thuận BULLISH vàng", "#3fb950"
+    elif b >= 5: label, color = f"🟢 Hội tụ mạnh — {b}/7 yếu tố ủng hộ vàng",              "#3fb950"
+    elif b >= 4: label, color = f"🟡 Hội tụ vừa — {b}/7 ủng hộ · {br}/7 phản đối",          "#FFD700"
+    elif br >= 5:label, color = f"🔴 Phân kỳ mạnh — {br}/7 yếu tố bất lợi vàng",            "#f85149"
+    elif br >= 4:label, color = f"🟠 Phân kỳ vừa — {br}/7 bất lợi · {b}/7 ủng hộ",          "#ff7b54"
+    else:        label, color = f"⚪ Phân kỳ hỗn hợp — {b} bull / {br} bear / {n} neutral",  "#8b949e"
+
+    return {
+        "score": score, "label": label, "color": color,
+        "bullish": b, "bearish": br, "neutral": n,
+        "alignment_pct": alignment_pct,
+        "bull_signals": bulls, "bear_signals": bears, "neutral_signals": neutrals,
+    }
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 #  ML DIRECTIONAL MODEL (GradientBoosting — dự báo hướng giá)
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -3699,8 +3923,10 @@ def render_asset_tab(asset_key: str, macro: dict, forecast_days: int):
     with st.spinner("😨 Phân tích VIX Term Structure..."):
         vix_term    = fetch_vix_term()
 
-    # Credit stress từ FRED (đã fetch cùng fred_data)
-    credit_result = fetch_credit_stress(fred_data)
+    # Credit stress + Regime + Cross-Asset (pure compute, không cần network)
+    credit_result  = fetch_credit_stress(fred_data)
+    macro_regime   = detect_macro_regime(fred_data, macro)
+    cross_asset    = calc_cross_asset_alignment(macro, fred_data)
 
     # ── ML Directional Signal (3-model Ensemble) ──────────────────────────
     with st.spinner("🤖 Chạy ML Ensemble (GBM + RF + MLP)..."):
@@ -3718,9 +3944,12 @@ def render_asset_tab(asset_key: str, macro: dict, forecast_days: int):
     pcr_contrib    = round(pcr_result.get("score", 0)     * 0.15) if pcr_result.get("ok")    else 0
     vix_contrib    = round(vix_term.get("score", 0)       * 0.15) if vix_term.get("ok")      else 0
     credit_contrib = round(credit_result.get("score", 0)  * 0.15) if credit_result.get("ok") else 0
+    regime_contrib = macro_regime["gold_bias"]                      # trực tiếp: -2 → +3
+    xasset_contrib = round(cross_asset["score"]            * 0.20)
     combined_macro = max(-12, min(12,
         macro_score + fed_contrib + whale_contrib + cot_contrib + obv_contrib
-        + news_contrib + pcr_contrib + vix_contrib + credit_contrib))
+        + news_contrib + pcr_contrib + vix_contrib + credit_contrib
+        + regime_contrib + xasset_contrib))
 
     # ── Forecast (tích hợp ML bias) ───────────────────────────────────────
     with st.spinner(f"🔮 Chạy mô hình dự báo {a_short}..."):
@@ -3798,6 +4027,143 @@ def render_asset_tab(asset_key: str, macro: dict, forecast_days: int):
             f"Lệch: <b>{live_price - cur:+.{info['decimals']}f}</b>"
             f"{delay_note}</p>",
             unsafe_allow_html=True,
+        )
+
+    st.markdown("---")
+
+    # ══ MARKET INTELLIGENCE DASHBOARD (Hedge Fund Framework) ══════════════
+    r = macro_regime
+    xa = cross_asset
+
+    # Tính Signal Consensus (tổng hợp toàn bộ signals)
+    all_signals_scores = [
+        macro_score, fed_contrib, whale_contrib, cot_contrib, obv_contrib,
+        news_contrib, pcr_contrib, vix_contrib, credit_contrib,
+        regime_contrib, xasset_contrib,
+    ]
+    bull_count  = sum(1 for s in all_signals_scores if s > 0)
+    bear_count  = sum(1 for s in all_signals_scores if s < 0)
+    neut_count  = sum(1 for s in all_signals_scores if s == 0)
+    total_dir   = bull_count + bear_count
+    consensus_pct = round(bull_count / total_dir * 100) if total_dir > 0 else 50
+
+    if consensus_pct >= 80: cons_label, cons_color = "Đồng thuận mạnh MUA", "#3fb950"
+    elif consensus_pct >= 65: cons_label, cons_color = "Nghiêng về MUA",   "#76c3a0"
+    elif consensus_pct <= 20: cons_label, cons_color = "Đồng thuận mạnh BÁN","#f85149"
+    elif consensus_pct <= 35: cons_label, cons_color = "Nghiêng về BÁN",   "#ff7b54"
+    else:                     cons_label, cons_color = "Phân kỳ / Không rõ","#FFD700"
+
+    # ── Header ────────────────────────────────────────────────────────────
+    st.markdown(
+        f"#### 🎯 Market Intelligence — Macro Regime & Signal Alignment &nbsp;"
+        f"<span style='color:{r['color']};font-size:0.95rem;'>"
+        f"[ {r['emoji']} {r['name_vn']} ]</span>",
+        unsafe_allow_html=True,
+    )
+
+    ri1, ri2, ri3, ri4 = st.columns(4)
+
+    # Col 1: Macro Regime
+    ri1.metric(
+        f"{r['emoji']} Macro Regime",
+        r["name_vn"],
+        r["gold_outlook"].split(" — ")[0],
+        delta_color="normal" if r["gold_bias"] >= 0 else "inverse",
+        help="Phân loại môi trường kinh tế theo mô hình Bridgewater All Weather: Growth × Inflation."
+             " Xác định CHIỀU dài hạn của vàng trong môi trường hiện tại."
+    )
+
+    # Col 2: Growth vs Inflation
+    g_arrow = "▲" * abs(r["growth_score"]) if r["growth_score"] > 0 else ("▼" * abs(r["growth_score"]) if r["growth_score"] < 0 else "→")
+    i_arrow = "▲" * abs(r["inflation_score"]) if r["inflation_score"] > 0 else ("▼" * abs(r["inflation_score"]) if r["inflation_score"] < 0 else "→")
+    ri2.metric(
+        "📊 Growth × Inflation Quadrant",
+        f"Growth {g_arrow} · Inflation {i_arrow}",
+        f"Bias vàng từ regime: {r['gold_bias']:+d} điểm",
+        delta_color="normal" if r["gold_bias"] >= 0 else "inverse",
+        help="Trục tăng trưởng: S&P trend + Yield Curve + Credit OAS + VIX. "
+             "Trục lạm phát: T5YIE breakeven + T5YIFR + Dầu WTI 3M momentum."
+    )
+
+    # Col 3: Cross-Asset Alignment
+    ri3.metric(
+        "🔗 Cross-Asset Alignment",
+        xa["label"].split(" — ")[0] if " — " in xa["label"] else xa["label"],
+        f"{xa['bullish']}/7 bull · {xa['bearish']}/7 bear",
+        delta_color="normal" if xa["score"] >= 0 else "inverse",
+        help="7 yếu tố cross-asset: DXY + 10Y Yield + S&P + VIX + Lãi suất thực + Dầu + HY OAS. "
+             "Khi nhiều yếu tố đồng thuận → tín hiệu đáng tin hơn."
+    )
+
+    # Col 4: Signal Consensus
+    ri4.metric(
+        "🧭 Signal Consensus (11 nguồn)",
+        cons_label,
+        f"{bull_count} bull / {bear_count} bear / {neut_count} neutral",
+        delta_color="normal" if consensus_pct >= 50 else "inverse",
+        help="Đếm số nguồn tín hiệu đang bullish vs bearish trên toàn bộ 11 layers: "
+             "Macro + Fed + Whale + COT + OBV + News + PCR + VIX + Credit + Regime + Cross-Asset."
+    )
+
+    # ── Expander chi tiết ─────────────────────────────────────────────────
+    with st.expander("🔍 Chi tiết Market Intelligence — Regime phân tích & Cross-Asset", expanded=False):
+        # Regime Description
+        st.markdown(
+            f"**{r['emoji']} Diễn giải Regime: {r['name_vn']}**\n\n"
+            f"{r['desc_vn']}\n\n"
+            f"**Triển vọng vàng:** {r['gold_outlook']}\n\n"
+            f"**Điểm Growth:** {r['growth_score']:+d}/4 · **Điểm Inflation:** {r['inflation_score']:+d}/4"
+        )
+        if r["details"]:
+            st.markdown("**Các yếu tố phát hiện:**")
+            for d in r["details"]:
+                st.markdown(f"  - {d}")
+
+        st.markdown("---")
+
+        # Cross-Asset Breakdown
+        st.markdown(
+            f"**🔗 Cross-Asset Alignment: {xa['alignment_pct']}% bullish "
+            f"({xa['bullish']} / {xa['bullish'] + xa['bearish']} định hướng)**"
+        )
+        if xa["bull_signals"]:
+            st.markdown("**✅ Bullish factors:**")
+            for sig in xa["bull_signals"]:
+                st.markdown(f"  - {sig}")
+        if xa["bear_signals"]:
+            st.markdown("**🔴 Bearish factors:**")
+            for sig in xa["bear_signals"]:
+                st.markdown(f"  - {sig}")
+        if xa["neutral_signals"]:
+            st.markdown("**➡️ Neutral:**")
+            for sig in xa["neutral_signals"]:
+                st.markdown(f"  - {sig}")
+
+        st.markdown("---")
+
+        # Full Signal Consensus breakdown
+        st.markdown("**🧭 Signal Consensus — Tất cả 11 layers:**")
+        layers = [
+            ("Macro tổng hợp",   macro_score),
+            ("Fed Policy",        fed_contrib),
+            ("Whale (ETF/OI/Vol)",whale_contrib),
+            ("COT (CFTC)",        cot_contrib),
+            ("OBV Divergence",    obv_contrib),
+            ("News Sentiment",    news_contrib),
+            ("Options PCR",       pcr_contrib),
+            ("VIX Term Structure",vix_contrib),
+            ("Credit Stress",     credit_contrib),
+            ("Macro Regime",      regime_contrib),
+            ("Cross-Asset Align", xasset_contrib),
+        ]
+        for name_l, val_l in layers:
+            bar_icon = "🟢" if val_l > 0 else ("🔴" if val_l < 0 else "⚪")
+            st.markdown(f"  {bar_icon} **{name_l}**: {val_l:+d}")
+        st.markdown(
+            f"\n**Tổng hợp: {bull_count} bullish · {bear_count} bearish · {neut_count} neutral "
+            f"→ Consensus: {consensus_pct}% ({cons_label})**\n\n"
+            f"*Đóng góp Regime {regime_contrib:+d} + Cross-Asset {xasset_contrib:+d} = "
+            f"{regime_contrib + xasset_contrib:+d} điểm vào combined_macro*"
         )
 
     st.markdown("---")
@@ -4494,6 +4860,7 @@ def render_asset_tab(asset_key: str, macro: dict, forecast_days: int):
         f"Điểm: Macro {macro_score:+d} + Fed {fed_contrib:+d} + Whale {whale_contrib:+d} "
         f"+ COT {cot_contrib:+d} + OBV {obv_contrib:+d} "
         f"+ News {news_contrib:+d} + PCR {pcr_contrib:+d} + VIX {vix_contrib:+d} + Credit {credit_contrib:+d} "
+        f"+ Regime {regime_contrib:+d} + X-Asset {xasset_contrib:+d} "
         f"= {combined_macro:+d} · "
         f"⚠️ Chỉ mang tính tham khảo, không phải khuyến nghị đầu tư.</p>",
         unsafe_allow_html=True,
