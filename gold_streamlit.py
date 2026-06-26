@@ -928,6 +928,7 @@ def fetch_fred_rates() -> dict:
         "fed_balance": "WALCL",     # Fed Balance Sheet (nghìn tỷ USD) — QT vs QE cycle
         "breakeven5y": "T5YIE",     # 5-Year Breakeven Inflation — kỳ vọng lạm phát thị trường (daily)
         "m2":          "M2SL",      # M2 Money Supply — cung tiền (monthly), bullish cho vàng khi tăng
+        "credit_oas":  "BAMLH0A0HYM2",  # ICE BofA US High Yield OAS — rủi ro tín dụng (credit stress)
     }
     result = {}
     for key, sid in series.items():
@@ -2971,6 +2972,277 @@ def whale_regime(whale_data: dict, asset_key: str) -> dict:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+#  SENTIMENT INTELLIGENCE LAYER  (News · Options · VIX Term · Credit Stress)
+# ══════════════════════════════════════════════════════════════════════════════
+
+@st.cache_data(ttl=1800, show_spinner=False)
+def fetch_news_sentiment(asset_key: str) -> dict:
+    """
+    Sentiment tin tức từ Google News RSS — miễn phí, không cần API key.
+    Phân tích tích cực/tiêu cực trong 20 tiêu đề bài báo mới nhất.
+    Score: -3 (rất tiêu cực) → +3 (rất tích cực).
+    """
+    import urllib.request, urllib.parse
+    import xml.etree.ElementTree as _ET
+
+    QUERIES = {
+        "XAU":    "gold price market",
+        "XAG":    "silver price market",
+        "HG":     "copper price market",
+        "CL":     "crude oil price market",
+        "BTC":    "bitcoin price crypto",
+        "USDVND": "USD VND dollar exchange rate",
+    }
+    # Từ tích cực và tiêu cực — được chọn lọc cho tài sản hàng hoá/vàng
+    POS = {
+        "surge","rally","rise","rises","rising","soar","soars","soaring","climb",
+        "climbs","gains","gain","bullish","record","high","safe haven","demand",
+        "strong","boost","upside","breakout","accumulate","inflow","inflows",
+        "rally","rebound","optimism","buy","buying","inflation hedge",
+        "central bank","rate cut","pivot","weaker dollar","geopolitical",
+        "uncertainty","war","conflict","crisis",
+    }
+    NEG = {
+        "fall","falls","falling","drop","drops","plunge","plunges","decline",
+        "declines","bearish","sell","crash","pressure","weakness","outflow",
+        "outflows","selloff","hawkish","tightening","rate hike","rate hikes",
+        "dollar strength","strong dollar","risk on","equities rally",
+        "crypto winter","regulation",
+    }
+
+    query = QUERIES.get(asset_key, "gold price")
+    encoded = urllib.parse.quote(query)
+    url = f"https://news.google.com/rss/search?q={encoded}&hl=en-US&gl=US&ceid=US:en"
+
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=10) as r:
+            xml_bytes = r.read()
+
+        root = _ET.fromstring(xml_bytes)
+        titles = [
+            el.text.lower()
+            for el in root.findall(".//item/title")
+            if el.text
+        ][:20]
+
+        if not titles:
+            return {"ok": False, "score": 0, "label": "N/A", "color": "#8b949e", "n": 0}
+
+        pos_hits = neg_hits = 0
+        pos_words_seen: set = set()
+        neg_words_seen: set = set()
+
+        for title in titles:
+            for w in POS:
+                if w in title:
+                    pos_hits += 1
+                    pos_words_seen.add(w)
+                    break
+            for w in NEG:
+                if w in title:
+                    neg_hits += 1
+                    neg_words_seen.add(w)
+                    break
+
+        net   = pos_hits - neg_hits
+        total = pos_hits + neg_hits
+        ratio = net / total if total > 0 else 0.0
+        score = max(-3, min(3, round(ratio * 3)))
+
+        # Confidence weight: cần ít nhất 5 bài có tín hiệu để score đáng tin
+        confidence = min(1.0, total / 8)
+
+        if score >= 2:   label, color = "Rất tích cực 📈", "#3fb950"
+        elif score == 1: label, color = "Hơi tích cực",    "#76c3a0"
+        elif score == -1:label, color = "Hơi tiêu cực",    "#ff7b54"
+        elif score <= -2:label, color = "Rất tiêu cực 📉", "#f85149"
+        else:            label, color = "Trung tính",       "#FFD700"
+
+        return {
+            "ok": True, "score": score, "label": label, "color": color,
+            "pos": pos_hits, "neg": neg_hits, "n": len(titles),
+            "confidence": round(confidence, 2),
+            "pos_words": sorted(pos_words_seen)[:6],
+            "neg_words": sorted(neg_words_seen)[:6],
+            "query": query,
+        }
+    except Exception:
+        return {"ok": False, "score": 0, "label": "N/A", "color": "#8b949e", "n": 0}
+
+
+@st.cache_data(ttl=1800, show_spinner=False)
+def fetch_options_pcr(asset_key: str) -> dict:
+    """
+    Put/Call Ratio từ thị trường quyền chọn ETF proxy — chỉ báo sentiment tổ chức.
+    PCR cao (nhiều put) = bi quan = tín hiệu MUA ngược chiều (contrarian).
+    PCR thấp (nhiều call) = lạc quan quá mức = tín hiệu BÁN ngược chiều.
+    """
+    ETF_MAP = {
+        "XAU": "GLD",   # SPDR Gold Shares — ETF vàng lớn nhất
+        "XAG": "SLV",   # iShares Silver Trust
+        "HG":  "CPER",  # United States Copper Index Fund
+        "CL":  "USO",   # United States Oil Fund
+        "BTC": "GBTC",  # Grayscale Bitcoin Trust
+    }
+    etf = ETF_MAP.get(asset_key)
+    if not etf:
+        return {"ok": False, "score": 0, "label": "N/A", "color": "#8b949e"}
+
+    try:
+        ticker = yf.Ticker(etf)
+        exp_dates = ticker.options
+        if not exp_dates:
+            return {"ok": False, "score": 0, "label": "N/A", "color": "#8b949e"}
+
+        # Lấy expiry gần nhất (trong 2-5 tuần)
+        exp_date = exp_dates[min(1, len(exp_dates) - 1)]
+        chain    = ticker.option_chain(exp_date)
+        calls    = chain.calls
+        puts     = chain.puts
+
+        call_vol = float(calls["volume"].fillna(0).sum())
+        put_vol  = float(puts["volume"].fillna(0).sum())
+        call_oi  = float(calls["openInterest"].fillna(0).sum())
+        put_oi   = float(puts["openInterest"].fillna(0).sum())
+
+        if call_vol < 50 and call_oi < 100:
+            return {"ok": False, "score": 0, "label": "Không đủ dữ liệu", "color": "#8b949e"}
+
+        pcr_vol = put_vol / call_vol if call_vol > 0 else 1.0
+        pcr_oi  = put_oi  / call_oi  if call_oi  > 0 else pcr_vol
+        # Trung bình có trọng số: OI đáng tin hơn vol trong ngắn hạn
+        avg_pcr = pcr_vol * 0.4 + pcr_oi * 0.6
+
+        # Scoring contrarian:
+        # PCR > 1.5 = thị trường cực kỳ bi quan → contrarian BUY mạnh
+        # PCR > 1.2 = bi quan → nhẹ ủng hộ mua
+        # PCR < 0.7 = lạc quan thái quá → contrarian SELL mạnh
+        # PCR < 0.9 = hơi lạc quan → nhẹ ủng hộ bán
+        if avg_pcr > 1.5:
+            score, label, color = +2, f"PCR={avg_pcr:.2f} — Bi quan cực độ → MUA ngược chiều", "#3fb950"
+        elif avg_pcr > 1.2:
+            score, label, color = +1, f"PCR={avg_pcr:.2f} — Bi quan → Hỗ trợ tích lũy",        "#76c3a0"
+        elif avg_pcr < 0.7:
+            score, label, color = -2, f"PCR={avg_pcr:.2f} — Lạc quan cực độ → BÁN ngược chiều","#f85149"
+        elif avg_pcr < 0.9:
+            score, label, color = -1, f"PCR={avg_pcr:.2f} — Lạc quan → Cảnh báo đảo chiều",    "#ff7b54"
+        else:
+            score, label, color =  0, f"PCR={avg_pcr:.2f} — Trung tính",                        "#FFD700"
+
+        return {
+            "ok": True, "score": score, "label": label, "color": color,
+            "pcr_vol": round(pcr_vol, 3), "pcr_oi": round(pcr_oi, 3),
+            "avg_pcr": round(avg_pcr, 3), "etf": etf, "expiry": exp_date,
+            "call_vol": int(call_vol), "put_vol": int(put_vol),
+        }
+    except Exception:
+        return {"ok": False, "score": 0, "label": "N/A", "color": "#8b949e"}
+
+
+@st.cache_data(ttl=1800, show_spinner=False)
+def fetch_vix_term() -> dict:
+    """
+    VIX Term Structure: VIX spot (^VIX) vs VIX 3-tháng (^VIX3M).
+    Backwardation (VIX > VIX3M): sợ hãi cấp tính → vàng là safe haven → Bullish.
+    Contango (VIX < VIX3M): thị trường bình tĩnh → vàng ít được cầu → Bearish nhẹ.
+    """
+    try:
+        raw = yf.download(["^VIX", "^VIX3M"], period="5d", interval="1d",
+                          progress=False, auto_adjust=True)
+        if raw.empty:
+            return {"ok": False, "score": 0}
+
+        # Handle multi-level columns
+        if isinstance(raw.columns, pd.MultiIndex):
+            close = raw["Close"]
+        else:
+            close = raw[["^VIX", "^VIX3M"]]
+
+        vix_s   = close["^VIX"].dropna()
+        vix3m_s = close["^VIX3M"].dropna()
+
+        if vix_s.empty or vix3m_s.empty:
+            return {"ok": False, "score": 0}
+
+        vix_val  = float(vix_s.iloc[-1])
+        vix3m_val = float(vix3m_s.iloc[-1])
+        ratio = vix_val / vix3m_val
+
+        if ratio > 1.15:
+            score, label, color = +2, "Backwardation mạnh — Sợ hãi cực độ → Vàng safe haven BUY", "#3fb950"
+        elif ratio > 1.03:
+            score, label, color = +1, "Backwardation — Căng thẳng thị trường → Hỗ trợ vàng",      "#76c3a0"
+        elif ratio < 0.85:
+            score, label, color = -1, "Contango sâu — Lạc quan cao → Ít cầu vàng phòng thủ",      "#ff7b54"
+        elif ratio < 0.95:
+            score, label, color =  0, "Contango nhẹ — Thị trường bình tĩnh — Trung tính",          "#FFD700"
+        else:
+            score, label, color =  0, "Flat — Trung tính",                                          "#FFD700"
+
+        # Thêm điểm nếu VIX tuyệt đối cao (>30 = khủng hoảng → vàng tăng mạnh)
+        if vix_val > 35:
+            score = min(3, score + 1)
+            label += " · VIX >35 = KHỦNG HOẢNG"
+        elif vix_val > 25:
+            score = min(3, score + 1)
+            label += f" · VIX={vix_val:.0f} cao"
+
+        return {
+            "ok": True, "score": score, "label": label, "color": color,
+            "vix": round(vix_val, 2), "vix3m": round(vix3m_val, 2),
+            "ratio": round(ratio, 3),
+        }
+    except Exception:
+        return {"ok": False, "score": 0, "label": "N/A", "color": "#8b949e"}
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def fetch_credit_stress(fred_data: dict) -> dict:
+    """
+    Rủi ro tín dụng từ ICE BofA US High Yield OAS (BAMLH0A0HYM2) — FRED.
+    Spread cao = căng thẳng tín dụng = vàng safe haven tăng.
+    Spread thấp = bình thường / lạc quan = neutral/nhẹ bearish vàng.
+    """
+    try:
+        series = fred_data.get("credit_oas")
+        if series is None or len(series) < 5:
+            return {"ok": False, "score": 0}
+
+        val  = float(series.iloc[-1])
+        prev = float(series.iloc[-5])
+        chg  = val - prev   # 1-tuần thay đổi
+
+        # Scoring:
+        # Spread > 6%: khủng hoảng tín dụng → vàng safe haven mạnh (+2)
+        # Spread > 4.5%: căng thẳng cao (+1)
+        # Spread < 3%: bình thường, thị trường lạc quan (-1)
+        # Spread < 2.5%: cực kỳ bình tĩnh (-2, complacency)
+        if val > 6.0:
+            score, label, color = +2, f"OAS {val:.2f}% — Khủng hoảng tín dụng → Vàng safe haven", "#3fb950"
+        elif val > 4.5:
+            score, label, color = +1, f"OAS {val:.2f}% — Căng thẳng tín dụng → Hỗ trợ vàng",     "#76c3a0"
+        elif val < 2.5:
+            score, label, color = -2, f"OAS {val:.2f}% — Bình tĩnh tuyệt đối → Ít cầu safe haven","#f85149"
+        elif val < 3.2:
+            score, label, color = -1, f"OAS {val:.2f}% — Bình thường → Trung tính / nhẹ bearish", "#ff7b54"
+        else:
+            score, label, color =  0, f"OAS {val:.2f}% — Bình thường trung bình",                  "#FFD700"
+
+        # Nếu spread đang nới rộng nhanh → tín hiệu mạnh hơn
+        if chg > 0.5:
+            score = min(3, score + 1)
+            label += f" · Nới rộng mạnh +{chg:.2f}% (1W) ⚠️"
+
+        return {
+            "ok": True, "score": score, "label": label, "color": color,
+            "oas": round(val, 2), "chg_1w": round(chg, 2),
+        }
+    except Exception:
+        return {"ok": False, "score": 0, "label": "N/A", "color": "#8b949e"}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 #  ML DIRECTIONAL MODEL (GradientBoosting — dự báo hướng giá)
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -3417,6 +3689,19 @@ def render_asset_tab(asset_key: str, macro: dict, forecast_days: int):
     with st.spinner("📋 Tải dữ liệu COT từ CFTC..."):
         cot_result = fetch_cot_data(asset_key)
 
+    # ── Sentiment Intelligence Layer ──────────────────────────────────────
+    with st.spinner("📰 Phân tích sentiment tin tức (Google News)..."):
+        news_result = fetch_news_sentiment(asset_key)
+
+    with st.spinner("📊 Tải Put/Call Ratio (Options Market)..."):
+        pcr_result  = fetch_options_pcr(asset_key)
+
+    with st.spinner("😨 Phân tích VIX Term Structure..."):
+        vix_term    = fetch_vix_term()
+
+    # Credit stress từ FRED (đã fetch cùng fred_data)
+    credit_result = fetch_credit_stress(fred_data)
+
     # ── ML Directional Signal (3-model Ensemble) ──────────────────────────
     with st.spinner("🤖 Chạy ML Ensemble (GBM + RF + MLP)..."):
         ml_result = ml_directional_signal(price.values, forecast_days)
@@ -3424,13 +3709,18 @@ def render_asset_tab(asset_key: str, macro: dict, forecast_days: int):
     # ── GVZ (Gold Volatility) — chỉ cho XAU ──────────────────────────────
     gvz_data = fetch_gvz() if asset_key == "XAU" else {"ok": False}
 
-    # ── Combined macro score (Macro + Fed + Whale + COT) ─────────────────
+    # ── Combined macro score (Macro + Fed + Whale + COT + Sentiment) ──────
     fed_contrib    = round(fed_result["score"]  * 0.35)
     whale_contrib  = round(whale_result["score"] * 0.25)
-    cot_contrib    = round(cot_result.get("score", 0) * 0.30) if cot_result.get("ok") else 0
-    obv_contrib    = round(obv_d.get("score", 0) * 0.20) if obv_d.get("ok") else 0
+    cot_contrib    = round(cot_result.get("score", 0)    * 0.30) if cot_result.get("ok")    else 0
+    obv_contrib    = round(obv_d.get("score", 0)          * 0.20) if obv_d.get("ok")         else 0
+    news_contrib   = round(news_result.get("score", 0)    * 0.20) if news_result.get("ok")   else 0
+    pcr_contrib    = round(pcr_result.get("score", 0)     * 0.15) if pcr_result.get("ok")    else 0
+    vix_contrib    = round(vix_term.get("score", 0)       * 0.15) if vix_term.get("ok")      else 0
+    credit_contrib = round(credit_result.get("score", 0)  * 0.15) if credit_result.get("ok") else 0
     combined_macro = max(-12, min(12,
-        macro_score + fed_contrib + whale_contrib + cot_contrib + obv_contrib))
+        macro_score + fed_contrib + whale_contrib + cot_contrib + obv_contrib
+        + news_contrib + pcr_contrib + vix_contrib + credit_contrib))
 
     # ── Forecast (tích hợp ML bias) ───────────────────────────────────────
     with st.spinner(f"🔮 Chạy mô hình dự báo {a_short}..."):
@@ -3963,6 +4253,116 @@ def render_asset_tab(asset_key: str, macro: dict, forecast_days: int):
 
     st.markdown("---")
 
+    # ── Sentiment Intelligence Layer ───────────────────────────────────────
+    n_ok = sum([news_result.get("ok"), pcr_result.get("ok"),
+                vix_term.get("ok"), credit_result.get("ok")])
+    intel_score = news_contrib + pcr_contrib + vix_contrib + credit_contrib
+    intel_color = "#3fb950" if intel_score > 0 else ("#f85149" if intel_score < 0 else "#FFD700")
+
+    st.markdown(
+        f"#### 🔮 Sentiment Intelligence — Tin tức · Options · VIX · Tín dụng &nbsp;"
+        f"<span style='color:{intel_color};font-size:0.95rem;'>"
+        f"[ Điểm tổng hợp: {intel_score:+d} ]</span>",
+        unsafe_allow_html=True,
+    )
+
+    ic1, ic2, ic3, ic4 = st.columns(4)
+
+    # News Sentiment
+    if news_result.get("ok"):
+        ic1.metric(
+            "📰 Sentiment Tin tức",
+            news_result["label"],
+            f"{news_result['pos']} tích cực / {news_result['neg']} tiêu cực ({news_result['n']} bài)",
+            delta_color="normal" if news_result["score"] >= 0 else "inverse",
+            help="Phân tích sentiment tiêu đề bài báo từ Google News RSS. Đếm từ khóa tích cực/tiêu cực trong 20 bài mới nhất."
+        )
+    else:
+        ic1.metric("📰 Sentiment Tin tức", "Không tải được", delta_color="off")
+
+    # Options PCR
+    if pcr_result.get("ok"):
+        pcr_delta_color = "normal" if pcr_result["score"] >= 0 else "inverse"
+        ic2.metric(
+            f"📊 Put/Call Ratio ({pcr_result['etf']})",
+            f"PCR = {pcr_result['avg_pcr']:.2f}",
+            pcr_result["label"].split(" — ")[-1] if " — " in pcr_result["label"] else pcr_result["label"],
+            delta_color=pcr_delta_color,
+            help=f"Put/Call Ratio từ options {pcr_result['etf']} (expiry {pcr_result['expiry']}). PCR cao = bi quan = tín hiệu MUA ngược chiều (contrarian). PCR thấp = lạc quan thái quá = cảnh báo đảo chiều."
+        )
+    else:
+        ic2.metric("📊 Put/Call Ratio", "N/A", delta_color="off",
+                   help="Chỉ có cho XAU/XAG/HG/CL/BTC qua ETF proxy")
+
+    # VIX Term Structure
+    if vix_term.get("ok"):
+        vix_ratio = vix_term["ratio"]
+        vix_struct = "Backwardation" if vix_ratio > 1.0 else "Contango"
+        ic3.metric(
+            "😨 VIX Term Structure",
+            f"VIX {vix_term['vix']:.0f} / VIX3M {vix_term['vix3m']:.0f}",
+            f"{vix_struct} ({vix_ratio:.2f}x) — {vix_term['label'].split(' — ')[0]}",
+            delta_color="normal" if vix_term["score"] >= 0 else "inverse",
+            help="So sánh VIX spot và VIX 3 tháng. Backwardation (VIX>VIX3M) = sợ hãi cấp tính → vàng là safe haven. Contango = thị trường bình tĩnh."
+        )
+    else:
+        ic3.metric("😨 VIX Term Structure", "N/A", delta_color="off")
+
+    # Credit Stress
+    if credit_result.get("ok"):
+        ic4.metric(
+            "🏦 Credit Stress (HY OAS)",
+            f"{credit_result['oas']:.2f}%",
+            credit_result["label"].split(" — ")[-1] if " — " in credit_result["label"] else credit_result["label"],
+            delta_color="normal" if credit_result["score"] >= 0 else "inverse",
+            help="ICE BofA US High Yield OAS (FRED: BAMLH0A0HYM2). Spread cao = căng thẳng tín dụng → vàng tăng. Bình thường <3.5%. Khủng hoảng >6%."
+        )
+    else:
+        ic4.metric("🏦 Credit Stress (HY OAS)", "N/A", delta_color="off",
+                   help="FRED BAMLH0A0HYM2: High Yield Option-Adjusted Spread")
+
+    if n_ok > 0:
+        with st.expander("🔍 Chi tiết Sentiment Intelligence", expanded=False):
+            if news_result.get("ok"):
+                conf_pct = int(news_result.get("confidence", 0) * 100)
+                st.markdown(
+                    f"**📰 Google News Sentiment** (query: '{news_result['query']}')\n\n"
+                    f"- {news_result['n']} bài phân tích · Confidence: {conf_pct}%\n"
+                    f"- Từ tích cực ({news_result['pos']}): `{', '.join(news_result.get('pos_words', []))}`\n"
+                    f"- Từ tiêu cực ({news_result['neg']}): `{', '.join(news_result.get('neg_words', []))}`\n"
+                    f"- *Đóng góp: News score {news_result['score']:+d} × 20% = {news_contrib:+d} điểm*"
+                )
+                st.markdown("---")
+            if pcr_result.get("ok"):
+                st.markdown(
+                    f"**📊 Options Put/Call Ratio** ({pcr_result['etf']} · expiry {pcr_result['expiry']})\n\n"
+                    f"- Volume PCR: {pcr_result['pcr_vol']:.3f} · Open Interest PCR: {pcr_result['pcr_oi']:.3f}\n"
+                    f"- Weighted avg PCR: **{pcr_result['avg_pcr']:.3f}**\n"
+                    f"- Put vol: {pcr_result['put_vol']:,} · Call vol: {pcr_result['call_vol']:,}\n"
+                    f"- *Đóng góp: PCR score {pcr_result['score']:+d} × 15% = {pcr_contrib:+d} điểm*\n\n"
+                    f"*Lý thuyết contrarian: PCR cao → thị trường đã mua bảo hiểm (put) nhiều "
+                    f"→ downside được hấp thụ → giá có xu hướng phục hồi.*"
+                )
+                st.markdown("---")
+            if vix_term.get("ok"):
+                st.markdown(
+                    f"**😨 VIX Term Structure** (^VIX / ^VIX3M)\n\n"
+                    f"- VIX spot: **{vix_term['vix']:.2f}** · VIX 3M: **{vix_term['vix3m']:.2f}**\n"
+                    f"- Ratio: {vix_term['ratio']:.3f} "
+                    f"({'Backwardation = sợ hãi cấp tính' if vix_term['ratio'] > 1 else 'Contango = bình tĩnh'})\n"
+                    f"- *Đóng góp: VIX score {vix_term['score']:+d} × 15% = {vix_contrib:+d} điểm*"
+                )
+                st.markdown("---")
+            if credit_result.get("ok"):
+                st.markdown(
+                    f"**🏦 High Yield Credit Spread** (FRED: BAMLH0A0HYM2)\n\n"
+                    f"- OAS hiện tại: **{credit_result['oas']:.2f}%** · Thay đổi 1 tuần: {credit_result['chg_1w']:+.2f}%\n"
+                    f"- Ngưỡng: Bình thường <3.5% · Căng thẳng >4.5% · Khủng hoảng >6%\n"
+                    f"- *Đóng góp: Credit score {credit_result['score']:+d} × 15% = {credit_contrib:+d} điểm*"
+                )
+
+    st.markdown("---")
+
     # ── Chart ─────────────────────────────────────────────────────────────
     ml = period_label(forecast_days)
     st.markdown(
@@ -4089,9 +4489,12 @@ def render_asset_tab(asset_key: str, macro: dict, forecast_days: int):
     st.markdown(
         f"<p style='color:#484f58;font-size:0.76rem;text-align:center;'>"
         f"Nguồn: {ticker} · Mô hình: HW + ARIMA + Momentum + Ensemble ML (GBM+RF+MLP) + Kalman + "
-        f"Macro + Fed (DFII10/T5YIFR/T5YIE/M2SL) + Whale + COT (CFTC) + OBV + CCI + ADX + Stochastic + GVZ · "
-        f"Điểm tổng hợp: Macro {macro_score:+d} + Fed {fed_contrib:+d} + Whale {whale_contrib:+d} "
-        f"+ COT {cot_contrib:+d} + OBV {obv_contrib:+d} = {combined_macro:+d} · "
+        f"Macro + Fed (DFII10/T5YIFR/T5YIE/M2SL) + Whale + COT (CFTC) + OBV + CCI + ADX + Stochastic + GVZ "
+        f"+ News Sentiment + Options PCR + VIX Term + Credit Stress (HY OAS) + Auto Leader Detection (Wikidata) · "
+        f"Điểm: Macro {macro_score:+d} + Fed {fed_contrib:+d} + Whale {whale_contrib:+d} "
+        f"+ COT {cot_contrib:+d} + OBV {obv_contrib:+d} "
+        f"+ News {news_contrib:+d} + PCR {pcr_contrib:+d} + VIX {vix_contrib:+d} + Credit {credit_contrib:+d} "
+        f"= {combined_macro:+d} · "
         f"⚠️ Chỉ mang tính tham khảo, không phải khuyến nghị đầu tư.</p>",
         unsafe_allow_html=True,
     )
