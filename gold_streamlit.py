@@ -186,39 +186,235 @@ MACRO_TICKERS = {
     "TIP":      "tips",
 }
 
-# ── Personality Profiles — encoded từ hành vi lịch sử quan sát được ────────
-# Scale: -3 (rất tiêu cực) đến +3 (rất tích cực) cho từng đặc điểm
-TRUMP_PROFILE = {
-    "rate_preference":     -3,  # Luôn muốn lãi suất thấp nhất có thể
-    "growth_priority":      3,  # GDP & thị trường > mọi mục tiêu khác
-    "inflation_tolerance":  2,  # Chấp nhận lạm phát cao hơn mức thông thường
-    "market_as_scorecard":  3,  # S&P 500 = điểm số nhiệm kỳ
-    "tariff_weapon":        3,  # Thuế quan = vũ khí đàm phán chính
-    "fed_pressure":         3,  # Sẵn sàng tấn công Fed công khai
-    "unpredictability":     3,  # Bất ngờ có chủ đích là chiến thuật
-    "dollar_preference":   -2,  # Muốn USD yếu để xuất khẩu tốt
-    "deal_orientation":     3,  # Mọi thứ đều là deal — sẽ xuống thang nếu có lợi
+# ── Leader Profiles Database — Tự động tra cứu theo tên phát hiện ───────────
+# Mỗi profile chứa: ngoại cảm tính cách + ảnh hưởng lên chính sách tiền tệ/vàng
+# cut_pressure (0-3): áp lực cắt lãi từ TT;  rate_direction (+/-): hawk/dove của Fed Chair
+LEADER_PROFILES: dict = {
+    # ════════ US PRESIDENTS ══════════════════════════════════════════════════
+    "donald trump": {
+        "role": "president", "name_vn": "Donald Trump",
+        "term_info": "Tổng thống thứ 47 (2025–hiện tại)",
+        "emoji": "🇺🇸",
+        "personality_vn": [
+            "Luôn muốn lãi suất thấp nhất có thể — coi S&P 500 là điểm số nhiệm kỳ",
+            "Thuế quan = vũ khí đàm phán chính → rủi ro lạm phát cao",
+            "Sẵn sàng tấn công Fed công khai qua mạng xã hội",
+            "Muốn USD yếu để hỗ trợ xuất khẩu và sản xuất nội địa",
+            "Bất ngờ có chủ đích — deal-maker: sẽ xuống thang nếu có lợi",
+        ],
+        "cut_pressure":     3,   # áp lực cắt lãi (0=không, 3=tối đa)
+        "fed_pressure":     3,   # sẵn sàng tấn công Fed công khai
+        "inflation_risk":   2,   # rủi ro lạm phát từ chính sách thuế quan
+        "gold_bias":       +2,   # thuế quan + USD yếu + lạm phát → vàng tăng
+        "usd_bias":        -2,   # muốn USD yếu
+        # Dùng để tính Warsh/Fed chair factor
+        "sp500_sensitivity": 3,  # áp lực Fed tỷ lệ với S&P drops
+        "resistance_kw":    0.3, # Fed chair kháng cự được ~30% áp lực Trump
+    },
+    "joe biden": {
+        "role": "president", "name_vn": "Joe Biden",
+        "term_info": "Tổng thống thứ 46 (2021–2025)",
+        "emoji": "🇺🇸",
+        "personality_vn": [
+            "Tôn trọng tính độc lập của Fed — không gây áp lực công khai",
+            "Chi tiêu xã hội lớn (IRA, CHIPS Act) → rủi ro lạm phát vừa phải",
+            "Chính sách đối ngoại truyền thống, đa phương",
+            "Ủng hộ kinh tế xanh và chuyển dịch năng lượng",
+        ],
+        "cut_pressure":     0, "fed_pressure": 0,
+        "inflation_risk":   1, "gold_bias": 0, "usd_bias": 0,
+        "sp500_sensitivity": 0, "resistance_kw": 0.0,
+    },
+    "kamala harris": {
+        "role": "president", "name_vn": "Kamala Harris",
+        "term_info": "Phó Tổng thống (2021–2025)",
+        "emoji": "🇺🇸",
+        "personality_vn": [
+            "Chính sách tiến bộ, chi tiêu xã hội cao",
+            "Tôn trọng độc lập Fed, không can thiệp công khai",
+            "Ủng hộ năng lượng sạch, kiểm soát giá",
+        ],
+        "cut_pressure":     1, "fed_pressure": 0,
+        "inflation_risk":   1, "gold_bias": 0, "usd_bias": 0,
+        "sp500_sensitivity": 0, "resistance_kw": 0.0,
+    },
+    "barack obama": {
+        "role": "president", "name_vn": "Barack Obama",
+        "term_info": "Tổng thống thứ 44 (2009–2017)",
+        "emoji": "🇺🇸",
+        "personality_vn": [
+            "Chính sách ổn định, truyền thống — tôn trọng Fed",
+            "Phục hồi hậu khủng hoảng 2008 — ủng hộ QE",
+            "Tăng thuế người giàu, chi tiêu hạ tầng vừa phải",
+        ],
+        "cut_pressure":     0, "fed_pressure": 0,
+        "inflation_risk":   0, "gold_bias": 0, "usd_bias": 0,
+        "sp500_sensitivity": 0, "resistance_kw": 0.0,
+    },
+    # ════════ FED CHAIRS ═════════════════════════════════════════════════════
+    "kevin warsh": {
+        "role": "fed_chair", "name_vn": "Kevin Warsh",
+        "term_info": "Fed Chair từ 22/5/2026",
+        "emoji": "🦅",
+        "personality_vn": [
+            "Diều hâu (hawkish) bẩm sinh — phê phán QE mạnh nhất lịch sử",
+            "Rules-based: ưu tiên Taylor Rule hơn discretion",
+            "Uy tín Fed > áp lực chính trị — sẽ kháng cự nhưng không đối đầu",
+            "Morgan Stanley + Nhà Trắng + Druckenmiller → market-savvy",
+            "Trực tiếp, rõ ràng hơn Powell; không thích forward guidance mơ hồ",
+        ],
+        "hawkish_bias":         2,
+        "credibility_priority": 3,
+        "qe_skepticism":        3,
+        "political_resistance": 1,   # kháng cự áp lực TT (0=dễ bị ảnh hưởng, 3=độc lập hoàn toàn)
+        "rate_direction":      +2,   # +số = hawkish, -số = dovish
+        "gold_bias":           -1,   # hawkish → lãi thực cao → vàng bị áp lực
+        "score_adj":           -2,   # điều chỉnh fed_score (âm = khó cắt lãi)
+    },
+    "jerome powell": {
+        "role": "fed_chair", "name_vn": "Jerome Powell",
+        "term_info": "Fed Chair 2018–2026",
+        "emoji": "⚖️",
+        "personality_vn": [
+            "Data-dependent — quyết định theo dữ liệu kinh tế, không định trước",
+            "Thận trọng, không vội vã, tránh gây surprise cho thị trường",
+            "Dovish khi kinh tế cần, hawkish khi lạm phát cao — linh hoạt",
+            "Giao tiếp rõ ràng qua forward guidance; ưu tiên ổn định thị trường",
+        ],
+        "hawkish_bias":         0,
+        "credibility_priority": 2,
+        "qe_skepticism":        1,
+        "political_resistance": 2,
+        "rate_direction":       0,
+        "gold_bias":            0,
+        "score_adj":            0,
+    },
+    "janet yellen": {
+        "role": "fed_chair", "name_vn": "Janet Yellen",
+        "term_info": "Fed Chair 2014–2018",
+        "emoji": "🕊️",
+        "personality_vn": [
+            "Bồ câu (dovish) — ưu tiên việc làm hơn lạm phát",
+            "Ủng hộ chính sách nới lỏng khi kinh tế yếu",
+            "Kinh tế học lao động là chuyên môn — quan tâm thất nghiệp",
+        ],
+        "hawkish_bias":        -2,
+        "credibility_priority": 2,
+        "qe_skepticism":       -1,
+        "political_resistance": 1,
+        "rate_direction":      -2,
+        "gold_bias":           +1,
+        "score_adj":           +2,
+    },
+    "michelle bowman": {
+        "role": "fed_chair", "name_vn": "Michelle Bowman",
+        "term_info": "Thành viên Fed Board",
+        "emoji": "🦅",
+        "personality_vn": [
+            "Diều hâu — phản đối cắt lãi sớm khi lạm phát chưa về target",
+            "Ưu tiên kiểm soát lạm phát trước khi kích thích",
+            "Bỏ phiếu chống cắt lãi 2024 — người duy nhất phản đối",
+        ],
+        "hawkish_bias":         2, "credibility_priority": 2,
+        "qe_skepticism":        2, "political_resistance": 1,
+        "rate_direction":      +1, "gold_bias": -1, "score_adj": -1,
+    },
+    "christopher waller": {
+        "role": "fed_chair", "name_vn": "Christopher Waller",
+        "term_info": "Thành viên Fed Board",
+        "emoji": "📊",
+        "personality_vn": [
+            "Diều hâu vừa phải — ủng hộ cắt lãi khi dữ liệu cho phép",
+            "Kinh tế học tiền tệ thực chứng, hướng data",
+        ],
+        "hawkish_bias":         1, "credibility_priority": 2,
+        "qe_skepticism":        1, "political_resistance": 1,
+        "rate_direction":       0, "gold_bias": 0, "score_adj": 0,
+    },
+    "philip jefferson": {
+        "role": "fed_chair", "name_vn": "Philip Jefferson",
+        "term_info": "Phó Chủ tịch Fed",
+        "emoji": "🕊️",
+        "personality_vn": [
+            "Trung dung — linh hoạt giữa hawkish và dovish",
+            "Ưu tiên ổn định kép: lạm phát + việc làm",
+        ],
+        "hawkish_bias":         0, "credibility_priority": 2,
+        "qe_skepticism":        0, "political_resistance": 1,
+        "rate_direction":       0, "gold_bias": 0, "score_adj": 0,
+    },
+    # ─── Default fallback cho lãnh đạo chưa được lập trình ───────────────────
+    "_unknown_president": {
+        "role": "president", "name_vn": "Tổng thống Mỹ", "term_info": "Đang xác định",
+        "emoji": "🇺🇸", "personality_vn": ["Đang phân tích ngoại cảm..."],
+        "cut_pressure": 0, "fed_pressure": 0, "inflation_risk": 0,
+        "gold_bias": 0, "usd_bias": 0, "sp500_sensitivity": 1, "resistance_kw": 0.3,
+    },
+    "_unknown_fedchair": {
+        "role": "fed_chair", "name_vn": "Chủ tịch Fed", "term_info": "Đang xác định",
+        "emoji": "🏦", "personality_vn": ["Đang phân tích ngoại cảm..."],
+        "hawkish_bias": 0, "credibility_priority": 2, "qe_skepticism": 0,
+        "political_resistance": 1, "rate_direction": 0, "gold_bias": 0, "score_adj": 0,
+    },
 }
 
-WARSH_PROFILE = {
-    "hawkish_bias":         2,  # Tự nhiên là diều hâu (hawk)
-    "rules_based":          2,  # Thích Taylor Rule hơn discretion
-    "qe_skepticism":        3,  # Phê phán QE mạnh nhất lịch sử Fed
-    "credibility_priority": 3,  # Fed credibility > áp lực chính trị
-    "wall_street_dna":      2,  # Morgan Stanley background → market-savvy
-    "political_savvy":      2,  # Từng ở Nhà Trắng → biết survive chính trị
-    "druckenmiller_view":   2,  # Ảnh hưởng từ Druckenmiller: macro dài hạn
-    "communication":        2,  # Trực tiếp và rõ ràng hơn Powell
-    "trump_resistance":     1,  # Sẽ kháng cự Trump nhưng không đối đầu công khai
-}
 
-# Tóm tắt xung đột cấu trúc Trump-Warsh cho UI
-TRUMP_WARSH_DYNAMIC = {
-    "conflict_level":   3,   # Mâu thuẫn cao (Trump muốn cắt, Warsh muốn giữ)
-    "trump_wins_prob":  35,  # Xác suất Trump thuyết phục được Warsh (%)
-    "warsh_wins_prob":  50,  # Xác suất Warsh giữ vững lập trường (%)
-    "compromise_prob":  15,  # Xác suất thỏa hiệp giữa chừng (%)
-}
+def get_leader_profile(name: str, role: str) -> dict:
+    """Tra cứu profile lãnh đạo theo tên (fuzzy match). Fallback về unknown nếu không có."""
+    if not name:
+        return LEADER_PROFILES[f"_unknown_{role}"]
+    nl = name.lower().strip()
+    if nl in LEADER_PROFILES and LEADER_PROFILES[nl]["role"] == role:
+        return LEADER_PROFILES[nl]
+    # Partial match — so khớp từng từ trong tên
+    name_parts = set(nl.split())
+    for key, prof in LEADER_PROFILES.items():
+        if key.startswith("_") or prof.get("role") != role:
+            continue
+        if name_parts & set(key.split()):   # có từ trùng nhau
+            return prof
+    # Không tìm thấy — tạo unknown với tên thực
+    fallback = dict(LEADER_PROFILES[f"_unknown_{role}"])
+    fallback["name_vn"] = name
+    return fallback
+
+
+def analyze_leader_dynamic(pres: dict, chair: dict) -> dict:
+    """Phân tích động lực xung đột / hợp tác giữa Tổng thống và Chủ tịch Fed."""
+    pres_cut  = pres.get("cut_pressure", 0)
+    chair_hk  = chair.get("rate_direction", 0)   # >0 = hawkish
+    chair_res = chair.get("political_resistance", 1)
+
+    if pres_cut > 0 and chair_hk > 0:
+        # TT muốn cắt lãi ↔ Chair hawkish = MÂU THUẪN
+        conflict = min(3, (pres_cut + chair_hk + 1) // 2)
+        resist_factor = chair_res / 3          # 0→1
+        pres_wins  = max(10, round(50 - resist_factor * 30 - chair_hk * 5))
+        chair_wins = min(80, round(25 + resist_factor * 30 + chair_hk * 5))
+        narrative  = "MÂU THUẪN CAO" if conflict >= 2 else "MÂU THUẪN NHẸ"
+    elif pres_cut <= 0 and chair_hk <= 0:
+        # Cả hai dovish = ĐỒNG THUẬN
+        conflict   = 0
+        pres_wins  = 75; chair_wins = 75
+        narrative  = "ĐỒNG THUẬN — Cả hai ủng hộ nới lỏng"
+    elif pres_cut <= 0 and chair_hk > 0:
+        # TT trung tính, Chair hawkish
+        conflict   = 0
+        pres_wins  = 50; chair_wins = 60
+        narrative  = "ĐỒNG THUẬN — Ưu tiên kiểm soát lạm phát"
+    else:
+        conflict   = 1
+        pres_wins  = 50; chair_wins = 45
+        narrative  = "TRUNG TÍNH"
+
+    comp = max(5, 100 - pres_wins - chair_wins)
+    return {
+        "conflict_level": conflict,
+        "narrative":      narrative,
+        "pres_wins_prob":  pres_wins,
+        "chair_wins_prob": chair_wins,
+        "compromise_prob": comp,
+    }
 
 # ── Bảng giải thích thuật ngữ — hiển thị trong tab app ─────────────────────
 GLOSSARY = {
@@ -749,7 +945,102 @@ def fetch_fred_rates() -> dict:
     return result
 
 
-def fed_policy_analysis(fred_data: dict, macro: dict) -> dict:
+@st.cache_data(ttl=86400, show_spinner=False)
+def fetch_current_leaders() -> dict:
+    """
+    Tự động xác định Tổng thống Mỹ và Chủ tịch Fed hiện tại qua Wikidata SPARQL.
+    Fallback: Wikipedia REST API.  Cache 24h — thông tin thay đổi rất hiếm.
+    """
+    import urllib.request, urllib.parse, json as _json, re as _re
+
+    result = {"president": None, "fed_chair": None, "ok": False, "source": None}
+    hdrs   = {"User-Agent": "GoldAnalysisStreamlit/2.0 (educational; contact=github.com/vinhthan)"}
+
+    def _sparql(query: str) -> list[str]:
+        url = ("https://query.wikidata.org/sparql?query="
+               + urllib.parse.quote(query.strip()) + "&format=json")
+        req = urllib.request.Request(url, headers={**hdrs, "Accept": "application/sparql-results+json"})
+        with urllib.request.urlopen(req, timeout=14) as r:
+            data = _json.loads(r.read())
+        return [b.get("personLabel", {}).get("value", "")
+                for b in data["results"]["bindings"] if b.get("personLabel")]
+
+    def _wiki_extract(page: str) -> str:
+        url = ("https://en.wikipedia.org/api/rest_v1/page/summary/"
+               + urllib.parse.quote(page.replace(" ", "_")))
+        req = urllib.request.Request(url, headers=hdrs)
+        with urllib.request.urlopen(req, timeout=10) as r:
+            return _json.loads(r.read()).get("extract", "")
+
+    # ── 1. Wikidata SPARQL (ưu tiên — dữ liệu chuẩn nhất) ──────────────
+    PRES_QUERY = """
+    SELECT ?personLabel WHERE {
+      wd:Q30 p:P35 ?stmt .
+      ?stmt ps:P35 ?person .
+      FILTER NOT EXISTS { ?stmt pq:P582 ?end . }
+      SERVICE wikibase:label { bd:serviceParam wikibase:language "en" . }
+    } LIMIT 3"""
+
+    FED_QUERY = """
+    SELECT ?personLabel WHERE {
+      wd:Q146190 p:P488 ?stmt .
+      ?stmt ps:P488 ?person .
+      FILTER NOT EXISTS { ?stmt pq:P582 ?end . }
+      SERVICE wikibase:label { bd:serviceParam wikibase:language "en" . }
+    } LIMIT 3"""
+
+    try:
+        names = _sparql(PRES_QUERY)
+        if names and not names[0].startswith("Q"):
+            result["president"] = names[0]
+            result["source"]    = "Wikidata"
+    except Exception:
+        pass
+
+    try:
+        names = _sparql(FED_QUERY)
+        if names and not names[0].startswith("Q"):
+            result["fed_chair"] = names[0]
+            result["source"]    = result["source"] or "Wikidata"
+    except Exception:
+        pass
+
+    # ── 2. Wikipedia REST fallback (nếu Wikidata chậm / lỗi) ───────────
+    if not result["president"]:
+        try:
+            ext = _wiki_extract("President of the United States")
+            for pat in [
+                r"(\w[\w\-']+(?:\s+\w[\w\-']+){1,3})\s+is the\s+(?:\d+\w+\s+and\s+)?current president",
+                r"(\w[\w\-']+(?:\s+\w[\w\-']+){1,3})\s+is the\s+\d+\w+\s+president",
+            ]:
+                m = _re.search(pat, ext, _re.IGNORECASE)
+                if m:
+                    result["president"] = m.group(1).strip()
+                    result["source"]    = result["source"] or "Wikipedia"
+                    break
+        except Exception:
+            pass
+
+    if not result["fed_chair"]:
+        try:
+            ext = _wiki_extract("Chair of the Federal Reserve")
+            for pat in [
+                r"(?:current|incumbent)\s+chair(?:man|person)?\s+is\s+(\w[\w\-']+(?:\s+\w[\w\-']+){1,2})",
+                r"(\w[\w\-']+(?:\s+\w[\w\-']+){1,2})\s+(?:is|serves as)\s+(?:the\s+)?(?:current\s+)?chair",
+            ]:
+                m = _re.search(pat, ext, _re.IGNORECASE)
+                if m:
+                    result["fed_chair"] = m.group(1).strip()
+                    result["source"]    = result["source"] or "Wikipedia"
+                    break
+        except Exception:
+            pass
+
+    result["ok"] = bool(result["president"] or result["fed_chair"])
+    return result
+
+
+def fed_policy_analysis(fred_data: dict, macro: dict, leaders: dict = None) -> dict:
     """
     Phân tích chính sách Fed kết hợp ngoại cảm:
     1. Yield curve thực tế (FRED data)
@@ -839,47 +1130,72 @@ def fed_policy_analysis(fred_data: dict, macro: dict) -> dict:
             score -= 1
             signals.append(("🔴", f"Fed rate {current_rate:.2f}% — dưới neutral → còn dư địa tăng lãi", "red"))
 
-    # ── 4. WARSH HAWKISH FACTOR (ngoại cảm tính cách) ────────────────────
-    # Warsh diều hâu → luôn giữ lãi cao hơn kỳ vọng thị trường 1 bậc
-    w_hawkish = WARSH_PROFILE["hawkish_bias"]     # +2
-    w_cred    = WARSH_PROFILE["credibility_priority"]  # +3 (coi trọng uy tín > áp lực)
-    w_resist  = WARSH_PROFILE["trump_resistance"]  # +1
-    warsh_net = -(w_hawkish * 0.5 + w_cred * 0.2 + w_resist * 0.1)  # → âm = hawkish
-    score += round(warsh_net)
-    signals.append(("🦅", f"Warsh Factor: hawkish DNA (bias {warsh_net:.1f}) → lãi cao hơn thị trường kỳ vọng", "orange"))
+    # ── 4. FED CHAIR NGOẠI CẢM FACTOR (tự động từ profile) ───────────────
+    # Lấy profile động: ưu tiên leaders truyền vào, fallback về Warsh (mặc định hiện tại)
+    if leaders and leaders.get("fed_chair"):
+        chair_prof = get_leader_profile(leaders["fed_chair"], "fed_chair")
+    else:
+        chair_prof = get_leader_profile("kevin warsh", "fed_chair")  # default hiện tại
 
-    # ── 5. TRUMP PRESSURE FACTOR (ngoại cảm áp lực chính trị) ────────────
-    trump_pressure = 0
-    trump_signal   = ""
+    w_hawkish = chair_prof.get("hawkish_bias", 0)
+    w_cred    = chair_prof.get("credibility_priority", 2)
+    w_resist  = chair_prof.get("political_resistance", 1)
+    chair_net = -(w_hawkish * 0.5 + w_cred * 0.2 + w_resist * 0.1)   # âm = hawkish
+    score += round(chair_net)
+    chair_emoji  = chair_prof.get("emoji", "🏦")
+    chair_namevn = chair_prof.get("name_vn", "Fed Chair")
+    if chair_net < -0.5:
+        signals.append((chair_emoji, f"{chair_namevn} Factor: hawkish DNA (bias {chair_net:.1f}) → lãi cao hơn thị trường kỳ vọng", "orange"))
+    elif chair_net > 0.5:
+        signals.append((chair_emoji, f"{chair_namevn} Factor: dovish DNA (bias {chair_net:.1f}) → nghiêng về cắt lãi sớm hơn", "green"))
+    else:
+        signals.append((chair_emoji, f"{chair_namevn} Factor: trung dung (bias {chair_net:.1f}) — theo dữ liệu thực tế", "gray"))
 
-    # Trump áp lực mạnh hơn khi thị trường giảm
+    # ── 5. PRESIDENT PRESSURE FACTOR (ngoại cảm áp lực chính trị) ────────
+    if leaders and leaders.get("president"):
+        pres_prof = get_leader_profile(leaders["president"], "president")
+    else:
+        pres_prof = get_leader_profile("donald trump", "president")  # default hiện tại
+
+    pres_cut_pref = pres_prof.get("cut_pressure", 0)   # TT muốn cắt lãi mạnh đến đâu
+    pres_sp_sens  = pres_prof.get("sp500_sensitivity", 1)
+    pres_namevn   = pres_prof.get("name_vn", "Tổng thống")
+    resist_factor = chair_prof.get("political_resistance", 1)  # chair kháng cự TT được k
+
+    pres_pressure = 0
+    pres_signal   = ""
     if "sp500" in macro and len(macro["sp500"]) >= 22:
         sp_chg = (float(macro["sp500"].iloc[-1]) / float(macro["sp500"].iloc[-22]) - 1) * 100
         metrics["sp500_chg"] = sp_chg
-        if sp_chg < -12:
-            trump_pressure = 3
-            trump_signal   = f"S&P {sp_chg:.1f}% → Trump áp lực tối đa, gần như chắc chắn gây áp lực công khai Warsh"
-        elif sp_chg < -6:
-            trump_pressure = 2
-            trump_signal   = f"S&P {sp_chg:.1f}% → Trump sẽ công khai chỉ trích Fed"
-        elif sp_chg < -2:
-            trump_pressure = 1
-            trump_signal   = f"S&P {sp_chg:.1f}% → Trump bắt đầu gây áp lực ngầm"
-        elif sp_chg > 8:
-            trump_pressure = -1
-            trump_signal   = f"S&P +{sp_chg:.1f}% → Trump hài lòng, ít áp lực Fed"
+        if pres_cut_pref >= 2:   # TT có xu hướng áp lực Fed mạnh
+            if sp_chg < -12:
+                pres_pressure = 3
+                pres_signal   = f"S&P {sp_chg:.1f}% → {pres_namevn} áp lực tối đa lên Fed"
+            elif sp_chg < -6:
+                pres_pressure = 2
+                pres_signal   = f"S&P {sp_chg:.1f}% → {pres_namevn} sẽ công khai chỉ trích Fed"
+            elif sp_chg < -2:
+                pres_pressure = 1
+                pres_signal   = f"S&P {sp_chg:.1f}% → {pres_namevn} bắt đầu gây áp lực"
+            elif sp_chg > 8:
+                pres_pressure = -1
+                pres_signal   = f"S&P +{sp_chg:.1f}% → {pres_namevn} hài lòng, ít áp lực Fed"
+        elif pres_cut_pref == 1:
+            if sp_chg < -8:
+                pres_pressure = 1
+                pres_signal   = f"S&P {sp_chg:.1f}% → {pres_namevn} nhẹ nhàng gợi ý cắt lãi"
+        # else pres_cut_pref == 0: TT tôn trọng Fed → không tính áp lực
 
-    # Trump pressure offset bởi Warsh resistance:
-    # Warsh sẽ kháng cự được khoảng 50-60% áp lực
-    warsh_resistance = WARSH_PROFILE["trump_resistance"]  # 1
-    effective_trump  = trump_pressure * (1 - warsh_resistance * 0.3)
-    score += round(effective_trump)
-    if trump_signal:
-        signals.append(("⚡", f"Trump Pressure: {trump_signal}", "orange"))
+    effective_pres = pres_pressure * (1 - resist_factor * 0.3)
+    score += round(effective_pres)
+    if pres_signal:
+        signals.append(("⚡", f"{pres_namevn} Pressure: {pres_signal}", "orange"))
 
-    metrics["trump_pressure"]   = trump_pressure
-    metrics["warsh_net"]        = warsh_net
-    metrics["effective_trump"]  = effective_trump
+    metrics["pres_pressure"]   = pres_pressure
+    metrics["chair_net"]       = chair_net
+    metrics["effective_pres"]  = effective_pres
+    metrics["chair_name"]      = chair_namevn
+    metrics["pres_name"]       = pres_namevn
 
     # ── 6. REAL INTEREST RATE — DFII10 (driver số 1 của vàng) ────────────
     # Lãi suất thực = Yield danh nghĩa − Lạm phát kỳ vọng
@@ -944,17 +1260,22 @@ def fed_policy_analysis(fred_data: dict, macro: dict) -> dict:
         prob_cut  = 50
 
     return {
-        "score":        score,
-        "direction":    direction,
-        "color":        d_color,
-        "prob_cut":     round(prob_cut),
-        "prob_hold":    round(100 - prob_cut),
-        "current_rate": current_rate,
-        "curve_val":    curve_val,
-        "real_rate":    real_rate,
+        "score":         score,
+        "direction":     direction,
+        "color":         d_color,
+        "prob_cut":      round(prob_cut),
+        "prob_hold":     round(100 - prob_cut),
+        "current_rate":  current_rate,
+        "curve_val":     curve_val,
+        "real_rate":     real_rate,
         "inflation_exp": inflation_exp,
-        "signals":      signals,
-        "metrics":      metrics,
+        "signals":       signals,
+        "metrics":       metrics,
+        # Thông tin lãnh đạo động (để UI dùng)
+        "pres_name":     metrics.get("pres_name", "Tổng thống"),
+        "chair_name":    metrics.get("chair_name", "Fed Chair"),
+        "pres_profile":  pres_prof,
+        "chair_profile": chair_prof,
     }
 
 
@@ -3070,10 +3391,14 @@ def render_asset_tab(asset_key: str, macro: dict, forecast_days: int):
         macro, price, asset_key
     )
 
+    # ── Auto-detect current leaders (Wikidata) ────────────────────────────
+    with st.spinner("🔍 Xác định lãnh đạo hiện tại (Wikidata)..."):
+        leaders_data = fetch_current_leaders()
+
     # ── Fed Policy Analysis (FRED + personality) ──────────────────────────
     with st.spinner("🏦 Phân tích chính sách Fed..."):
         fred_data  = fetch_fred_rates()
-        fed_result = fed_policy_analysis(fred_data, macro)
+        fed_result = fed_policy_analysis(fred_data, macro, leaders=leaders_data)
 
     # ── Whale Positioning (ETF flow + OI + volume) ────────────────────────
     with st.spinner("🐋 Tải dữ liệu cá mập..."):
@@ -3370,8 +3695,15 @@ def render_asset_tab(asset_key: str, macro: dict, forecast_days: int):
     cur_rate      = fed_result.get("current_rate")
     curve_val     = fed_result.get("curve_val")
 
+    # Tên lãnh đạo từ kết quả phân tích (đã tra cứu dynamic)
+    _pres_name_ui  = fed_result.get("pres_name",  leaders_data.get("president",  "Tổng thống"))
+    _chair_name_ui = fed_result.get("chair_name", leaders_data.get("fed_chair", "Fed Chair"))
+    _detect_src    = leaders_data.get("source", "")
+    _detect_badge  = (f" <span style='color:#8b949e;font-size:0.78rem;'>"
+                      f"[🔍 Tự động: {_detect_src}]</span>" if _detect_src else "")
+
     st.markdown(
-        f"#### 🏦 Fed Radar — Trump · Warsh · Lãi suất &nbsp;"
+        f"#### 🏦 Fed Radar — {_pres_name_ui} · {_chair_name_ui} · Lãi suất{_detect_badge} &nbsp;"
         f"<span style='color:{fed_color};font-size:0.95rem;'>"
         f"[ {fed_direction} · Điểm: {fed_score:+d} ]</span>",
         unsafe_allow_html=True,
@@ -3391,7 +3723,7 @@ def render_asset_tab(asset_key: str, macro: dict, forecast_days: int):
     fc2.metric("✂️ Xác suất Cắt lãi", f"{fed_prob_cut}%",
                f"Giữ/Tăng lãi: {fed_prob_hold}%",
                delta_color="normal" if fed_prob_cut > 50 else "inverse",
-               help="Xác suất Fed CẮT lãi trong 6–9 tháng tới. Tính từ 7 yếu tố: dữ liệu FRED + tính cách Trump & Warsh.")
+               help=f"Xác suất Fed CẮT lãi trong 6–9 tháng tới. Tính từ 7 yếu tố: dữ liệu FRED + ngoại cảm {_chair_name_ui} & {_pres_name_ui}.")
     if cur_rate is not None:
         fc3.metric("🏛️ FEDFUNDS — Lãi suất Fed", f"{cur_rate:.2f}%",
                    f"Neutral 2.50% · Gap {cur_rate - 2.5:+.2f}%",
@@ -3455,25 +3787,56 @@ def render_asset_tab(asset_key: str, macro: dict, forecast_days: int):
     else:
         fc8.empty()
 
-    with st.expander("🔍 Ngoại cảm: Trump · Warsh · Xung đột cấu trúc", expanded=False):
-        conflict = TRUMP_WARSH_DYNAMIC["conflict_level"]
-        t_win    = TRUMP_WARSH_DYNAMIC["trump_wins_prob"]
-        w_win    = TRUMP_WARSH_DYNAMIC["warsh_wins_prob"]
-        comp     = TRUMP_WARSH_DYNAMIC["compromise_prob"]
+    with st.expander(f"🔍 Ngoại cảm: {_pres_name_ui} · {_chair_name_ui} · Xung đột cấu trúc", expanded=False):
+        # ── Lấy profile động đã được tính trong fed_policy_analysis ─────────
+        _pres_prof  = fed_result.get("pres_profile",  {})
+        _chair_prof = fed_result.get("chair_profile", {})
+        _dynamic    = analyze_leader_dynamic(_pres_prof, _chair_prof)
+        conflict    = _dynamic["conflict_level"]
+        pres_win    = _dynamic["pres_wins_prob"]
+        chair_win   = _dynamic["chair_wins_prob"]
+        comp        = _dynamic["compromise_prob"]
+        narrative   = _dynamic["narrative"]
+        conflict_color = "#f85149" if conflict >= 2 else ("#FFD700" if conflict == 1 else "#3fb950")
+
+        # ── Bảng kịch bản xung đột ──────────────────────────────────────────
         st.markdown(
-            f"**⚡ Xung đột Trump–Warsh** (cấp độ {conflict}/3 — MÂU THUẪN CAO)\n\n"
+            f"**⚡ Động lực {_pres_name_ui}–{_chair_name_ui}** "
+            f"<span style='color:{conflict_color};'>(Cấp độ {conflict}/3 — {narrative})</span>\n\n"
             f"| Kịch bản | Xác suất |\n"
             f"|---|---|\n"
-            f"| Trump thuyết phục Warsh cắt lãi | **{t_win}%** |\n"
-            f"| Warsh giữ vững lập trường hawkish | **{w_win}%** |\n"
-            f"| Thỏa hiệp ở giữa | **{comp}%** |\n\n"
-            f"**🦅 Kevin Warsh** *(Fed Chair từ 22/5/2026)*: Diều hâu (hawkish) · Rules-based "
-            f"(Taylor Rule) · QE skeptic mạnh nhất lịch sử · Morgan Stanley + Nhà Trắng "
-            f"+ Druckenmiller background · Ưu tiên uy tín Fed > áp lực chính trị\n\n"
-            f"**🇺🇸 Donald Trump**: Luôn muốn lãi suất thấp nhất có thể · Coi S&P 500 là "
-            f"điểm số nhiệm kỳ · Thuế quan = vũ khí đàm phán · Sẵn sàng tấn công Fed "
-            f"công khai · Muốn USD yếu để hỗ trợ xuất khẩu"
+            f"| {_pres_name_ui} thuyết phục {_chair_name_ui} thay đổi chính sách | **{pres_win}%** |\n"
+            f"| {_chair_name_ui} giữ vững lập trường độc lập | **{chair_win}%** |\n"
+            f"| Thỏa hiệp / trung gian | **{comp}%** |\n",
+            unsafe_allow_html=True,
         )
+
+        # ── Ngoại cảm Fed Chair ─────────────────────────────────────────────
+        chair_emoji = _chair_prof.get("emoji", "🏦")
+        chair_term  = _chair_prof.get("term_info", "")
+        chair_traits = _chair_prof.get("personality_vn", [])
+        if chair_traits:
+            st.markdown(
+                f"**{chair_emoji} {_chair_name_ui}** *({chair_term})*:\n"
+                + "\n".join(f"- {t}" for t in chair_traits)
+            )
+
+        # ── Ngoại cảm Tổng thống ────────────────────────────────────────────
+        pres_emoji  = _pres_prof.get("emoji", "🇺🇸")
+        pres_term   = _pres_prof.get("term_info", "")
+        pres_traits = _pres_prof.get("personality_vn", [])
+        if pres_traits:
+            st.markdown(
+                f"\n**{pres_emoji} {_pres_name_ui}** *({pres_term})*:\n"
+                + "\n".join(f"- {t}" for t in pres_traits)
+            )
+
+        # ── Nguồn dữ liệu ───────────────────────────────────────────────────
+        if _detect_src:
+            st.caption(f"🔍 Lãnh đạo được tự động xác định qua {_detect_src} — cập nhật mỗi 24h")
+        else:
+            st.caption("⚠️ Không kết nối được Wikidata/Wikipedia — dùng dữ liệu mặc định")
+
         st.markdown("---\n**📊 Tín hiệu lãi suất thực tế (FRED Data):**")
         for icon, text, _ in fed_signals:
             st.markdown(f"{icon} {text}")
