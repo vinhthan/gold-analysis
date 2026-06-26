@@ -3925,7 +3925,7 @@ def render_asset_tab(asset_key: str, macro: dict, forecast_days: int):
 
     # Credit stress + Regime + Cross-Asset (pure compute, không cần network)
     credit_result  = fetch_credit_stress(fred_data)
-    macro_regime   = detect_macro_regime(fred_data, macro)
+    mkt_regime     = detect_macro_regime(fred_data, macro)
     cross_asset    = calc_cross_asset_alignment(macro, fred_data)
 
     # ── ML Directional Signal (3-model Ensemble) ──────────────────────────
@@ -3944,7 +3944,7 @@ def render_asset_tab(asset_key: str, macro: dict, forecast_days: int):
     pcr_contrib    = round(pcr_result.get("score", 0)     * 0.15) if pcr_result.get("ok")    else 0
     vix_contrib    = round(vix_term.get("score", 0)       * 0.15) if vix_term.get("ok")      else 0
     credit_contrib = round(credit_result.get("score", 0)  * 0.15) if credit_result.get("ok") else 0
-    regime_contrib = macro_regime["gold_bias"]                      # trực tiếp: -2 → +3
+    regime_contrib = mkt_regime["gold_bias"]                        # trực tiếp: -2 → +3
     xasset_contrib = round(cross_asset["score"]            * 0.20)
     combined_macro = max(-12, min(12,
         macro_score + fed_contrib + whale_contrib + cot_contrib + obv_contrib
@@ -4032,7 +4032,7 @@ def render_asset_tab(asset_key: str, macro: dict, forecast_days: int):
     st.markdown("---")
 
     # ══ MARKET INTELLIGENCE DASHBOARD (Hedge Fund Framework) ══════════════
-    r = macro_regime
+    r = mkt_regime
     xa = cross_asset
 
     # Tính Signal Consensus (tổng hợp toàn bộ signals)
