@@ -4868,6 +4868,1060 @@ def render_asset_tab(asset_key: str, macro: dict, forecast_days: int):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+#  EXPERT ANALYSIS TAB — 17 MODULES · 4 BLOCKS
+# ══════════════════════════════════════════════════════════════════════════════
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def fetch_fed_news() -> list:
+    """
+    Lấy tin tức mới nhất từ Federal Reserve RSS feed.
+    Trả về list các dict {title, date, link}.
+    """
+    import urllib.request
+    import xml.etree.ElementTree as _ET
+
+    url = "https://www.federalreserve.gov/feeds/press_all.xml"
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=12) as r:
+            xml_bytes = r.read()
+        root = _ET.fromstring(xml_bytes)
+        items = []
+        for item in root.findall(".//item")[:15]:
+            title_el = item.find("title")
+            date_el  = item.find("pubDate")
+            link_el  = item.find("link")
+            if title_el is not None and title_el.text:
+                items.append({
+                    "title": title_el.text.strip(),
+                    "date":  date_el.text.strip() if date_el is not None and date_el.text else "",
+                    "link":  link_el.text.strip() if link_el is not None and link_el.text else "",
+                })
+        return items
+    except Exception:
+        return []
+
+
+def analyze_fedspeak(news_items: list) -> dict:
+    """
+    Phân tích ngôn ngữ của Fed (Fedspeak Decoder).
+    Phân loại từng cụm từ thành Hawkish / Dovish / Hidden signal.
+    Returns dict: score (-3..+3), label, signals, color.
+    """
+    HAWK_PHRASES = {
+        "higher for longer":   ("🦅 Hawkish", "Fed muốn duy trì lãi suất cao — thực ra đang cân nhắc cắt giảm"),
+        "data dependent":      ("🦅 Hawkish", "Fed chuẩn bị thay đổi hướng — tín hiệu pivot sắp tới"),
+        "remain vigilant":     ("🦅 Hawkish", "Fed lo ngại lạm phát — nhưng thường là peak hawkishness"),
+        "inflation too high":  ("🦅 Hawkish", "Lạm phát vẫn là ưu tiên — tuy nhiên tín hiệu thị trường đã chiết khấu"),
+        "price stability":     ("🦅 Hawkish", "Fed ưu tiên ổn định giá — áp lực giảm ngắn hạn cho vàng"),
+        "strong labor market": ("🦅 Hawkish", "Thị trường lao động mạnh — lý do để không cắt lãi suất"),
+        "not cutting":         ("🦅 Hawkish", "Fed công khai từ chối cắt — nhưng thị trường vẫn định giá cắt"),
+    }
+    DOVE_PHRASES = {
+        "restrictive territory": ("🕊️ Dovish", "Lãi suất đang quá cao — Fed chuẩn bị cắt giảm sớm"),
+        "balanced risks":        ("🕊️ Dovish", "Rủi ro cân bằng — pivot sắp đến, bullish cho vàng"),
+        "financial stability":   ("🕊️ Dovish", "⚠️ Cảnh báo: Có gì đó đang gãy trong hệ thống!"),
+        "rate cuts":             ("🕊️ Dovish", "Fed chính thức nói tới cắt lãi suất — very bullish vàng"),
+        "easing":                ("🕊️ Dovish", "Tín hiệu nới lỏng — QE/cắt lãi suất đang được thảo luận"),
+        "labor market cooling":  ("🕊️ Dovish", "Thị trường lao động hạ nhiệt — tạo điều kiện cắt lãi suất"),
+        "transitory":            ("⚠️ Sai lầm lịch sử", "Fed đã sai về 'transitory' năm 2021 — cảnh báo rủi ro"),
+        "on track":              ("🕊️ Dovish", "Fed hài lòng với tiến trình — pivot gần hơn"),
+        "progress":              ("🕊️ Dovish", "Fed nhận thấy tiến bộ — tín hiệu hawkish đang suy yếu"),
+        "appropriate":           ("🕊️ Dovish", "Fed cho rằng chính sách phù hợp — cắt giảm sắp tới"),
+    }
+
+    detected = []
+    hawk_score = 0
+    dove_score = 0
+
+    all_text = " ".join(item.get("title", "").lower() for item in news_items)
+
+    for phrase, (label, meaning) in HAWK_PHRASES.items():
+        if phrase in all_text:
+            detected.append({"phrase": phrase, "label": label, "meaning": meaning, "type": "hawk"})
+            hawk_score += 1
+
+    for phrase, (label, meaning) in DOVE_PHRASES.items():
+        if phrase in all_text:
+            detected.append({"phrase": phrase, "label": label, "meaning": meaning, "type": "dove"})
+            dove_score += 1
+
+    net = dove_score - hawk_score
+    score = max(-3, min(3, net))
+
+    if score >= 2:    label_out, color = "Dovish mạnh 🕊️", "#3fb950"
+    elif score == 1:  label_out, color = "Hơi Dovish",     "#76c3a0"
+    elif score == -1: label_out, color = "Hơi Hawkish",    "#ff7b54"
+    elif score <= -2: label_out, color = "Hawkish mạnh 🦅","#f85149"
+    else:             label_out, color = "Trung lập",      "#8b949e"
+
+    return {
+        "score":    score,
+        "label":    label_out,
+        "color":    color,
+        "detected": detected,
+        "hawk":     hawk_score,
+        "dove":     dove_score,
+    }
+
+
+def fetch_fomc_calendar() -> list:
+    """
+    Lịch họp FOMC 2025-2026 (hardcoded — công bố trước 1 năm).
+    Mỗi cuộc họp kéo dài 2 ngày; ngày công bố quyết định = ngày thứ 2.
+    """
+    from datetime import date
+    meetings = [
+        # 2025
+        {"date": date(2025, 1, 29),  "label": "Jan 2025",  "status": "done"},
+        {"date": date(2025, 3, 19),  "label": "Mar 2025",  "status": "done"},
+        {"date": date(2025, 5, 7),   "label": "May 2025",  "status": "done"},
+        {"date": date(2025, 6, 18),  "label": "Jun 2025",  "status": "done"},
+        {"date": date(2025, 7, 30),  "label": "Jul 2025",  "status": "upcoming"},
+        {"date": date(2025, 9, 17),  "label": "Sep 2025",  "status": "upcoming"},
+        {"date": date(2025, 11, 5),  "label": "Nov 2025",  "status": "upcoming"},
+        {"date": date(2025, 12, 17), "label": "Dec 2025",  "status": "upcoming"},
+        # 2026
+        {"date": date(2026, 1, 28),  "label": "Jan 2026",  "status": "upcoming"},
+        {"date": date(2026, 3, 18),  "label": "Mar 2026",  "status": "upcoming"},
+        {"date": date(2026, 4, 29),  "label": "Apr 2026",  "status": "upcoming"},
+        {"date": date(2026, 6, 17),  "label": "Jun 2026",  "status": "upcoming"},
+        {"date": date(2026, 7, 29),  "label": "Jul 2026",  "status": "upcoming"},
+        {"date": date(2026, 9, 16),  "label": "Sep 2026",  "status": "upcoming"},
+        {"date": date(2026, 11, 4),  "label": "Nov 2026",  "status": "upcoming"},
+        {"date": date(2026, 12, 16), "label": "Dec 2026",  "status": "upcoming"},
+    ]
+    today = datetime.now().date()
+    for m in meetings:
+        delta = (m["date"] - today).days
+        m["days_away"] = delta
+        if delta < 0:
+            m["status"] = "done"
+        elif delta == 0:
+            m["status"] = "today"
+        elif delta <= 14:
+            m["status"] = "soon"
+        else:
+            m["status"] = "upcoming"
+    return meetings
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def fetch_fed_funds_futures() -> dict:
+    """
+    Ước tính xác suất cắt lãi suất từ thị trường qua 13-Week T-Bill yield (^IRX).
+    Công thức: Implied Fed Funds Rate ≈ 100 - IRX_price.
+    So sánh với FEDFUNDS rate hiện tại từ FRED để tính kỳ vọng thị trường.
+    """
+    try:
+        irx = yf.Ticker("^IRX")
+        irx_hist = irx.history(period="5d")
+        if irx_hist.empty:
+            return {"ok": False}
+        irx_val = float(irx_hist["Close"].iloc[-1])
+        # IRX là yield %, implied fed funds ≈ irx_val
+        # Kỳ vọng thị trường: nếu IRX < FEDFUNDS thì market đang price in cắt
+        fed_data = fetch_fred_rates()
+        if "fedfunds" in fed_data:
+            fedfunds = float(fed_data["fedfunds"].iloc[-1])
+            diff = fedfunds - irx_val
+            if diff > 0.5:
+                market_view = "Thị trường price in CẮT lãi suất mạnh"
+                color = "#3fb950"
+                score = 2
+            elif diff > 0.15:
+                market_view = "Thị trường price in cắt lãi suất nhẹ"
+                color = "#76c3a0"
+                score = 1
+            elif diff < -0.15:
+                market_view = "Thị trường price in TĂNG lãi suất"
+                color = "#f85149"
+                score = -2
+            else:
+                market_view = "Thị trường kỳ vọng giữ nguyên lãi suất"
+                color = "#8b949e"
+                score = 0
+            return {
+                "ok": True,
+                "irx": irx_val,
+                "fedfunds": fedfunds,
+                "diff": diff,
+                "market_view": market_view,
+                "color": color,
+                "score": score,
+            }
+        return {"ok": False}
+    except Exception:
+        return {"ok": False}
+
+
+@st.cache_data(ttl=1800, show_spinner=False)
+def fetch_gold_jpy_signal() -> dict:
+    """
+    Gold vs JPY Safe Haven Signal.
+    Khi JPY tăng (USDJPY giảm) + Gold tăng → cả 2 cùng tăng → Safe Haven mode thực sự.
+    Khi JPY tăng nhưng Gold giảm → risk-off selective, vàng kém hấp dẫn hơn Yen.
+    """
+    try:
+        xau  = yf.Ticker("GC=F").history(period="30d")["Close"]
+        usdjpy = yf.Ticker("USDJPY=X").history(period="30d")["Close"]
+        if xau.empty or usdjpy.empty or len(xau) < 5 or len(usdjpy) < 5:
+            return {"ok": False}
+
+        xau_ret    = (xau.iloc[-1] / xau.iloc[-5] - 1) * 100
+        usdjpy_ret = (usdjpy.iloc[-1] / usdjpy.iloc[-5] - 1) * 100
+        jpy_ret    = -usdjpy_ret  # JPY tăng khi USDJPY giảm
+
+        if xau_ret > 1 and jpy_ret > 0.5:
+            signal  = "✅ SAFE HAVEN CONFIRMED — Gold + JPY cùng tăng"
+            detail  = "Cả vàng và yên đều được mua vào. Rủi ro thị trường thực sự cao."
+            color   = "#3fb950"
+            score   = 2
+            bullish = True
+        elif xau_ret > 1 and jpy_ret < -0.5:
+            signal  = "⚡ GOLD ONLY — Vàng tăng riêng, JPY yếu"
+            detail  = "Vàng tăng không phải vì safe haven mà vì USD yếu hoặc lý do riêng. Ít bền vững hơn."
+            color   = "#76c3a0"
+            score   = 1
+            bullish = True
+        elif xau_ret < -1 and jpy_ret > 0.5:
+            signal  = "⚠️ JPY ONLY — Yên tăng, vàng giảm"
+            detail  = "Thị trường chọn Yên thay vì Vàng. Tín hiệu yếu cho XAU ngắn hạn."
+            color   = "#ff7b54"
+            score   = -1
+            bullish = False
+        elif xau_ret < -1 and jpy_ret < -0.5:
+            signal  = "🔴 RISK-ON — Cả Gold và JPY đều giảm"
+            detail  = "Thị trường đang risk-on. Vốn chảy sang cổ phiếu/crypto. Bearish ngắn hạn cho vàng."
+            color   = "#f85149"
+            score   = -2
+            bullish = False
+        else:
+            signal  = "➡️ NEUTRAL — Tín hiệu chưa rõ ràng"
+            detail  = "Cả vàng và Yên đều trong biên độ bình thường. Chờ xác nhận."
+            color   = "#8b949e"
+            score   = 0
+            bullish = None
+
+        return {
+            "ok": True,
+            "signal": signal, "detail": detail,
+            "color": color, "score": score, "bullish": bullish,
+            "xau_ret": round(xau_ret, 2), "jpy_ret": round(jpy_ret, 2),
+            "xau_price": round(float(xau.iloc[-1]), 1),
+            "usdjpy":    round(float(usdjpy.iloc[-1]), 2),
+        }
+    except Exception:
+        return {"ok": False}
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def calc_expert_max_pain() -> dict:
+    """
+    Tính Max Pain từ options chain GLD (Gold ETF).
+    Max Pain = strike price nơi tổng giá trị options hết hạn ít giá trị nhất cho buyer.
+    Market maker sẽ cố đưa giá về vùng này trước OpEx.
+    """
+    try:
+        gld = yf.Ticker("GLD")
+        exps = gld.options
+        if not exps:
+            return {"ok": False}
+        # Lấy expiry gần nhất
+        exp = exps[0]
+        chain = gld.option_chain(exp)
+        calls = chain.calls[["strike", "openInterest"]].copy()
+        puts  = chain.puts[["strike", "openInterest"]].copy()
+        calls["openInterest"] = pd.to_numeric(calls["openInterest"], errors="coerce").fillna(0)
+        puts["openInterest"]  = pd.to_numeric(puts["openInterest"],  errors="coerce").fillna(0)
+
+        strikes = sorted(set(calls["strike"]).union(set(puts["strike"])))
+        if len(strikes) < 3:
+            return {"ok": False}
+
+        pain = {}
+        calls_dict = dict(zip(calls["strike"], calls["openInterest"]))
+        puts_dict  = dict(zip(puts["strike"],  puts["openInterest"]))
+
+        for s in strikes:
+            call_pain = sum(
+                max(0, s - k) * calls_dict.get(k, 0) for k in strikes if k < s
+            )
+            put_pain = sum(
+                max(0, k - s) * puts_dict.get(k, 0) for k in strikes if k > s
+            )
+            pain[s] = call_pain + put_pain
+
+        max_pain_strike = min(pain, key=pain.get)
+        cur_gld = float(gld.history(period="1d")["Close"].iloc[-1])
+        # GLD ≈ Gold/10
+        gold_equiv = max_pain_strike * 10
+        cur_gold   = cur_gld * 10
+
+        diff_pct = (gold_equiv - cur_gold) / cur_gold * 100
+
+        return {
+            "ok":           True,
+            "expiry":       exp,
+            "max_pain_gld": round(max_pain_strike, 1),
+            "gold_equiv":   round(gold_equiv, 0),
+            "cur_gld":      round(cur_gld, 2),
+            "cur_gold":     round(cur_gold, 0),
+            "diff_pct":     round(diff_pct, 1),
+        }
+    except Exception:
+        return {"ok": False}
+
+
+def render_expert_tab(macro: dict, fred_data: dict):
+    """
+    🧠 Tab Phân Tích Chuyên Gia — 17 modules · 4 blocks.
+    Hedge fund-quality expert lens: Fed Intel + Market Structure + Smart Money + Verdict.
+    """
+
+    st.markdown("""
+    <div style='text-align:center;padding:16px 0 8px 0;'>
+        <h2 style='color:#FFD700;font-size:1.6rem;font-weight:700;letter-spacing:1px;'>
+            🧠 PHÂN TÍCH CHUYÊN GIA
+        </h2>
+        <p style='color:#8b949e;font-size:0.88rem;'>
+        Góc nhìn của hedge fund · Cá mập vs Đám đông · FED Intelligence · Smart Money Flow
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    st.markdown("---")
+
+    # ── Fetch tất cả data ──────────────────────────────────────────────────────
+    with st.spinner("📡 Đang tải dữ liệu chuyên gia..."):
+        fed_news     = fetch_fed_news()
+        fedspeak     = analyze_fedspeak(fed_news)
+        fomc_cal     = fetch_fomc_calendar()
+        futures_data = fetch_fed_funds_futures()
+        gold_jpy     = fetch_gold_jpy_signal()
+        max_pain     = calc_expert_max_pain()
+        cot_xau      = fetch_cot_data("XAU")
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # BLOCK 1: FED INTELLIGENCE
+    # ══════════════════════════════════════════════════════════════════════════
+    st.markdown("## 🏦 BLOCK 1: FED INTELLIGENCE")
+    st.markdown(
+        "<p style='color:#8b949e;font-size:0.85rem;'>"
+        "FED là con cá mập lớn nhất thị trường. Họ kiểm soát thanh khoản toàn cầu, "
+        "nhưng ngôn ngữ của họ thường <b style='color:#FFD700;'>nói một đằng làm một nẻo</b>. "
+        "Đây là bộ công cụ giải mã Fed.</p>",
+        unsafe_allow_html=True,
+    )
+
+    b1c1, b1c2 = st.columns([3, 2])
+
+    # Module 1: FED News Feed
+    with b1c1:
+        st.markdown("### 📰 Module 1: FED News Feed (Mới nhất)")
+        if fed_news:
+            for item in fed_news[:8]:
+                date_str = item.get("date", "")[:16] if item.get("date") else ""
+                title    = item.get("title", "")
+                # Đánh màu dựa trên từ khóa
+                t_lower = title.lower()
+                if any(w in t_lower for w in ["rate cut","easing","pivot","dovish","balanced"]):
+                    dot_color = "#3fb950"
+                elif any(w in t_lower for w in ["hike","hawkish","higher","restrict","inflation"]):
+                    dot_color = "#f85149"
+                else:
+                    dot_color = "#8b949e"
+                st.markdown(
+                    f"<div style='border-left:3px solid {dot_color};padding:4px 10px;margin:3px 0;"
+                    f"background:#161b22;border-radius:0 6px 6px 0;'>"
+                    f"<span style='color:{dot_color};font-size:0.72rem;'>{date_str}</span><br>"
+                    f"<span style='color:#e6edf3;font-size:0.82rem;'>{title}</span></div>",
+                    unsafe_allow_html=True,
+                )
+        else:
+            st.info("📡 Không tải được FED RSS feed. Kiểm tra kết nối.")
+
+    # Module 2: Fedspeak Decoder
+    with b1c2:
+        st.markdown("### 🔍 Module 2: Fedspeak Decoder")
+        st.markdown(
+            f"<div style='background:{hex_rgba(fedspeak['color'], 0.12)};border:1px solid "
+            f"{hex_rgba(fedspeak['color'], 0.4)};border-radius:10px;padding:14px;'>"
+            f"<div style='color:{fedspeak['color']};font-size:1.3rem;font-weight:700;'>"
+            f"{fedspeak['label']}</div>"
+            f"<div style='color:#8b949e;font-size:0.8rem;margin-top:4px;'>"
+            f"🦅 Hawkish signals: {fedspeak['hawk']} &nbsp;·&nbsp; "
+            f"🕊️ Dovish signals: {fedspeak['dove']}</div></div>",
+            unsafe_allow_html=True,
+        )
+        if fedspeak["detected"]:
+            st.markdown("**Tín hiệu phát hiện:**")
+            for sig in fedspeak["detected"][:6]:
+                t_color = "#3fb950" if sig["type"] == "dove" else "#f85149"
+                st.markdown(
+                    f"<div style='margin:3px 0;padding:6px 10px;background:#161b22;"
+                    f"border-radius:6px;border-left:3px solid {t_color};font-size:0.8rem;'>"
+                    f"<b style='color:{t_color};'>{sig['label']}</b> — "
+                    f"<i style='color:#8b949e;'>\"{sig['phrase']}\"</i><br>"
+                    f"<span style='color:#e6edf3;'>{sig['meaning']}</span></div>",
+                    unsafe_allow_html=True,
+                )
+        else:
+            st.markdown(
+                "<div style='color:#8b949e;font-size:0.85rem;padding:8px;'>"
+                "⚠️ Không tìm thấy từ khóa Fedspeak trong 15 tin tức mới nhất. "
+                "Fed đang im lặng hoặc dữ liệu chưa cập nhật.</div>",
+                unsafe_allow_html=True,
+            )
+
+        st.markdown("---")
+
+        # Module 3: FED nói vs Thị trường
+        st.markdown("### 📊 Module 3: FED nói vs Thị trường")
+        if futures_data.get("ok"):
+            fd = futures_data
+            st.markdown(
+                f"<div style='background:{hex_rgba(fd['color'], 0.12)};border:1px solid "
+                f"{hex_rgba(fd['color'], 0.4)};border-radius:8px;padding:10px;'>"
+                f"<b style='color:{fd['color']};'>{fd['market_view']}</b><br>"
+                f"<span style='color:#8b949e;font-size:0.78rem;'>"
+                f"Fed Funds thực tế: <b style='color:#e6edf3;'>{fd['fedfunds']:.2f}%</b> &nbsp;·&nbsp; "
+                f"T-Bill 3M (market implied): <b style='color:#e6edf3;'>{fd['irx']:.2f}%</b><br>"
+                f"Kỳ vọng thị trường: <b style='color:{fd['color']};'>{'Cắt ' if fd['diff']>0 else 'Tăng '}"
+                f"{abs(fd['diff']):.2f}%</b></span></div>",
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                "<span style='color:#8b949e;font-size:0.75rem;'>"
+                "⚡ Khi Fed nói 'higher for longer' nhưng thị trường price in cuts → "
+                "thị trường thường đúng 6-12 tháng trước.</span>",
+                unsafe_allow_html=True,
+            )
+        else:
+            st.info("Không tải được dữ liệu CME futures.")
+
+    st.markdown("---")
+
+    b1c3, b1c4 = st.columns([1, 2])
+
+    # Module 4: Dissent Tracker
+    with b1c3:
+        st.markdown("### 🗳️ Module 4: Dissent Tracker")
+        st.markdown(
+            "<div style='background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px;'>"
+            "<p style='color:#8b949e;font-size:0.82rem;'>FOMC có 12 thành viên bỏ phiếu. "
+            "Dissent (bất đồng) là tín hiệu sớm về thay đổi chính sách.</p>"
+            "<table style='width:100%;font-size:0.8rem;color:#e6edf3;'>"
+            "<tr><td>🟢 0 dissent</td><td style='color:#3fb950;'>Đồng thuận — chính sách ổn định</td></tr>"
+            "<tr><td>🟡 1–2 dissent</td><td style='color:#ffa657;'>Bất đồng nhỏ — pivot đang được tranh luận</td></tr>"
+            "<tr><td>🔴 3+ dissent</td><td style='color:#f85149;'>Bất đồng lớn — thay đổi chính sách gần</td></tr>"
+            "</table>"
+            "<hr style='border-color:#30363d;margin:8px 0;'>"
+            "<p style='color:#ffa657;font-size:0.82rem;'>📌 Lưu ý: Dissent data cần "
+            "đăng ký FRED API. Theo dõi trực tiếp tại "
+            "<b>federalreserve.gov/monetarypolicy/fomccalendars.htm</b></p>"
+            "</div>",
+            unsafe_allow_html=True,
+        )
+
+    # Module 5: FED Hidden Agenda
+    with b1c4:
+        st.markdown("### 🕵️ Module 5: FED Hidden Agenda — $36T Debt Trap")
+        # Fetch M2 và debt context từ FRED data
+        m2_trend  = ""
+        debt_note = ""
+        if "m2" in fred_data:
+            m2s = fred_data["m2"].dropna()
+            if len(m2s) >= 12:
+                m2_1y_chg = (m2s.iloc[-1] / m2s.iloc[-12] - 1) * 100
+                m2_trend  = f"M2 thay đổi 12 tháng: **{m2_1y_chg:+.1f}%**"
+        if "fedfunds" in fred_data:
+            ff = float(fred_data["fedfunds"].iloc[-1])
+            debt_note = f"Với lãi suất {ff:.2f}%, chi phí nợ quốc gia Mỹ ~$36T ≈ **${36000*ff/100:.0f}B/năm**"
+
+        st.markdown(
+            "<div style='background:#161b22;border:1px solid #30363d;border-radius:10px;padding:14px;'>"
+            "<p style='color:#FFD700;font-weight:700;font-size:0.92rem;'>🧠 Luận điểm: FED bị bẫy bởi nợ công</p>"
+            "<ul style='color:#e6edf3;font-size:0.83rem;line-height:1.7;margin:0;padding-left:18px;'>"
+            "<li>Mỹ có <b style='color:#f85149;'>$36 nghìn tỷ</b> nợ công. Lãi suất cao = chi phí lãi vay khổng lồ.</li>"
+            "<li>Fed <b>không thể</b> giữ lãi suất cao mãi mãi — áp lực chính trị + tài khóa quá lớn.</li>"
+            "<li>Khi Fed buộc phải cắt lãi suất (dù lạm phát chưa về 2%) → <b style='color:#3fb950;'>Gold tăng mạnh</b>.</li>"
+            "<li>Yield Curve Control (YCC) như Nhật Bản là kịch bản cuối cùng → hyperinflationary cho vàng.</li>"
+            "<li>BRICS dedollarization + Central Bank buying tạo <b>sàn cầu</b> dài hạn cho gold.</li>"
+            "</ul>"
+            f"<hr style='border-color:#30363d;'>"
+            f"<p style='color:#8b949e;font-size:0.8rem;'>{m2_trend}</p>"
+            f"<p style='color:#8b949e;font-size:0.8rem;'>{debt_note}</p>"
+            "</div>",
+            unsafe_allow_html=True,
+        )
+
+    st.markdown("---")
+
+    # Module 6: FOMC Calendar
+    st.markdown("### 📅 Module 6: FOMC Calendar 2025–2026")
+    today_date = datetime.now().date()
+    next_mtg   = next((m for m in fomc_cal if m["status"] in ("upcoming","soon","today")), None)
+
+    if next_mtg:
+        days_str = (
+            "HÔM NAY!" if next_mtg["days_away"] == 0
+            else f"còn {next_mtg['days_away']} ngày"
+        )
+        alert_color = "#f85149" if next_mtg["days_away"] <= 7 else "#ffa657" if next_mtg["days_away"] <= 30 else "#3fb950"
+        st.markdown(
+            f"<div style='background:{hex_rgba(alert_color,0.12)};border:1px solid "
+            f"{hex_rgba(alert_color,0.4)};border-radius:8px;padding:10px;margin-bottom:8px;'>"
+            f"<b style='color:{alert_color};'>⏰ Cuộc họp FOMC tiếp theo: {next_mtg['label']} "
+            f"({next_mtg['date'].strftime('%d/%m/%Y')}) — {days_str}</b></div>",
+            unsafe_allow_html=True,
+        )
+
+    cal_cols = st.columns(8)
+    for i, m in enumerate(fomc_cal):
+        col = cal_cols[i % 8]
+        if m["status"] == "done":
+            bg, txt = "#1c2128", "#484f58"
+        elif m["status"] == "today":
+            bg, txt = hex_rgba("#FFD700", 0.2), "#FFD700"
+        elif m["status"] == "soon":
+            bg, txt = hex_rgba("#f85149", 0.15), "#f85149"
+        else:
+            bg, txt = hex_rgba("#3fb950", 0.10), "#3fb950"
+        col.markdown(
+            f"<div style='background:{bg};border-radius:6px;padding:6px 4px;text-align:center;"
+            f"margin:2px 0;font-size:0.72rem;color:{txt};font-weight:600;'>"
+            f"{m['label']}<br>"
+            f"<span style='font-size:0.62rem;font-weight:400;'>{m['date'].strftime('%d/%m')}</span></div>",
+            unsafe_allow_html=True,
+        )
+
+    st.markdown("---")
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # BLOCK 2: MARKET STRUCTURE
+    # ══════════════════════════════════════════════════════════════════════════
+    st.markdown("## 🏗️ BLOCK 2: MARKET STRUCTURE")
+    st.markdown(
+        "<p style='color:#8b949e;font-size:0.85rem;'>"
+        "Cá mập (market maker + hedge fund lớn) cần <b style='color:#FFD700;'>tạo thanh khoản</b> "
+        "trước khi di chuyển thị trường. Hiểu cấu trúc thị trường = không bị bẫy.</p>",
+        unsafe_allow_html=True,
+    )
+
+    b2c1, b2c2 = st.columns(2)
+
+    # Module 7: Narrative Cycle
+    with b2c1:
+        st.markdown("### 🎭 Module 7: Narrative Cycle")
+        # Phân tích narrative dựa trên macro signals
+        try:
+            gold_90d = yf.Ticker("GC=F").history(period="90d")["Close"]
+            if len(gold_90d) >= 20:
+                g_cur  = float(gold_90d.iloc[-1])
+                g_ma20 = float(gold_90d.rolling(20).mean().iloc[-1])
+                g_ma50 = float(gold_90d.rolling(50).mean().iloc[-1]) if len(gold_90d) >= 50 else g_ma20
+                g_chg  = (g_cur / float(gold_90d.iloc[-20]) - 1) * 100
+
+                if g_cur > g_ma20 > g_ma50 and g_chg > 5:
+                    narrative = "🚀 BULL MOMENTUM — Đà tăng mạnh"
+                    narr_detail = (
+                        "Giá vàng đang trong uptrend rõ ràng. Narrative thị trường đang tập trung vào "
+                        "các yếu tố bullish (lạm phát, nợ công, địa chính trị). "
+                        "**Rủi ro:** đám đông đang bullish — cá mập có thể shake out trước khi tăng tiếp."
+                    )
+                    narr_color = "#3fb950"
+                elif g_cur < g_ma20 and g_chg < -3:
+                    narrative = "🩸 BEAR PRESSURE — Áp lực giảm"
+                    narr_detail = (
+                        "Giá vàng đang chịu áp lực. Narrative tập trung vào dollar mạnh, lãi suất cao. "
+                        "**Cơ hội:** cá mập thường mua vào khi đám đông bán hoảng loạn."
+                    )
+                    narr_color = "#f85149"
+                elif g_cur > g_ma20 and abs(g_chg) < 2:
+                    narrative = "🔄 ACCUMULATION — Tích lũy ngầm"
+                    narr_detail = (
+                        "Vàng đi ngang nhưng trên MA20. Đây thường là giai đoạn cá mập tích lũy âm thầm "
+                        "trước khi breakout. Volume thấp + sideways = setup tốt cho long."
+                    )
+                    narr_color = "#ffa657"
+                else:
+                    narrative = "➡️ TRANSITION — Đang chuyển pha"
+                    narr_detail = (
+                        "Thị trường đang trong giai đoạn chuyển tiếp. Chưa đủ bằng chứng xác định "
+                        "xu hướng. Giảm size, chờ tín hiệu xác nhận."
+                    )
+                    narr_color = "#8b949e"
+            else:
+                narrative = "N/A"
+                narr_detail = "Không đủ dữ liệu."
+                narr_color = "#8b949e"
+        except Exception:
+            narrative = "N/A"
+            narr_detail = "Lỗi kết nối dữ liệu."
+            narr_color = "#8b949e"
+
+        st.markdown(
+            f"<div style='background:{hex_rgba(narr_color,0.12)};border:1px solid "
+            f"{hex_rgba(narr_color,0.4)};border-radius:10px;padding:14px;'>"
+            f"<b style='color:{narr_color};font-size:1.05rem;'>{narrative}</b></div>",
+            unsafe_allow_html=True,
+        )
+        st.markdown(narr_detail)
+
+        st.markdown("---")
+        # Module 9: Options Max Pain
+        st.markdown("### 💀 Module 9: Options Max Pain (GLD OpEx)")
+        if max_pain.get("ok"):
+            mp = max_pain
+            diff_color = "#3fb950" if mp["diff_pct"] > 0 else "#f85149"
+            st.markdown(
+                f"<div style='background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px;'>"
+                f"<b style='color:#FFD700;'>Expiry: {mp['expiry']}</b><br>"
+                f"<table style='width:100%;font-size:0.83rem;margin-top:6px;'>"
+                f"<tr><td style='color:#8b949e;'>Max Pain GLD</td>"
+                f"<td style='color:#e6edf3;font-weight:700;'>${mp['max_pain_gld']}</td></tr>"
+                f"<tr><td style='color:#8b949e;'>Gold equiv (~GLD×10)</td>"
+                f"<td style='color:#e6edf3;font-weight:700;'>${mp['gold_equiv']:,.0f}</td></tr>"
+                f"<tr><td style='color:#8b949e;'>Gold hiện tại (GC=F×10)</td>"
+                f"<td style='color:#e6edf3;'>${mp['cur_gold']:,.0f}</td></tr>"
+                f"<tr><td style='color:#8b949e;'>Khoảng cách đến Max Pain</td>"
+                f"<td style='color:{diff_color};font-weight:700;'>{mp['diff_pct']:+.1f}%</td></tr>"
+                f"</table>"
+                f"<hr style='border-color:#30363d;margin:8px 0;'>"
+                f"<span style='color:#8b949e;font-size:0.76rem;'>"
+                f"⚡ Market maker thường kéo giá về Max Pain trước ngày đáo hạn options. "
+                f"{'Pressure tăng lên ${:,.0f}'.format(mp['gold_equiv']) if mp['diff_pct'] > 0 else 'Pressure giảm về ${:,.0f}'.format(mp['gold_equiv'])}"
+                f"</span></div>",
+                unsafe_allow_html=True,
+            )
+        else:
+            st.info("Không tải được options chain GLD.")
+
+    # Module 8: Liquidity Stop Hunt + Module 10: Crowd Trap
+    with b2c2:
+        st.markdown("### 🎯 Module 8: Liquidity & Stop Hunt Zones")
+        try:
+            gc_hist = yf.Ticker("GC=F").history(period="30d")
+            if len(gc_hist) >= 10:
+                gc_h  = gc_hist["High"]
+                gc_l  = gc_hist["Low"]
+                gc_c  = gc_hist["Close"]
+                cur_g = float(gc_c.iloc[-1])
+
+                r1 = round(float(gc_h.iloc[-20:].max()), 0) if len(gc_h) >= 20 else round(float(gc_h.max()), 0)
+                r2 = round(float(gc_h.iloc[-5:].max()), 0)
+                s1 = round(float(gc_l.iloc[-20:].min()), 0) if len(gc_l) >= 20 else round(float(gc_l.min()), 0)
+                s2 = round(float(gc_l.iloc[-5:].min()), 0)
+
+                st.markdown(
+                    "<div style='background:#161b22;border:1px solid #30363d;border-radius:10px;padding:14px;'>"
+                    f"<p style='color:#8b949e;font-size:0.8rem;margin:0 0 8px 0;'>Giá hiện tại GC=F: "
+                    f"<b style='color:#e6edf3;'>${cur_g:,.0f}</b></p>"
+                    "<table style='width:100%;font-size:0.83rem;'>"
+                    f"<tr><td style='color:#f85149;'>🔴 Stop Hunt cao (20D high)</td>"
+                    f"<td style='color:#f85149;font-weight:700;'>${r1:,.0f}</td></tr>"
+                    f"<tr><td style='color:#ff7b54;'>🟠 Kháng cự 5D high</td>"
+                    f"<td style='color:#ff7b54;font-weight:700;'>${r2:,.0f}</td></tr>"
+                    f"<tr><td style='color:#76c3a0;'>🟢 Hỗ trợ 5D low</td>"
+                    f"<td style='color:#76c3a0;font-weight:700;'>${s2:,.0f}</td></tr>"
+                    f"<tr><td style='color:#3fb950;'>🟩 Stop Hunt thấp (20D low)</td>"
+                    f"<td style='color:#3fb950;font-weight:700;'>${s1:,.0f}</td></tr>"
+                    "</table>"
+                    "<hr style='border-color:#30363d;margin:8px 0;'>"
+                    "<p style='color:#8b949e;font-size:0.77rem;'>"
+                    "⚡ Cá mập thường bẫy stop loss tại đỉnh/đáy 20 ngày trước khi đảo chiều. "
+                    "Break giả (False breakout) trên/dưới các mức này là tín hiệu entry tốt.</p>"
+                    "</div>",
+                    unsafe_allow_html=True,
+                )
+            else:
+                st.info("Không đủ dữ liệu lịch sử.")
+        except Exception:
+            st.info("Lỗi tải dữ liệu giá vàng.")
+
+        st.markdown("---")
+        # Module 10: Crowd Trap Detector
+        st.markdown("### 🐑 Module 10: Crowd Trap Detector")
+        # Dùng fedspeak score + cot data để detect consensus danger
+        crowd_signals = []
+        crowd_score = 0
+
+        if fedspeak["score"] >= 2:
+            crowd_signals.append(("⚠️", "Toàn bộ trader đang bullish theo Dovish Fed — đây thường là lúc cá mập bán", "#ffa657"))
+            crowd_score -= 1
+        if fedspeak["score"] <= -2:
+            crowd_signals.append(("✅", "Tâm lý đám đông đang panic về Hawkish — cơ hội mua khi máu chảy", "#3fb950"))
+            crowd_score += 1
+
+        if cot_xau.get("ok"):
+            cot_p = cot_xau.get("net_pct", 50)
+            if cot_p > 80:
+                crowd_signals.append(("⚠️", f"COT: Managed Money đang NET LONG cực đoan ({cot_p:.0f}th percentile) — rủi ro reversal", "#ffa657"))
+                crowd_score -= 1
+            elif cot_p < 20:
+                crowd_signals.append(("✅", f"COT: Smart Money đang NET SHORT bất thường ({cot_p:.0f}th percentile) — accumulation phase", "#3fb950"))
+                crowd_score += 1
+
+        if max_pain.get("ok"):
+            if max_pain["diff_pct"] < -2:
+                crowd_signals.append(("⚡", f"Options: Đám đông đang long nhưng Max Pain thấp hơn {abs(max_pain['diff_pct']):.1f}% — gravitational pull giảm", "#ffa657"))
+
+        if not crowd_signals:
+            crowd_signals.append(("➡️", "Chưa phát hiện bẫy đám đông rõ ràng — thị trường đang cân bằng", "#8b949e"))
+
+        for ico, txt, col in crowd_signals:
+            st.markdown(
+                f"<div style='background:{hex_rgba(col,0.10)};border-left:3px solid {col};"
+                f"border-radius:0 6px 6px 0;padding:8px 12px;margin:4px 0;font-size:0.83rem;"
+                f"color:#e6edf3;'>{ico} {txt}</div>",
+                unsafe_allow_html=True,
+            )
+
+    st.markdown("---")
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # BLOCK 3: SMART MONEY
+    # ══════════════════════════════════════════════════════════════════════════
+    st.markdown("## 💼 BLOCK 3: SMART MONEY TRACKING")
+    st.markdown(
+        "<p style='color:#8b949e;font-size:0.85rem;'>"
+        "Smart money = hedge fund lớn + ngân hàng trung ương + whale institutional. "
+        "Theo dấu họ thay vì theo đám đông retail.</p>",
+        unsafe_allow_html=True,
+    )
+
+    b3c1, b3c2 = st.columns(2)
+
+    # Module 11: COT Pro vs Retail
+    with b3c1:
+        st.markdown("### 📊 Module 11: COT — Pro vs Retail")
+        if cot_xau.get("ok"):
+            cot = cot_xau
+            mm_net    = cot.get("net", 0)
+            mm_chg    = cot.get("chg4w", 0)
+            mm_pct    = cot.get("net_pct", 50)
+            cot_label = cot.get("label", "N/A")
+            cot_color = cot.get("color", "#8b949e")
+
+            st.markdown(
+                f"<div style='background:{hex_rgba(cot_color,0.12)};border:1px solid "
+                f"{hex_rgba(cot_color,0.4)};border-radius:10px;padding:14px;'>"
+                f"<b style='color:{cot_color};font-size:1.05rem;'>{cot_label}</b><br>"
+                f"<table style='width:100%;font-size:0.82rem;margin-top:8px;'>"
+                f"<tr><td style='color:#8b949e;'>Managed Money NET</td>"
+                f"<td style='color:#e6edf3;font-weight:700;'>{mm_net:+,d} hợp đồng</td></tr>"
+                f"<tr><td style='color:#8b949e;'>Thay đổi 4 tuần</td>"
+                f"<td style='color:{cot_color};'>{mm_chg:+,d}</td></tr>"
+                f"<tr><td style='color:#8b949e;'>Percentile lịch sử</td>"
+                f"<td style='color:{cot_color};'>{mm_pct:.0f}th</td></tr>"
+                f"</table>"
+                f"<hr style='border-color:#30363d;margin:8px 0;'>"
+                f"<span style='color:#8b949e;font-size:0.77rem;'>"
+                f"CFTC COT Report — Managed Money = hedge fund chuyên nghiệp. "
+                f"Khi họ NET LONG cực đoan → thị trường dễ reversal. "
+                f"Khi NET SHORT → smart money đang tích lũy.</span></div>",
+                unsafe_allow_html=True,
+            )
+        else:
+            st.info("Không tải được COT data từ CFTC.")
+
+        st.markdown("---")
+        # Module 13: Gold vs JPY
+        st.markdown("### 🇯🇵 Module 13: Gold vs JPY Safe Haven")
+        if gold_jpy.get("ok"):
+            gj = gold_jpy
+            xau_clr = "#3fb950" if gj["xau_ret"] > 0 else "#f85149"
+            jpy_clr = "#3fb950" if gj["jpy_ret"] > 0 else "#f85149"
+            st.markdown(
+                f"<div style='background:{hex_rgba(gj['color'],0.12)};border:1px solid "
+                f"{hex_rgba(gj['color'],0.4)};border-radius:10px;padding:14px;'>"
+                f"<b style='color:{gj['color']};font-size:1.0rem;'>{gj['signal']}</b><br>"
+                f"<p style='color:#e6edf3;font-size:0.83rem;margin:6px 0;'>{gj['detail']}</p>"
+                f"<table style='width:100%;font-size:0.8rem;'>"
+                f"<tr><td style='color:#8b949e;'>Gold 5D change</td>"
+                f"<td style='color:{xau_clr};'>{gj['xau_ret']:+.2f}%</td></tr>"
+                f"<tr><td style='color:#8b949e;'>JPY 5D change (vs USD)</td>"
+                f"<td style='color:{jpy_clr};'>{gj['jpy_ret']:+.2f}%</td></tr>"
+                f"<tr><td style='color:#8b949e;'>USD/JPY hiện tại</td>"
+                f"<td style='color:#e6edf3;'>{gj['usdjpy']:.2f}</td></tr>"
+                f"</table></div>",
+                unsafe_allow_html=True,
+            )
+        else:
+            st.info("Không tải được dữ liệu USDJPY.")
+
+    with b3c2:
+        # Module 12: Central Bank Buying
+        st.markdown("### 🏛️ Module 12: Central Bank Buying")
+        # Dùng FRED data để infer CB demand
+        m2_info  = ""
+        cb_score = 0
+        if "m2" in fred_data:
+            m2s = fred_data["m2"].dropna()
+            if len(m2s) >= 12:
+                m2_1y_chg = (m2s.iloc[-1] / m2s.iloc[-12] - 1) * 100
+                if m2_1y_chg > 5:
+                    m2_info = f"M2 tăng {m2_1y_chg:.1f}% YoY — cung tiền mở rộng, central bank nới lỏng"
+                    cb_score += 1
+                elif m2_1y_chg < 0:
+                    m2_info = f"M2 giảm {m2_1y_chg:.1f}% YoY — cung tiền co lại, thắt chặt tiền tệ"
+                    cb_score -= 1
+                else:
+                    m2_info = f"M2 tăng {m2_1y_chg:.1f}% YoY — cung tiền tăng nhẹ, trung tính"
+
+        st.markdown(
+            "<div style='background:#161b22;border:1px solid #30363d;border-radius:10px;padding:14px;'>"
+            "<p style='color:#FFD700;font-weight:700;'>🏦 Central Bank Gold Demand</p>"
+            "<ul style='color:#e6edf3;font-size:0.82rem;line-height:1.7;margin:0;padding-left:18px;'>"
+            "<li>WGC 2024: Ngân hàng TW toàn cầu mua <b style='color:#3fb950;'>1,045 tấn vàng</b> — năm thứ 3 liên tiếp >1000 tấn</li>"
+            "<li>Trung Quốc (PBoC): Tiếp tục tăng dự trữ vàng, giảm trái phiếu Mỹ</li>"
+            "<li>Nga, Ấn Độ, Ba Lan, Thổ Nhĩ Kỳ: Mua vào liên tục 2022–2025</li>"
+            "<li>BRICS: Thảo luận về đồng tiền chung có hậu thuẫn vàng</li>"
+            "<li>Mục tiêu dài hạn: Thoát phụ thuộc đồng USD → <b>structural bull case</b></li>"
+            "</ul>"
+            f"<hr style='border-color:#30363d;margin:8px 0;'>"
+            f"<p style='color:#8b949e;font-size:0.8rem;'>{m2_info}</p>"
+            "<p style='color:#3fb950;font-size:0.82rem;font-weight:700;'>"
+            "📌 Tổng kết: Central bank buying tạo sàn cầu bền vững 3–5 năm cho vàng.</p>"
+            "</div>",
+            unsafe_allow_html=True,
+        )
+
+        st.markdown("---")
+        # Module 14: Calendar Risk
+        st.markdown("### 📆 Module 14: Calendar Risk — Sự kiện quan trọng")
+        today_date2 = datetime.now().date()
+
+        risk_events = []
+        # FOMC events
+        for m in fomc_cal:
+            if 0 <= m["days_away"] <= 30:
+                risk_events.append({
+                    "name":  f"FOMC {m['label']}",
+                    "date":  m["date"],
+                    "days":  m["days_away"],
+                    "type":  "fomc",
+                    "color": "#ffa657",
+                    "impact": "High — Fed có thể thay đổi lãi suất hoặc forward guidance",
+                })
+
+        # Options expiry (3rd Friday của tháng)
+        import calendar as _cal
+        cur_month = today_date2.month
+        cur_year  = today_date2.year
+        for _ in range(3):
+            # Tính 3rd Friday
+            cal_obj = _cal.monthcalendar(cur_year, cur_month)
+            fridays = [week[4] for week in cal_obj if week[4] != 0]
+            if len(fridays) >= 3:
+                opex_day = fridays[2]
+                opex_date = datetime(cur_year, cur_month, opex_day).date()
+                days_to_opex = (opex_date - today_date2).days
+                if 0 <= days_to_opex <= 30:
+                    risk_events.append({
+                        "name":  f"Options Expiry (3rd Fri)",
+                        "date":  opex_date,
+                        "days":  days_to_opex,
+                        "type":  "opex",
+                        "color": "#76c3a0",
+                        "impact": "Medium — Max Pain gravity, potential stop hunt",
+                    })
+            if cur_month == 12:
+                cur_month, cur_year = 1, cur_year + 1
+            else:
+                cur_month += 1
+
+        risk_events.sort(key=lambda x: x["days"])
+
+        if risk_events:
+            for ev in risk_events[:5]:
+                ev_color = ev["color"]
+                days_str = "HÔM NAY" if ev["days"] == 0 else f"{ev['days']} ngày nữa"
+                st.markdown(
+                    f"<div style='background:{hex_rgba(ev_color,0.10)};border-left:3px solid {ev_color};"
+                    f"border-radius:0 8px 8px 0;padding:8px 12px;margin:4px 0;'>"
+                    f"<b style='color:{ev_color};font-size:0.85rem;'>{ev['name']}</b> "
+                    f"<span style='color:#8b949e;font-size:0.78rem;'>— {ev['date'].strftime('%d/%m/%Y')} ({days_str})</span><br>"
+                    f"<span style='color:#e6edf3;font-size:0.8rem;'>{ev['impact']}</span></div>",
+                    unsafe_allow_html=True,
+                )
+        else:
+            st.markdown(
+                "<div style='color:#8b949e;font-size:0.84rem;padding:8px;'>"
+                "✅ Không có sự kiện rủi ro cao trong 30 ngày tới.</div>",
+                unsafe_allow_html=True,
+            )
+
+    st.markdown("---")
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # BLOCK 4: EXPERT VERDICT
+    # ══════════════════════════════════════════════════════════════════════════
+    st.markdown("## 🎯 BLOCK 4: EXPERT VERDICT")
+
+    v1, v2, v3 = st.columns(3)
+
+    # Module 15: Structural Bull Case
+    with v1:
+        st.markdown("### 🐂 Module 15: Structural Bull Case")
+        real_rate_str = ""
+        if "real_rate" in fred_data:
+            rr = float(fred_data["real_rate"].dropna().iloc[-1])
+            real_rate_str = f"Real Rate DFII10: **{rr:+.2f}%** {'— đang hỗ trợ gold' if rr < 0 else '— áp lực ngắn hạn'}"
+        breakeven_str = ""
+        if "breakeven5y" in fred_data:
+            be = float(fred_data["breakeven5y"].dropna().iloc[-1])
+            breakeven_str = f"Breakeven 5Y: **{be:.2f}%** {'— kỳ vọng lạm phát cao' if be > 2.5 else ''}"
+
+        st.markdown(
+            "<div style='background:#0d2818;border:1px solid #238636;border-radius:10px;padding:14px;'>"
+            "<p style='color:#3fb950;font-weight:700;font-size:0.95rem;'>📈 THESIS TĂNG GIÁ DÀI HẠN</p>"
+            "<ol style='color:#e6edf3;font-size:0.82rem;line-height:1.8;margin:0;padding-left:18px;'>"
+            "<li><b>De-dollarization:</b> BRICS mua vàng thay USD reserves</li>"
+            "<li><b>Debt trap:</b> Mỹ không thể trả $36T nợ mà không in tiền</li>"
+            "<li><b>CB demand floor:</b> >1,000 tấn/năm tạo sàn cầu bền vững</li>"
+            "<li><b>Real rates:</b> Khi Fed cắt → real rates giảm → gold tăng</li>"
+            "<li><b>Geopolitical:</b> Ukraine, Trung Đông, Đài Loan → safe haven premium</li>"
+            "<li><b>M2 expansion:</b> Dài hạn, cung tiền luôn tăng → purchasing power giảm</li>"
+            "</ol>"
+            f"<hr style='border-color:#238636;'>"
+            f"<p style='color:#8b949e;font-size:0.78rem;'>{real_rate_str}</p>"
+            f"<p style='color:#8b949e;font-size:0.78rem;'>{breakeven_str}</p>"
+            "</div>",
+            unsafe_allow_html=True,
+        )
+
+    # Module 16: Black Swan Scenarios
+    with v2:
+        st.markdown("### 🦢 Module 16: Black Swan Scenarios")
+        st.markdown(
+            "<div style='background:#1a1000;border:1px solid #bb8009;border-radius:10px;padding:14px;'>"
+            "<p style='color:#ffa657;font-weight:700;font-size:0.95rem;'>⚠️ 3 RỦI RO CHƯA ĐƯỢC ĐỊNH GIÁ</p>"
+            "<div style='color:#e6edf3;font-size:0.82rem;line-height:1.7;'>"
+            "<p><b style='color:#f85149;'>🔴 Scenario 1: FED Yield Curve Control (YCC)</b><br>"
+            "Như Nhật Bản 2016–2022: Fed buộc phải mua trái phiếu không giới hạn để kiểm soát yield. "
+            "→ Phá hủy USD, gold có thể x2–x3 trong 12 tháng.</p>"
+            "<p><b style='color:#ffa657;'>🟠 Scenario 2: Treasury Market Dislocation</b><br>"
+            "Nước ngoài ngừng mua/bán tháo trái phiếu Mỹ (như tháng 3/2020). "
+            "→ Fed buộc phải QE khẩn cấp → hyperinflationary cho vàng.</p>"
+            "<p><b style='color:#76c3a0;'>🟢 Scenario 3: Digital Gold Reserve</b><br>"
+            "Một nước G20 công bố mua vàng/bitcoin làm dự trữ quốc gia. "
+            "→ Domino effect → multiple central banks cạnh tranh mua → price shock.</p>"
+            "</div>"
+            "</div>",
+            unsafe_allow_html=True,
+        )
+
+    # Module 17: Expert Verdict
+    with v3:
+        st.markdown("### 🏆 Module 17: Expert Verdict")
+
+        # Tổng hợp tất cả signals
+        total_expert_score = 0
+        score_breakdown    = []
+
+        # Fedspeak
+        fed_es = fedspeak.get("score", 0)
+        total_expert_score += fed_es
+        score_breakdown.append(f"Fedspeak: {fed_es:+d}")
+
+        # Market futures
+        if futures_data.get("ok"):
+            fut_es = futures_data.get("score", 0)
+            total_expert_score += fut_es
+            score_breakdown.append(f"Mkt Futures: {fut_es:+d}")
+
+        # COT
+        if cot_xau.get("ok"):
+            cot_es = cot_xau.get("score", 0)
+            total_expert_score += cot_es
+            score_breakdown.append(f"COT: {cot_es:+d}")
+
+        # Gold/JPY
+        if gold_jpy.get("ok"):
+            jpy_es = gold_jpy.get("score", 0)
+            total_expert_score += jpy_es
+            score_breakdown.append(f"Gold/JPY: {jpy_es:+d}")
+
+        # Narrative
+        narr_score = 1 if "BULL" in narrative else -1 if "BEAR" in narrative else 0
+        total_expert_score += narr_score
+        score_breakdown.append(f"Narrative: {narr_score:+d}")
+
+        # Clamp
+        total_expert_score = max(-8, min(8, total_expert_score))
+
+        if total_expert_score >= 4:
+            verdict       = "🚀 STRONG BULLISH"
+            verdict_color = "#3fb950"
+            verdict_text  = (
+                "Đa số chỉ báo chuyên gia đều bullish. Fed đang dovish hơn thị trường nhận ra, "
+                "smart money đang tích lũy, và cấu trúc thị trường hỗ trợ upside. "
+                "**Chiến lược:** Tích lũy dần, giữ qua các pullback."
+            )
+        elif total_expert_score >= 2:
+            verdict       = "📈 BULLISH"
+            verdict_color = "#76c3a0"
+            verdict_text  = (
+                "Phần lớn tín hiệu hướng lên. Có một số rủi ro ngắn hạn nhưng xu hướng trung hạn "
+                "vẫn tích cực. **Chiến lược:** Duy trì long position, tightened stop loss."
+            )
+        elif total_expert_score <= -4:
+            verdict       = "🩸 STRONG BEARISH"
+            verdict_color = "#f85149"
+            verdict_text  = (
+                "Fed hawkish hơn thị trường kỳ vọng, smart money đang thoát hàng, "
+                "cấu trúc thị trường yếu. **Chiến lược:** Giảm exposure, chờ capitulation."
+            )
+        elif total_expert_score <= -2:
+            verdict       = "📉 BEARISH"
+            verdict_color = "#ff7b54"
+            verdict_text  = (
+                "Áp lực ngắn-trung hạn. Không nên mua thêm, xem xét chốt lời một phần. "
+                "**Chiến lược:** Giảm size, đặt stop loss chặt hơn."
+            )
+        else:
+            verdict       = "➡️ NEUTRAL / WAIT"
+            verdict_color = "#8b949e"
+            verdict_text  = (
+                "Tín hiệu chuyên gia chưa rõ ràng. Thị trường đang trong giai đoạn cân bằng. "
+                "**Chiến lược:** Giảm size, chờ catalyst rõ ràng trước khi vào lệnh lớn."
+            )
+
+        st.markdown(
+            f"<div style='background:{hex_rgba(verdict_color,0.15)};border:2px solid "
+            f"{hex_rgba(verdict_color,0.5)};border-radius:12px;padding:18px;'>"
+            f"<div style='color:{verdict_color};font-size:1.4rem;font-weight:700;"
+            f"text-align:center;margin-bottom:10px;'>{verdict}</div>"
+            f"<div style='color:#8b949e;font-size:0.75rem;text-align:center;margin-bottom:10px;'>"
+            f"Expert Score: {total_expert_score:+d}/8 &nbsp;·&nbsp; "
+            + " · ".join(score_breakdown) +
+            f"</div></div>",
+            unsafe_allow_html=True,
+        )
+        st.markdown(verdict_text)
+
+        st.markdown(
+            "<div style='background:#1c2128;border:1px solid #30363d;border-radius:8px;"
+            "padding:10px;margin-top:10px;'>"
+            "<p style='color:#8b949e;font-size:0.76rem;margin:0;'>"
+            "⚠️ <b>Disclaimer chuyên gia:</b> Phân tích này dựa trên dữ liệu công khai và mô hình "
+            "định lượng. Thị trường luôn có thể surprise. Không phải khuyến nghị đầu tư. "
+            "Quản lý rủi ro là ưu tiên số 1.</p></div>",
+            unsafe_allow_html=True,
+        )
+
+    st.markdown("---")
+    st.markdown(
+        "<p style='color:#484f58;font-size:0.75rem;text-align:center;'>"
+        "🧠 Expert Analysis · FED Intelligence + Market Structure + Smart Money + Verdict · "
+        "Dữ liệu: FED RSS · CFTC COT · FRED · yfinance · Options Chain (GLD) · "
+        "⚠️ Chỉ mang tính tham khảo.</p>",
+        unsafe_allow_html=True,
+    )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 #  MAIN APP
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -4901,11 +5955,16 @@ def main():
     # ── Tabs ──────────────────────────────────────────────────────────────────
     tab_keys   = list(ASSETS.keys())
     tab_labels = [ASSETS[k]["tab"] for k in tab_keys]
-    tabs = st.tabs(tab_labels)
+    all_tab_labels = tab_labels + ["🧠 Chuyên Gia"]
+    tabs = st.tabs(all_tab_labels)
 
-    for tab, asset_key in zip(tabs, tab_keys):
+    for tab, asset_key in zip(tabs[:-1], tab_keys):
         with tab:
             render_asset_tab(asset_key, macro, forecast_days)
+
+    with tabs[-1]:
+        fred_data = fetch_fred_rates()
+        render_expert_tab(macro, fred_data)
 
 
 if __name__ == "__main__":
