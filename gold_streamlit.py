@@ -5173,6 +5173,123 @@ def calc_expert_max_pain() -> dict:
         return {"ok": False}
 
 
+@st.cache_data(ttl=1800, show_spinner=False)
+def calc_summary_forecast() -> dict:
+    """
+    Dự báo ngắn gọn cho 6 tài sản × 7 kỳ thời gian.
+    Dựa trên: RSI, MA20/50/200, momentum, trend alignment, structural bias.
+    Returns: {asset_key: {days: {dir, color, score}}}
+    """
+    TICKERS = {
+        "XAU":    "GC=F",
+        "XAG":    "SI=F",
+        "HG":     "HG=F",
+        "CL":     "CL=F",
+        "USDVND": "USDVND=X",
+        "BTC":    "BTC-USD",
+    }
+    PERIODS = [1, 3, 7, 30, 90, 180, 365]
+
+    result = {}
+
+    for ak, ticker in TICKERS.items():
+        try:
+            hist = yf.Ticker(ticker).history(period="200d")["Close"].dropna()
+            if len(hist) < 20:
+                result[ak] = {p: {"dir": "N/A", "color": "#8b949e", "score": 0} for p in PERIODS}
+                continue
+
+            cur   = float(hist.iloc[-1])
+            ma20  = float(hist.rolling(20).mean().iloc[-1])
+            ma50  = float(hist.rolling(min(50,  len(hist))).mean().iloc[-1])
+            ma200 = float(hist.rolling(min(200, len(hist))).mean().iloc[-1])
+
+            # RSI-14
+            delta = hist.diff()
+            gain  = delta.clip(lower=0).rolling(14).mean()
+            loss  = (-delta.clip(upper=0)).rolling(14).mean()
+            rs    = gain / loss.replace(0, np.nan)
+            rsi   = float((100 - 100 / (1 + rs)).dropna().iloc[-1]) if not rs.dropna().empty else 50.0
+
+            # Momentum
+            mom_1w = (cur / float(hist.iloc[-5])  - 1) * 100 if len(hist) >= 5  else 0.0
+            mom_1m = (cur / float(hist.iloc[-20]) - 1) * 100 if len(hist) >= 20 else 0.0
+            mom_3m = (cur / float(hist.iloc[-60]) - 1) * 100 if len(hist) >= 60 else 0.0
+            mom_6m = (cur / float(hist.iloc[-120])- 1) * 100 if len(hist) >= 120 else mom_3m
+            mom_1y = (cur / float(hist.iloc[-0])  - 1) * 100  # fallback same period
+
+            asset_result = {}
+            for days in PERIODS:
+                score = 0
+
+                # ── Trend alignment (MA stack) ──────────────────────────────
+                if cur > ma20:  score += 1
+                if cur > ma50:  score += 1
+                if cur > ma200: score += 1
+                if ma20 > ma50: score += 1
+
+                # ── RSI (mainly short-term) ─────────────────────────────────
+                if days <= 7:
+                    if rsi < 30:   score += 2
+                    elif rsi > 70: score -= 2
+                    elif rsi < 40: score += 1
+                    elif rsi > 60: score -= 1
+                elif days <= 30:
+                    if rsi < 35:   score += 1
+                    elif rsi > 65: score -= 1
+
+                # ── Momentum weighted by timeframe ──────────────────────────
+                if days <= 3:
+                    score += 2 if mom_1w > 2 else 1 if mom_1w > 0.5 else -1 if mom_1w < -0.5 else -2 if mom_1w < -2 else 0
+                elif days <= 7:
+                    score += 1 if mom_1w > 1 else -1 if mom_1w < -1 else 0
+                elif days <= 30:
+                    score += 1 if mom_1m > 2 else -1 if mom_1m < -2 else 0
+                elif days <= 90:
+                    score += 1 if mom_3m > 5 else -1 if mom_3m < -5 else 0
+                else:
+                    score += 1 if mom_6m > 8 else -1 if mom_6m < -8 else 0
+
+                # ── Structural long-term bias ───────────────────────────────
+                if days >= 90:
+                    if ak == "XAU":
+                        score += 2   # de-dollarization + CB buying + debt trap
+                    elif ak == "XAG":
+                        score += 1   # industrial + monetary dual role
+                    elif ak == "BTC":
+                        score += 1   # scarcity + halving cycle
+                    elif ak == "CL":
+                        score -= 1   # energy transition headwind long-term
+                if days >= 180:
+                    if ak == "XAU":
+                        score += 1   # extra structural premium
+                    elif ak == "USDVND":
+                        score += 1   # long-term VND depreciation trend
+
+                # ── Convert score → direction ───────────────────────────────
+                if score >= 5:
+                    dir_out, color = "🟢 Tăng mạnh",  "#3fb950"
+                elif score >= 2:
+                    dir_out, color = "🟢 Tăng",        "#76c3a0"
+                elif score >= 0:
+                    dir_out, color = "🟡 Sideway+",    "#ffa657"
+                elif score >= -2:
+                    dir_out, color = "🟠 Sideway−",    "#ff7b54"
+                elif score >= -4:
+                    dir_out, color = "🔴 Giảm",        "#f85149"
+                else:
+                    dir_out, color = "🔴 Giảm mạnh",  "#da3633"
+
+                asset_result[days] = {"dir": dir_out, "color": color, "score": score}
+
+            result[ak] = asset_result
+
+        except Exception:
+            result[ak] = {p: {"dir": "N/A", "color": "#8b949e", "score": 0} for p in PERIODS}
+
+    return result
+
+
 def render_expert_tab(macro: dict, fred_data: dict):
     """
     🧠 Tab Phân Tích Chuyên Gia — 17 modules · 4 blocks.
@@ -5910,6 +6027,89 @@ def render_expert_tab(macro: dict, fred_data: dict):
             "Quản lý rủi ro là ưu tiên số 1.</p></div>",
             unsafe_allow_html=True,
         )
+
+    st.markdown("---")
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # BẢNG KẾT LUẬN TỔNG HỢP — 6 TÀI SẢN × 7 KỲ
+    # ══════════════════════════════════════════════════════════════════════════
+    st.markdown("## 📋 KẾT LUẬN NHANH — Tăng hay Giảm?")
+    st.markdown(
+        "<p style='color:#8b949e;font-size:0.85rem;margin-bottom:12px;'>"
+        "Tổng hợp từ MA20/50/200 · RSI · Momentum · Cấu trúc vĩ mô dài hạn · "
+        "Bias theo từng tài sản (vàng: structural bull; dầu: energy transition headwind; ...)</p>",
+        unsafe_allow_html=True,
+    )
+
+    with st.spinner("⚡ Đang tính dự báo đa kỳ..."):
+        summary = calc_summary_forecast()
+
+    ASSET_LABELS = {
+        "XAU":    "🥇 Vàng",
+        "XAG":    "🥈 Bạc",
+        "HG":     "🟤 Đồng",
+        "CL":     "🛢️ Dầu WTI",
+        "USDVND": "💵 USD/VND",
+        "BTC":    "₿ Bitcoin",
+    }
+    PERIOD_COLS = [
+        (1,   "Ngày mai"),
+        (3,   "3 ngày"),
+        (7,   "1 tuần"),
+        (30,  "1 tháng"),
+        (90,  "3 tháng"),
+        (180, "6 tháng"),
+        (365, "1 năm"),
+    ]
+
+    # ── Header row ─────────────────────────────────────────────────────────
+    hdr_cols = st.columns([2] + [1] * 7)
+    hdr_cols[0].markdown(
+        "<div style='color:#8b949e;font-size:0.78rem;font-weight:700;padding:6px 0;'>Tài sản</div>",
+        unsafe_allow_html=True,
+    )
+    for i, (_, plabel) in enumerate(PERIOD_COLS):
+        hdr_cols[i + 1].markdown(
+            f"<div style='color:#8b949e;font-size:0.73rem;font-weight:700;text-align:center;padding:6px 0;'>{plabel}</div>",
+            unsafe_allow_html=True,
+        )
+
+    st.markdown("<hr style='border-color:#30363d;margin:2px 0 4px 0;'>", unsafe_allow_html=True)
+
+    # ── Data rows ──────────────────────────────────────────────────────────
+    for ak, alabel in ASSET_LABELS.items():
+        row_cols = st.columns([2] + [1] * 7)
+        row_cols[0].markdown(
+            f"<div style='color:#e6edf3;font-size:0.85rem;font-weight:700;padding:8px 0;'>{alabel}</div>",
+            unsafe_allow_html=True,
+        )
+        asset_fc = summary.get(ak, {})
+        for i, (days, _) in enumerate(PERIOD_COLS):
+            cell = asset_fc.get(days, {"dir": "N/A", "color": "#8b949e", "score": 0})
+            d_color = cell["color"]
+            d_text  = cell["dir"]
+            row_cols[i + 1].markdown(
+                f"<div style='background:{hex_rgba(d_color, 0.15)};border:1px solid {hex_rgba(d_color, 0.35)};"
+                f"border-radius:6px;padding:5px 3px;text-align:center;font-size:0.72rem;"
+                f"color:{d_color};font-weight:600;line-height:1.3;'>{d_text}</div>",
+                unsafe_allow_html=True,
+            )
+        st.markdown("<div style='height:3px;'></div>", unsafe_allow_html=True)
+
+    st.markdown(
+        "<div style='background:#161b22;border:1px solid #30363d;border-radius:8px;padding:10px 14px;"
+        "margin-top:10px;font-size:0.78rem;color:#8b949e;'>"
+        "📌 <b style='color:#e6edf3;'>Cách đọc bảng:</b> "
+        "🟢 Tăng mạnh = nhiều tín hiệu đồng thuận tích cực · "
+        "🟢 Tăng = hơi tích cực · "
+        "🟡 Sideway+ = trung tính thiên tăng · "
+        "🟠 Sideway− = trung tính thiên giảm · "
+        "🔴 Giảm / Giảm mạnh = áp lực bán. "
+        "Kỳ ngắn (1–7 ngày) dựa trên RSI + momentum; kỳ dài (3–12 tháng) tích hợp thêm bias cấu trúc "
+        "(Vàng: de-dollarization + nợ công; Bitcoin: halving; Dầu: energy transition)."
+        "</div>",
+        unsafe_allow_html=True,
+    )
 
     st.markdown("---")
     st.markdown(
