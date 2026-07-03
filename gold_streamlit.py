@@ -66,13 +66,15 @@ PERIOD_LABELS = {
     1:   "Ngày mai",
     3:   "3 ngày tới",
     7:   "1 tuần tới",
+    14:  "2 tuần tới",
+    21:  "3 tuần tới",
     30:  "1 tháng tới",
     90:  "3 tháng tới",
     180: "6 tháng tới",
     365: "1 năm tới",
 }
 
-SHORT_TERM_DAYS = {1, 3, 7}   # Kỳ giao dịch ngắn hạn
+SHORT_TERM_DAYS = {1, 3, 7, 14, 21}   # Kỳ giao dịch ngắn hạn
 
 # ── Asset metadata ─────────────────────────────────────────────────────────
 ASSETS = {
@@ -5188,7 +5190,7 @@ def calc_summary_forecast() -> dict:
         "USDVND": "USDVND=X",
         "BTC":    "BTC-USD",
     }
-    PERIODS = [1, 3, 7, 30, 90, 180, 365]
+    PERIODS = [1, 3, 7, 14, 21, 30, 90, 180, 365]
 
     result = {}
 
@@ -6056,6 +6058,8 @@ def render_expert_tab(macro: dict, fred_data: dict):
         (1,   "Ngày mai"),
         (3,   "3 ngày"),
         (7,   "1 tuần"),
+        (14,  "2 tuần"),
+        (21,  "3 tuần"),
         (30,  "1 tháng"),
         (90,  "3 tháng"),
         (180, "6 tháng"),
@@ -6063,7 +6067,7 @@ def render_expert_tab(macro: dict, fred_data: dict):
     ]
 
     # ── Header row ─────────────────────────────────────────────────────────
-    hdr_cols = st.columns([2] + [1] * 7)
+    hdr_cols = st.columns([2] + [1] * 9)
     hdr_cols[0].markdown(
         "<div style='color:#8b949e;font-size:0.78rem;font-weight:700;padding:6px 0;'>Tài sản</div>",
         unsafe_allow_html=True,
@@ -6078,7 +6082,7 @@ def render_expert_tab(macro: dict, fred_data: dict):
 
     # ── Data rows ──────────────────────────────────────────────────────────
     for ak, alabel in ASSET_LABELS.items():
-        row_cols = st.columns([2] + [1] * 7)
+        row_cols = st.columns([2] + [1] * 9)
         row_cols[0].markdown(
             f"<div style='color:#e6edf3;font-size:0.85rem;font-weight:700;padding:8px 0;'>{alabel}</div>",
             unsafe_allow_html=True,
