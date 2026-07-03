@@ -63,15 +63,18 @@ st.markdown("""
 # ══════════════════════════════════════════════════════════════════════════════
 
 PERIOD_LABELS = {
-    1:   "Ngày mai",
-    3:   "3 ngày tới",
-    7:   "1 tuần tới",
-    14:  "2 tuần tới",
-    21:  "3 tuần tới",
-    30:  "1 tháng tới",
-    90:  "3 tháng tới",
-    180: "6 tháng tới",
-    365: "1 năm tới",
+    1:    "Ngày mai",
+    3:    "3 ngày tới",
+    7:    "1 tuần tới",
+    14:   "2 tuần tới",
+    21:   "3 tuần tới",
+    30:   "1 tháng tới",
+    90:   "3 tháng tới",
+    180:  "6 tháng tới",
+    365:  "1 năm tới",
+    730:  "2 năm tới",
+    1095: "3 năm tới",
+    1825: "5 năm tới",
 }
 
 SHORT_TERM_DAYS = {1, 3, 7, 14, 21}   # Kỳ giao dịch ngắn hạn
@@ -5190,7 +5193,7 @@ def calc_summary_forecast() -> dict:
         "USDVND": "USDVND=X",
         "BTC":    "BTC-USD",
     }
-    PERIODS = [1, 3, 7, 14, 21, 30, 90, 180, 365]
+    PERIODS = [1, 3, 7, 14, 21, 30, 90, 180, 365, 730, 1095, 1825]
 
     result = {}
 
@@ -5267,6 +5270,20 @@ def calc_summary_forecast() -> dict:
                         score += 1   # extra structural premium
                     elif ak == "USDVND":
                         score += 1   # long-term VND depreciation trend
+                if days >= 730:
+                    if ak == "XAU":
+                        score += 1   # 2Y+: macro debt cycle, CB accumulation compounding
+                    elif ak == "BTC":
+                        score += 1   # 2Y+: post-halving bull phase, institutional adoption
+                    elif ak == "CL":
+                        score -= 1   # 2Y+: EV + renewables accelerating
+                if days >= 1095:
+                    if ak == "XAU":
+                        score += 1   # 3Y+: currency debasement, de-dollarization deepening
+                    elif ak == "XAG":
+                        score += 1   # 3Y+: solar/green energy industrial demand surge
+                    elif ak == "HG":
+                        score += 1   # 3Y+: EV + grid infra copper supercycle
 
                 # ── Convert score → direction ───────────────────────────────
                 if score >= 5:
@@ -6054,64 +6071,71 @@ def render_expert_tab(macro: dict, fred_data: dict):
         "USDVND": "💵 USD/VND",
         "BTC":    "₿ Bitcoin",
     }
-    PERIOD_COLS = [
-        (1,   "Ngày mai"),
-        (3,   "3 ngày"),
-        (7,   "1 tuần"),
-        (14,  "2 tuần"),
-        (21,  "3 tuần"),
-        (30,  "1 tháng"),
-        (90,  "3 tháng"),
-        (180, "6 tháng"),
-        (365, "1 năm"),
+    PERIOD_GROUPS = [
+        {
+            "title": "⚡ Ngắn — Trung hạn",
+            "cols":  [(1,"Ngày mai"),(3,"3 ngày"),(7,"1 tuần"),
+                      (14,"2 tuần"),(21,"3 tuần"),(30,"1 tháng"),
+                      (90,"3 tháng"),(180,"6 tháng"),(365,"1 năm")],
+        },
+        {
+            "title": "🌐 Dài hạn (2–5 năm)",
+            "cols":  [(730,"2 năm"),(1095,"3 năm"),(1825,"5 năm")],
+        },
     ]
 
-    # ── Header row ─────────────────────────────────────────────────────────
-    hdr_cols = st.columns([2] + [1] * 9)
-    hdr_cols[0].markdown(
-        "<div style='color:#8b949e;font-size:0.78rem;font-weight:700;padding:6px 0;'>Tài sản</div>",
-        unsafe_allow_html=True,
-    )
-    for i, (_, plabel) in enumerate(PERIOD_COLS):
-        hdr_cols[i + 1].markdown(
-            f"<div style='color:#8b949e;font-size:0.73rem;font-weight:700;text-align:center;padding:6px 0;'>{plabel}</div>",
+    def _render_table(period_cols):
+        n = len(period_cols)
+        hdr = st.columns([2] + [1] * n)
+        hdr[0].markdown(
+            "<div style='color:#8b949e;font-size:0.75rem;font-weight:700;padding:4px 0;'>Tài sản</div>",
             unsafe_allow_html=True,
         )
-
-    st.markdown("<hr style='border-color:#30363d;margin:2px 0 4px 0;'>", unsafe_allow_html=True)
-
-    # ── Data rows ──────────────────────────────────────────────────────────
-    for ak, alabel in ASSET_LABELS.items():
-        row_cols = st.columns([2] + [1] * 9)
-        row_cols[0].markdown(
-            f"<div style='color:#e6edf3;font-size:0.85rem;font-weight:700;padding:8px 0;'>{alabel}</div>",
-            unsafe_allow_html=True,
-        )
-        asset_fc = summary.get(ak, {})
-        for i, (days, _) in enumerate(PERIOD_COLS):
-            cell = asset_fc.get(days, {"dir": "N/A", "color": "#8b949e", "score": 0})
-            d_color = cell["color"]
-            d_text  = cell["dir"]
-            row_cols[i + 1].markdown(
-                f"<div style='background:{hex_rgba(d_color, 0.15)};border:1px solid {hex_rgba(d_color, 0.35)};"
-                f"border-radius:6px;padding:5px 3px;text-align:center;font-size:0.72rem;"
-                f"color:{d_color};font-weight:600;line-height:1.3;'>{d_text}</div>",
+        for i, (_, plabel) in enumerate(period_cols):
+            hdr[i + 1].markdown(
+                f"<div style='color:#8b949e;font-size:0.72rem;font-weight:700;"
+                f"text-align:center;padding:4px 0;'>{plabel}</div>",
                 unsafe_allow_html=True,
             )
-        st.markdown("<div style='height:3px;'></div>", unsafe_allow_html=True)
+        st.markdown("<hr style='border-color:#30363d;margin:2px 0 4px 0;'>", unsafe_allow_html=True)
+        for ak, alabel in ASSET_LABELS.items():
+            row = st.columns([2] + [1] * n)
+            row[0].markdown(
+                f"<div style='color:#e6edf3;font-size:0.83rem;font-weight:700;padding:6px 0;'>{alabel}</div>",
+                unsafe_allow_html=True,
+            )
+            asset_fc = summary.get(ak, {})
+            for i, (days, _) in enumerate(period_cols):
+                cell    = asset_fc.get(days, {"dir": "N/A", "color": "#8b949e", "score": 0})
+                d_color = cell["color"]
+                d_text  = cell["dir"]
+                row[i + 1].markdown(
+                    f"<div style='background:{hex_rgba(d_color, 0.15)};"
+                    f"border:1px solid {hex_rgba(d_color, 0.35)};border-radius:6px;"
+                    f"padding:5px 2px;text-align:center;font-size:0.70rem;"
+                    f"color:{d_color};font-weight:600;line-height:1.3;'>{d_text}</div>",
+                    unsafe_allow_html=True,
+                )
+            st.markdown("<div style='height:3px;'></div>", unsafe_allow_html=True)
+
+    for grp in PERIOD_GROUPS:
+        st.markdown(f"**{grp['title']}**")
+        _render_table(grp["cols"])
+        st.markdown("<div style='height:6px;'></div>", unsafe_allow_html=True)
 
     st.markdown(
         "<div style='background:#161b22;border:1px solid #30363d;border-radius:8px;padding:10px 14px;"
-        "margin-top:10px;font-size:0.78rem;color:#8b949e;'>"
-        "📌 <b style='color:#e6edf3;'>Cách đọc bảng:</b> "
-        "🚀 Tăng mạnh = nhiều tín hiệu đồng thuận tích cực · "
-        "⬆️ Tăng = hơi tích cực · "
-        "↗️ Sideway+ = trung tính thiên tăng · "
-        "↘️ Sideway− = trung tính thiên giảm · "
-        "⬇️ Giảm = áp lực bán · "
-        "💣 Giảm mạnh = nhiều tín hiệu đồng thuận tiêu cực. "
-        "Kỳ ngắn (1–7 ngày) dựa trên RSI + momentum; kỳ dài (3–12 tháng) tích hợp thêm bias cấu trúc "
-        "(Vàng: de-dollarization + nợ công; Bitcoin: halving; Dầu: energy transition)."
+        "margin-top:6px;font-size:0.78rem;color:#8b949e;'>"
+        "📌 <b style='color:#e6edf3;'>Cách đọc:</b> "
+        "🚀 Tăng mạnh · ⬆️ Tăng · ↗️ Sideway+ · ↘️ Sideway− · ⬇️ Giảm · 💣 Giảm mạnh. "
+        "<br>Kỳ ngắn (1–21 ngày): RSI + momentum. "
+        "Kỳ trung (1–12 tháng): MA stack + momentum. "
+        "Kỳ dài (2–5 năm): cấu trúc vĩ mô — "
+        "Vàng: de-dollarization + nợ công; "
+        "Bạc: nhu cầu solar/xanh; "
+        "Đồng: supercycle EV + lưới điện; "
+        "Bitcoin: halving; "
+        "Dầu: headwind năng lượng tái tạo."
         "</div>",
         unsafe_allow_html=True,
     )
