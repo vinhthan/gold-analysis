@@ -6050,6 +6050,110 @@ def render_expert_tab(macro: dict, fred_data: dict):
     st.markdown("---")
 
     # ══════════════════════════════════════════════════════════════════════════
+    # DỰ BÁO DÀI HẠN 2–5 NĂM (EXPERT DEEP VIEW)
+    # ══════════════════════════════════════════════════════════════════════════
+    st.markdown("## 🌐 DỰ BÁO DÀI HẠN — 2 Năm · 3 Năm · 5 Năm")
+    st.markdown(
+        "<p style='color:#8b949e;font-size:0.85rem;'>"
+        "Góc nhìn siêu dài hạn của hedge fund vĩ mô. Ở timeframe này, tín hiệu kỹ thuật gần như vô nghĩa — "
+        "<b style='color:#FFD700;'>chỉ có cấu trúc vĩ mô và megatrend mới quyết định</b>.</p>",
+        unsafe_allow_html=True,
+    )
+
+    # Định nghĩa thesis dài hạn cho từng tài sản
+    LT_THESIS = {
+        "XAU": {
+            "name":  "🥇 Vàng",
+            "2y":    ("🚀 Tăng mạnh", "#3fb950",
+                      "Fed buộc cắt lãi suất → real rate giảm. CB tiếp tục mua >1,000t/năm. "
+                      "Nợ Mỹ $36T tạo áp lực phá giá USD mạn tính."),
+            "3y":    ("🚀 Tăng mạnh", "#3fb950",
+                      "De-dollarization BRICS tăng tốc. Fed có thể phải YCC (Yield Curve Control) "
+                      "→ cực kỳ bullish vàng. Mục tiêu $3,500–$4,000/oz theo Goldman Sachs."),
+            "5y":    ("🚀 Tăng mạnh", "#3fb950",
+                      "Chu kỳ nợ Kondratiev. M2 toàn cầu tăng gấp đôi mỗi 10–12 năm → vàng là "
+                      "neo tiền tệ dài hạn. Kịch bản cực đoan: $5,000–$10,000/oz nếu USD mất vị thế."),
+        },
+        "XAG": {
+            "name":  "🥈 Bạc",
+            "2y":    ("⬆️ Tăng", "#76c3a0",
+                      "Tỷ lệ Gold/Silver ~85 — lịch sử trung bình 60 → Bạc còn dư địa đuổi kịp Vàng. "
+                      "Nhu cầu solar panel tăng 15%/năm (bạc là thành phần không thể thay thế)."),
+            "3y":    ("🚀 Tăng mạnh", "#3fb950",
+                      "Green energy transition: mỗi MW solar cần ~1 tấn bạc. Nhu cầu EV + grid storage. "
+                      "Nguồn cung mỏ bạc đang cạn dần — structural deficit từ 2024."),
+            "5y":    ("🚀 Tăng mạnh", "#3fb950",
+                      "IEA dự báo nhu cầu bạc cho năng lượng tái tạo tăng 3x đến 2030. "
+                      "Kết hợp với vai trò tiền tệ khi vàng tăng → bạc có thể outperform vàng."),
+        },
+        "HG": {
+            "name":  "🟤 Đồng",
+            "2y":    ("↗️ Sideway+", "#ffa657",
+                      "Nhu cầu EV (mỗi xe cần 4x đồng hơn xe xăng) và lưới điện thông minh. "
+                      "Tuy nhiên, suy thoái kinh tế Trung Quốc là rủi ro lớn ngắn-trung hạn."),
+            "3y":    ("🚀 Tăng mạnh", "#3fb950",
+                      "Goldman Sachs: Đồng sẽ vào supercycle 2025–2030. Nguồn cung mỏ mới cần "
+                      "7–10 năm để đưa vào sản xuất → structural deficit kéo dài."),
+            "5y":    ("🚀 Tăng mạnh", "#3fb950",
+                      "Đồng là 'dầu mỏ của thế kỷ 21'. Hạ tầng điện toàn cầu, AI data centers, "
+                      "xe điện, điện gió/mặt trời → tất cả đều cần đồng. Mục tiêu $6–$8/lb."),
+        },
+        "CL": {
+            "name":  "🛢️ Dầu WTI",
+            "2y":    ("↗️ Sideway+", "#ffa657",
+                      "OPEC+ kiểm soát nguồn cung. Nhu cầu toàn cầu vẫn ~100mb/d. "
+                      "Rủi ro địa chính trị Trung Đông tạo premium. Dao động $70–$90/barrel."),
+            "3y":    ("↘️ Sideway−", "#ff7b54",
+                      "EV penetration tăng tốc → đỉnh nhu cầu dầu (peak oil demand) có thể đến 2027–2028. "
+                      "Mỹ và Saudi Arabia tăng sản lượng để giữ thị phần trước khi quá muộn."),
+            "5y":    ("⬇️ Giảm", "#f85149",
+                      "IEA: Nhu cầu dầu đạt đỉnh trước 2030. Năng lượng tái tạo chiếm >50% điện mới. "
+                      "Dầu vẫn cần cho hóa dầu/hàng không nhưng áp lực giá dài hạn nghiêng về giảm."),
+        },
+        "USDVND": {
+            "name":  "💵 USD/VND",
+            "2y":    ("⬆️ Tăng", "#76c3a0",
+                      "VND chịu áp lực từ thâm hụt thương mại và Fed rate differential. "
+                      "SBV có thể tiếp tục giữ neo tỷ giá nhưng áp lực điều chỉnh tích lũy."),
+            "3y":    ("⬆️ Tăng", "#76c3a0",
+                      "Xu hướng dài hạn: VND mất giá ~3–5%/năm so với USD. "
+                      "FDI vào Việt Nam giúp cân bằng một phần nhưng không đủ chống đỡ hoàn toàn."),
+            "5y":    ("🚀 Tăng mạnh", "#3fb950",
+                      "Nếu USD suy yếu do Fed nới lỏng dài hạn: tỷ giá có thể đi ngang hoặc VND "
+                      "mạnh lên nhờ xuất khẩu tăng. Nhưng kịch bản cơ sở: USD/VND vẫn tăng chậm."),
+        },
+        "BTC": {
+            "name":  "₿ Bitcoin",
+            "2y":    ("🚀 Tăng mạnh", "#3fb950",
+                      "Post-halving Apr 2024: lịch sử 3/3 lần halving đều có bull run 12–18 tháng sau. "
+                      "ETF Bitcoin spot tạo dòng chảy vốn tổ chức ổn định. Mục tiêu $150k–$200k."),
+            "3y":    ("⬆️ Tăng", "#76c3a0",
+                      "Chu kỳ 4 năm: sau đỉnh 2025, Bitcoin thường điều chỉnh 70–80% rồi tích lũy. "
+                      "Halving tiếp theo 2028 tạo động lực mới. Adoption tiếp tục tăng."),
+            "5y":    ("🚀 Tăng mạnh", "#3fb950",
+                      "Lightning Network, Layer 2, ETF toàn cầu → Bitcoin tiến tới 'digital gold' status. "
+                      "Nếu 1% tài sản toàn cầu ($500T) chuyển sang BTC → giá lý thuyết >$1M/BTC."),
+        },
+    }
+
+    for ak, thesis in LT_THESIS.items():
+        with st.expander(f"{thesis['name']} — Nhận định 2 năm · 3 năm · 5 năm", expanded=(ak == "XAU")):
+            c2y, c3y, c5y = st.columns(3)
+            for col, key, label in [(c2y, "2y", "2 NĂM TỚI"), (c3y, "3y", "3 NĂM TỚI"), (c5y, "5y", "5 NĂM TỚI")]:
+                icon, color, detail = thesis[key]
+                col.markdown(
+                    f"<div style='background:{hex_rgba(color, 0.12)};border:1px solid "
+                    f"{hex_rgba(color, 0.4)};border-radius:10px;padding:12px;height:100%;'>"
+                    f"<div style='color:#8b949e;font-size:0.72rem;font-weight:700;margin-bottom:4px;'>{label}</div>"
+                    f"<div style='color:{color};font-size:1.0rem;font-weight:700;margin-bottom:8px;'>{icon}</div>"
+                    f"<div style='color:#e6edf3;font-size:0.78rem;line-height:1.55;'>{detail}</div>"
+                    f"</div>",
+                    unsafe_allow_html=True,
+                )
+
+    st.markdown("---")
+
+    # ══════════════════════════════════════════════════════════════════════════
     # BẢNG KẾT LUẬN TỔNG HỢP — 6 TÀI SẢN × 7 KỲ
     # ══════════════════════════════════════════════════════════════════════════
     st.markdown("## 📋 KẾT LUẬN NHANH — Tăng hay Giảm?")
