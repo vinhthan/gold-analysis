@@ -5268,17 +5268,17 @@ def calc_summary_forecast() -> dict:
 
                 # ── Convert score → direction ───────────────────────────────
                 if score >= 5:
-                    dir_out, color = "🟢 Tăng mạnh",  "#3fb950"
+                    dir_out, color = "🚀 Tăng mạnh",  "#3fb950"
                 elif score >= 2:
-                    dir_out, color = "🟢 Tăng",        "#76c3a0"
+                    dir_out, color = "⬆️ Tăng",        "#76c3a0"
                 elif score >= 0:
-                    dir_out, color = "🟡 Sideway+",    "#ffa657"
+                    dir_out, color = "↗️ Sideway+",    "#ffa657"
                 elif score >= -2:
-                    dir_out, color = "🟠 Sideway−",    "#ff7b54"
+                    dir_out, color = "↘️ Sideway−",    "#ff7b54"
                 elif score >= -4:
-                    dir_out, color = "🔴 Giảm",        "#f85149"
+                    dir_out, color = "⬇️ Giảm",        "#f85149"
                 else:
-                    dir_out, color = "🔴 Giảm mạnh",  "#da3633"
+                    dir_out, color = "💣 Giảm mạnh",  "#da3633"
 
                 asset_result[days] = {"dir": dir_out, "color": color, "score": score}
 
@@ -6100,11 +6100,12 @@ def render_expert_tab(macro: dict, fred_data: dict):
         "<div style='background:#161b22;border:1px solid #30363d;border-radius:8px;padding:10px 14px;"
         "margin-top:10px;font-size:0.78rem;color:#8b949e;'>"
         "📌 <b style='color:#e6edf3;'>Cách đọc bảng:</b> "
-        "🟢 Tăng mạnh = nhiều tín hiệu đồng thuận tích cực · "
-        "🟢 Tăng = hơi tích cực · "
-        "🟡 Sideway+ = trung tính thiên tăng · "
-        "🟠 Sideway− = trung tính thiên giảm · "
-        "🔴 Giảm / Giảm mạnh = áp lực bán. "
+        "🚀 Tăng mạnh = nhiều tín hiệu đồng thuận tích cực · "
+        "⬆️ Tăng = hơi tích cực · "
+        "↗️ Sideway+ = trung tính thiên tăng · "
+        "↘️ Sideway− = trung tính thiên giảm · "
+        "⬇️ Giảm = áp lực bán · "
+        "💣 Giảm mạnh = nhiều tín hiệu đồng thuận tiêu cực. "
         "Kỳ ngắn (1–7 ngày) dựa trên RSI + momentum; kỳ dài (3–12 tháng) tích hợp thêm bias cấu trúc "
         "(Vàng: de-dollarization + nợ công; Bitcoin: halving; Dầu: energy transition)."
         "</div>",
