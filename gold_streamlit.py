@@ -4907,6 +4907,53 @@ def fetch_fed_news() -> list:
         return []
 
 
+@st.cache_data(ttl=3600, show_spinner=False)
+def translate_to_vi_batch(texts: tuple) -> list:
+    """
+    Dịch nhiều câu tiếng Anh → tiếng Việt bằng Google Translate free endpoint.
+    Nhận tuple (để hashable với st.cache_data), trả về list cùng độ dài.
+    Fallback về text gốc nếu lỗi.
+    """
+    import urllib.request, urllib.parse, json as _json
+
+    if not texts:
+        return []
+
+    # Ghép tất cả câu bằng ký tự phân tách đặc biệt để dịch 1 lần
+    SEP = " ||| "
+    combined = SEP.join(texts)
+    try:
+        encoded = urllib.parse.quote(combined)
+        url = (
+            "https://translate.googleapis.com/translate_a/single"
+            f"?client=gtx&sl=en&tl=vi&dt=t&q={encoded}"
+        )
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=12) as r:
+            data = _json.loads(r.read())
+
+        # Ghép các segment dịch lại
+        translated_combined = "".join(
+            seg[0] for seg in data[0] if seg[0]
+        )
+        # Tách lại theo SEP (Google có thể dịch SEP thành nhiều dạng khác nhau)
+        # → tách theo ||| (dạng phổ biến nhất sau dịch)
+        parts = translated_combined.split("|||")
+        parts = [p.strip() for p in parts]
+
+        # Nếu số lượng khớp thì trả về, không thì fallback
+        if len(parts) == len(texts):
+            return parts
+        # Nếu lệch số lượng, thử tách lại
+        parts2 = [p.strip() for p in translated_combined.split("|")]
+        parts2 = [p for p in parts2 if p and p.strip() not in ("", "||")]
+        if len(parts2) == len(texts):
+            return parts2
+        return list(texts)  # fallback: giữ nguyên tiếng Anh
+    except Exception:
+        return list(texts)  # fallback nếu không có internet hoặc bị block
+
+
 def analyze_fedspeak(news_items: list) -> dict:
     """
     Phân tích ngôn ngữ của Fed (Fedspeak Decoder).
@@ -5353,24 +5400,36 @@ def render_expert_tab(macro: dict, fred_data: dict):
 
     # Module 1: FED News Feed
     with b1c1:
-        st.markdown("### 📰 Module 1: FED News Feed (Mới nhất)")
+        st.markdown("### 📰 Module 1: FED News Feed (Mới nhất · Dịch tự động 🇻🇳)")
         if fed_news:
-            for item in fed_news[:8]:
-                date_str = item.get("date", "")[:16] if item.get("date") else ""
-                title    = item.get("title", "")
-                # Đánh màu dựa trên từ khóa
-                t_lower = title.lower()
+            news_slice  = fed_news[:8]
+            raw_titles  = tuple(item.get("title", "") for item in news_slice)
+            vi_titles   = translate_to_vi_batch(raw_titles)
+
+            for item, vi_title in zip(news_slice, vi_titles):
+                date_str  = item.get("date", "")[:16] if item.get("date") else ""
+                en_title  = item.get("title", "")
+                # Đánh màu dựa trên từ khóa tiếng Anh gốc (chính xác hơn)
+                t_lower = en_title.lower()
                 if any(w in t_lower for w in ["rate cut","easing","pivot","dovish","balanced"]):
                     dot_color = "#3fb950"
                 elif any(w in t_lower for w in ["hike","hawkish","higher","restrict","inflation"]):
                     dot_color = "#f85149"
                 else:
                     dot_color = "#8b949e"
+                # Nếu dịch thất bại (trả về y chang tiếng Anh), không hiển thị 2 dòng giống nhau
+                show_en = (vi_title.strip().lower() != en_title.strip().lower())
+                en_row  = (
+                    f"<span style='color:#484f58;font-size:0.70rem;font-style:italic;'>"
+                    f"{en_title}</span><br>"
+                ) if show_en else ""
                 st.markdown(
-                    f"<div style='border-left:3px solid {dot_color};padding:4px 10px;margin:3px 0;"
+                    f"<div style='border-left:3px solid {dot_color};padding:5px 10px;margin:4px 0;"
                     f"background:#161b22;border-radius:0 6px 6px 0;'>"
-                    f"<span style='color:{dot_color};font-size:0.72rem;'>{date_str}</span><br>"
-                    f"<span style='color:#e6edf3;font-size:0.82rem;'>{title}</span></div>",
+                    f"<span style='color:{dot_color};font-size:0.70rem;'>{date_str}</span><br>"
+                    f"<span style='color:#e6edf3;font-size:0.83rem;font-weight:600;'>{vi_title}</span><br>"
+                    f"{en_row}"
+                    f"</div>",
                     unsafe_allow_html=True,
                 )
         else:
