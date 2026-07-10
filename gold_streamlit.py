@@ -620,7 +620,7 @@ def fetch_gold() -> tuple[pd.Series, str]:
             url = (f"https://{host}.finance.yahoo.com/v8/finance/chart/"
                    f"XAUUSD%3DX?interval=1d&range=2y")
             req = _ur.Request(url, headers={"User-Agent": ua, "Accept": "application/json"})
-            with _ur.urlopen(req, timeout=20, context=ctx) as r:
+            with _ur.urlopen(req, timeout=12, context=ctx) as r:
                 s = _series_from_v8(_json.load(r))
             if len(s) >= 100:
                 return s, "XAUUSD=X (spot)"
@@ -742,7 +742,7 @@ def fetch_price(asset_key: str) -> tuple[pd.Series, str]:
         enc = ticker.replace("=", "%3D").replace("-", "%2D")
         url = f"https://{host}.finance.yahoo.com/v8/finance/chart/{enc}?interval=1d&range=2y"
         req = _ur.Request(url, headers={"User-Agent": ua, "Accept": "application/json"})
-        with _ur.urlopen(req, timeout=20, context=ctx) as r:
+        with _ur.urlopen(req, timeout=12, context=ctx) as r:
             data = _json.load(r)
         res   = data["chart"]["result"][0]
         dates = pd.to_datetime(res["timestamp"], unit="s").normalize()
@@ -3551,16 +3551,16 @@ def ml_directional_signal(_price_values: np.ndarray, days: int) -> dict:
 
         # ── 3-Model Soft Voting Ensemble ──────────────────────────────────
         gb  = GradientBoostingClassifier(
-            n_estimators=80, max_depth=3, learning_rate=0.05,
-            subsample=0.8, min_samples_leaf=8, random_state=42
+            n_estimators=50, max_depth=3, learning_rate=0.07,
+            subsample=0.8, min_samples_leaf=10, random_state=42
         )
         rf  = RandomForestClassifier(
-            n_estimators=80, max_depth=5, min_samples_leaf=8,
-            random_state=42, n_jobs=-1
+            n_estimators=50, max_depth=4, min_samples_leaf=10,
+            random_state=42, n_jobs=1   # n_jobs=1 tránh fork trên Streamlit Cloud
         )
         mlp = MLPClassifier(
-            hidden_layer_sizes=(48, 24), activation="relu",
-            max_iter=300, random_state=42, early_stopping=False,
+            hidden_layer_sizes=(32, 16), activation="relu",
+            max_iter=200, random_state=42, early_stopping=True,
             alpha=0.01    # L2 regularisation để tránh overfitting
         )
         ensemble = VotingClassifier(
@@ -6342,7 +6342,12 @@ def main():
 
     # ── Fetch macro một lần, chia sẻ cho tất cả tabs ─────────────────────────
     with st.spinner("📡 Đang tải chỉ số vĩ mô..."):
-        macro = fetch_macro()
+        try:
+            macro = fetch_macro()
+        except Exception as _e:
+            st.error(f"⚠️ Không tải được dữ liệu vĩ mô: {_e}")
+            st.info("Nhấn 🔄 Làm mới để thử lại.")
+            st.stop()
 
     # ── Tabs ──────────────────────────────────────────────────────────────────
     tab_keys   = list(ASSETS.keys())
@@ -6352,11 +6357,21 @@ def main():
 
     for tab, asset_key in zip(tabs[:-1], tab_keys):
         with tab:
-            render_asset_tab(asset_key, macro, forecast_days)
+            try:
+                render_asset_tab(asset_key, macro, forecast_days)
+            except Exception as _e:
+                st.error(f"⚠️ Lỗi tải tab {ASSETS[asset_key]['short']}: {_e}")
+                st.info("Nhấn 🔄 **Làm mới** hoặc reload trang để thử lại.")
+                with st.expander("Chi tiết lỗi (để báo cáo bug)"):
+                    st.code(str(_e))
 
     with tabs[-1]:
-        fred_data = fetch_fred_rates()
-        render_expert_tab(macro, fred_data)
+        try:
+            fred_data = fetch_fred_rates()
+            render_expert_tab(macro, fred_data)
+        except Exception as _e:
+            st.error(f"⚠️ Lỗi tab Chuyên Gia: {_e}")
+            st.info("Nhấn 🔄 **Làm mới** hoặc reload trang để thử lại.")
 
 
 if __name__ == "__main__":
