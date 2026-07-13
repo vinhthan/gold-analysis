@@ -598,5 +598,4247 @@
         "result": "PENDING"
       }
     }
+  },
+  {
+    "id": "XAU_2026-07-06",
+    "asset": "XAU",
+    "asset_name": "Vàng (XAU/USD)",
+    "asset_color": "#FFD700",
+    "recorded_date": "2026-07-06",
+    "signal": "ĐI NGANG / TRUNG TÍNH",
+    "signal_en": "NEUTRAL",
+    "score": 0,
+    "ml_prob_up": 0.346,
+    "ml_confidence": 0.308,
+    "macro_score": -1,
+    "price_now": 4167.6698,
+    "periods": {
+      "1": {
+        "label": "Ngày mai",
+        "target_date": "2026-07-07",
+        "actual_price": 4117.0639,
+        "change_pct": -1.21,
+        "result": "SAI"
+      },
+      "3": {
+        "label": "3 ngày tới",
+        "target_date": "2026-07-09",
+        "actual_price": 4124.5893,
+        "change_pct": -1.03,
+        "result": "SAI"
+      },
+      "7": {
+        "label": "1 tuần tới",
+        "target_date": "2026-07-13",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "14": {
+        "label": "2 tuần tới",
+        "target_date": "2026-07-20",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "21": {
+        "label": "3 tuần tới",
+        "target_date": "2026-07-27",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "30": {
+        "label": "1 tháng tới",
+        "target_date": "2026-08-05",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "90": {
+        "label": "3 tháng tới",
+        "target_date": "2026-10-04",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "180": {
+        "label": "6 tháng tới",
+        "target_date": "2027-01-02",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "365": {
+        "label": "1 năm tới",
+        "target_date": "2027-07-06",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "730": {
+        "label": "2 năm tới",
+        "target_date": "2028-07-05",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1095": {
+        "label": "3 năm tới",
+        "target_date": "2029-07-05",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1825": {
+        "label": "5 năm tới",
+        "target_date": "2031-07-05",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      }
+    },
+    "backfilled": true
+  },
+  {
+    "id": "XAG_2026-07-06",
+    "asset": "XAG",
+    "asset_name": "Bạc (XAG/USD)",
+    "asset_color": "#A8B8C8",
+    "recorded_date": "2026-07-06",
+    "signal": "CÓ XU HƯỚNG GIẢM",
+    "signal_en": "DOWN",
+    "score": -3,
+    "ml_prob_up": 0.346,
+    "ml_confidence": 0.308,
+    "macro_score": -4,
+    "price_now": 65.823,
+    "periods": {
+      "1": {
+        "label": "Ngày mai",
+        "target_date": "2026-07-07",
+        "actual_price": 63.8873,
+        "change_pct": -2.94,
+        "result": "ĐÚNG"
+      },
+      "3": {
+        "label": "3 ngày tới",
+        "target_date": "2026-07-09",
+        "actual_price": 63.5119,
+        "change_pct": -3.51,
+        "result": "ĐÚNG"
+      },
+      "7": {
+        "label": "1 tuần tới",
+        "target_date": "2026-07-13",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "14": {
+        "label": "2 tuần tới",
+        "target_date": "2026-07-20",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "21": {
+        "label": "3 tuần tới",
+        "target_date": "2026-07-27",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "30": {
+        "label": "1 tháng tới",
+        "target_date": "2026-08-05",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "90": {
+        "label": "3 tháng tới",
+        "target_date": "2026-10-04",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "180": {
+        "label": "6 tháng tới",
+        "target_date": "2027-01-02",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "365": {
+        "label": "1 năm tới",
+        "target_date": "2027-07-06",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "730": {
+        "label": "2 năm tới",
+        "target_date": "2028-07-05",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1095": {
+        "label": "3 năm tới",
+        "target_date": "2029-07-05",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1825": {
+        "label": "5 năm tới",
+        "target_date": "2031-07-05",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      }
+    },
+    "backfilled": true
+  },
+  {
+    "id": "HG_2026-07-06",
+    "asset": "HG",
+    "asset_name": "Đồng (HG/USD)",
+    "asset_color": "#B87333",
+    "recorded_date": "2026-07-06",
+    "signal": "ĐI NGANG / TRUNG TÍNH",
+    "signal_en": "NEUTRAL",
+    "score": 0,
+    "ml_prob_up": 0.346,
+    "ml_confidence": 0.308,
+    "macro_score": -2,
+    "price_now": 6.178,
+    "periods": {
+      "1": {
+        "label": "Ngày mai",
+        "target_date": "2026-07-07",
+        "actual_price": 6.1715,
+        "change_pct": -0.11,
+        "result": "ĐÚNG"
+      },
+      "3": {
+        "label": "3 ngày tới",
+        "target_date": "2026-07-09",
+        "actual_price": 6.215,
+        "change_pct": 0.6,
+        "result": "SAI"
+      },
+      "7": {
+        "label": "1 tuần tới",
+        "target_date": "2026-07-13",
+        "actual_price": 6.2555,
+        "change_pct": 1.25,
+        "result": "SAI"
+      },
+      "14": {
+        "label": "2 tuần tới",
+        "target_date": "2026-07-20",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "21": {
+        "label": "3 tuần tới",
+        "target_date": "2026-07-27",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "30": {
+        "label": "1 tháng tới",
+        "target_date": "2026-08-05",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "90": {
+        "label": "3 tháng tới",
+        "target_date": "2026-10-04",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "180": {
+        "label": "6 tháng tới",
+        "target_date": "2027-01-02",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "365": {
+        "label": "1 năm tới",
+        "target_date": "2027-07-06",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "730": {
+        "label": "2 năm tới",
+        "target_date": "2028-07-05",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1095": {
+        "label": "3 năm tới",
+        "target_date": "2029-07-05",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1825": {
+        "label": "5 năm tới",
+        "target_date": "2031-07-05",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      }
+    },
+    "backfilled": true
+  },
+  {
+    "id": "CL_2026-07-06",
+    "asset": "CL",
+    "asset_name": "Dầu WTI (USD/bbl)",
+    "asset_color": "#4a90d9",
+    "recorded_date": "2026-07-06",
+    "signal": "CÓ XU HƯỚNG GIẢM",
+    "signal_en": "DOWN",
+    "score": -2,
+    "ml_prob_up": 0.346,
+    "ml_confidence": 0.308,
+    "macro_score": -2,
+    "price_now": 68.55,
+    "periods": {
+      "1": {
+        "label": "Ngày mai",
+        "target_date": "2026-07-07",
+        "actual_price": 70.44,
+        "change_pct": 2.76,
+        "result": "SAI"
+      },
+      "3": {
+        "label": "3 ngày tới",
+        "target_date": "2026-07-09",
+        "actual_price": 72.08,
+        "change_pct": 5.15,
+        "result": "SAI"
+      },
+      "7": {
+        "label": "1 tuần tới",
+        "target_date": "2026-07-13",
+        "actual_price": 73.36,
+        "change_pct": 7.02,
+        "result": "SAI"
+      },
+      "14": {
+        "label": "2 tuần tới",
+        "target_date": "2026-07-20",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "21": {
+        "label": "3 tuần tới",
+        "target_date": "2026-07-27",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "30": {
+        "label": "1 tháng tới",
+        "target_date": "2026-08-05",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "90": {
+        "label": "3 tháng tới",
+        "target_date": "2026-10-04",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "180": {
+        "label": "6 tháng tới",
+        "target_date": "2027-01-02",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "365": {
+        "label": "1 năm tới",
+        "target_date": "2027-07-06",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "730": {
+        "label": "2 năm tới",
+        "target_date": "2028-07-05",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1095": {
+        "label": "3 năm tới",
+        "target_date": "2029-07-05",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1825": {
+        "label": "5 năm tới",
+        "target_date": "2031-07-05",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      }
+    },
+    "backfilled": true
+  },
+  {
+    "id": "USDVND_2026-07-06",
+    "asset": "USDVND",
+    "asset_name": "USD/VND",
+    "asset_color": "#2ecc71",
+    "recorded_date": "2026-07-06",
+    "signal": "ĐI NGANG / TRUNG TÍNH",
+    "signal_en": "NEUTRAL",
+    "score": 2,
+    "ml_prob_up": 0.346,
+    "ml_confidence": 0.308,
+    "macro_score": 1,
+    "price_now": 26299.0,
+    "periods": {
+      "1": {
+        "label": "Ngày mai",
+        "target_date": "2026-07-07",
+        "actual_price": 26289.0,
+        "change_pct": -0.04,
+        "result": "ĐÚNG"
+      },
+      "3": {
+        "label": "3 ngày tới",
+        "target_date": "2026-07-09",
+        "actual_price": 26290.0,
+        "change_pct": -0.03,
+        "result": "ĐÚNG"
+      },
+      "7": {
+        "label": "1 tuần tới",
+        "target_date": "2026-07-13",
+        "actual_price": 26260.0,
+        "change_pct": -0.15,
+        "result": "ĐÚNG"
+      },
+      "14": {
+        "label": "2 tuần tới",
+        "target_date": "2026-07-20",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "21": {
+        "label": "3 tuần tới",
+        "target_date": "2026-07-27",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "30": {
+        "label": "1 tháng tới",
+        "target_date": "2026-08-05",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "90": {
+        "label": "3 tháng tới",
+        "target_date": "2026-10-04",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "180": {
+        "label": "6 tháng tới",
+        "target_date": "2027-01-02",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "365": {
+        "label": "1 năm tới",
+        "target_date": "2027-07-06",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "730": {
+        "label": "2 năm tới",
+        "target_date": "2028-07-05",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1095": {
+        "label": "3 năm tới",
+        "target_date": "2029-07-05",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1825": {
+        "label": "5 năm tới",
+        "target_date": "2031-07-05",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      }
+    },
+    "backfilled": true
+  },
+  {
+    "id": "BTC_2026-07-06",
+    "asset": "BTC",
+    "asset_name": "Bitcoin (BTC/USD)",
+    "asset_color": "#F7931A",
+    "recorded_date": "2026-07-06",
+    "signal": "ĐI NGANG / TRUNG TÍNH",
+    "signal_en": "NEUTRAL",
+    "score": 0,
+    "ml_prob_up": 0.346,
+    "ml_confidence": 0.308,
+    "macro_score": -1,
+    "price_now": 63995.0156,
+    "periods": {
+      "1": {
+        "label": "Ngày mai",
+        "target_date": "2026-07-07",
+        "actual_price": 63297.3945,
+        "change_pct": -1.09,
+        "result": "SAI"
+      },
+      "3": {
+        "label": "3 ngày tới",
+        "target_date": "2026-07-09",
+        "actual_price": 63193.1484,
+        "change_pct": -1.25,
+        "result": "SAI"
+      },
+      "7": {
+        "label": "1 tuần tới",
+        "target_date": "2026-07-13",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "14": {
+        "label": "2 tuần tới",
+        "target_date": "2026-07-20",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "21": {
+        "label": "3 tuần tới",
+        "target_date": "2026-07-27",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "30": {
+        "label": "1 tháng tới",
+        "target_date": "2026-08-05",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "90": {
+        "label": "3 tháng tới",
+        "target_date": "2026-10-04",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "180": {
+        "label": "6 tháng tới",
+        "target_date": "2027-01-02",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "365": {
+        "label": "1 năm tới",
+        "target_date": "2027-07-06",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "730": {
+        "label": "2 năm tới",
+        "target_date": "2028-07-05",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1095": {
+        "label": "3 năm tới",
+        "target_date": "2029-07-05",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1825": {
+        "label": "5 năm tới",
+        "target_date": "2031-07-05",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      }
+    },
+    "backfilled": true
+  },
+  {
+    "id": "XAU_2026-07-07",
+    "asset": "XAU",
+    "asset_name": "Vàng (XAU/USD)",
+    "asset_color": "#FFD700",
+    "recorded_date": "2026-07-07",
+    "signal": "CÓ XU HƯỚNG GIẢM",
+    "signal_en": "DOWN",
+    "score": -2,
+    "ml_prob_up": 0.346,
+    "ml_confidence": 0.308,
+    "macro_score": -1,
+    "price_now": 4117.0639,
+    "periods": {
+      "1": {
+        "label": "Ngày mai",
+        "target_date": "2026-07-08",
+        "actual_price": 4083.9086,
+        "change_pct": -0.81,
+        "result": "ĐÚNG"
+      },
+      "3": {
+        "label": "3 ngày tới",
+        "target_date": "2026-07-10",
+        "actual_price": 4111.829,
+        "change_pct": -0.13,
+        "result": "ĐÚNG"
+      },
+      "7": {
+        "label": "1 tuần tới",
+        "target_date": "2026-07-14",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "14": {
+        "label": "2 tuần tới",
+        "target_date": "2026-07-21",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "21": {
+        "label": "3 tuần tới",
+        "target_date": "2026-07-28",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "30": {
+        "label": "1 tháng tới",
+        "target_date": "2026-08-06",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "90": {
+        "label": "3 tháng tới",
+        "target_date": "2026-10-05",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "180": {
+        "label": "6 tháng tới",
+        "target_date": "2027-01-03",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "365": {
+        "label": "1 năm tới",
+        "target_date": "2027-07-07",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "730": {
+        "label": "2 năm tới",
+        "target_date": "2028-07-06",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1095": {
+        "label": "3 năm tới",
+        "target_date": "2029-07-06",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1825": {
+        "label": "5 năm tới",
+        "target_date": "2031-07-06",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      }
+    },
+    "backfilled": true
+  },
+  {
+    "id": "XAG_2026-07-07",
+    "asset": "XAG",
+    "asset_name": "Bạc (XAG/USD)",
+    "asset_color": "#A8B8C8",
+    "recorded_date": "2026-07-07",
+    "signal": "CÓ XU HƯỚNG GIẢM",
+    "signal_en": "DOWN",
+    "score": -3,
+    "ml_prob_up": 0.346,
+    "ml_confidence": 0.308,
+    "macro_score": -4,
+    "price_now": 63.8873,
+    "periods": {
+      "1": {
+        "label": "Ngày mai",
+        "target_date": "2026-07-08",
+        "actual_price": 61.9752,
+        "change_pct": -2.99,
+        "result": "ĐÚNG"
+      },
+      "3": {
+        "label": "3 ngày tới",
+        "target_date": "2026-07-10",
+        "actual_price": 63.2891,
+        "change_pct": -0.94,
+        "result": "ĐÚNG"
+      },
+      "7": {
+        "label": "1 tuần tới",
+        "target_date": "2026-07-14",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "14": {
+        "label": "2 tuần tới",
+        "target_date": "2026-07-21",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "21": {
+        "label": "3 tuần tới",
+        "target_date": "2026-07-28",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "30": {
+        "label": "1 tháng tới",
+        "target_date": "2026-08-06",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "90": {
+        "label": "3 tháng tới",
+        "target_date": "2026-10-05",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "180": {
+        "label": "6 tháng tới",
+        "target_date": "2027-01-03",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "365": {
+        "label": "1 năm tới",
+        "target_date": "2027-07-07",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "730": {
+        "label": "2 năm tới",
+        "target_date": "2028-07-06",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1095": {
+        "label": "3 năm tới",
+        "target_date": "2029-07-06",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1825": {
+        "label": "5 năm tới",
+        "target_date": "2031-07-06",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      }
+    },
+    "backfilled": true
+  },
+  {
+    "id": "HG_2026-07-07",
+    "asset": "HG",
+    "asset_name": "Đồng (HG/USD)",
+    "asset_color": "#B87333",
+    "recorded_date": "2026-07-07",
+    "signal": "ĐI NGANG / TRUNG TÍNH",
+    "signal_en": "NEUTRAL",
+    "score": -1,
+    "ml_prob_up": 0.346,
+    "ml_confidence": 0.308,
+    "macro_score": -2,
+    "price_now": 6.1715,
+    "periods": {
+      "1": {
+        "label": "Ngày mai",
+        "target_date": "2026-07-08",
+        "actual_price": 6.0545,
+        "change_pct": -1.9,
+        "result": "SAI"
+      },
+      "3": {
+        "label": "3 ngày tới",
+        "target_date": "2026-07-10",
+        "actual_price": 6.2335,
+        "change_pct": 1.0,
+        "result": "SAI"
+      },
+      "7": {
+        "label": "1 tuần tới",
+        "target_date": "2026-07-14",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "14": {
+        "label": "2 tuần tới",
+        "target_date": "2026-07-21",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "21": {
+        "label": "3 tuần tới",
+        "target_date": "2026-07-28",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "30": {
+        "label": "1 tháng tới",
+        "target_date": "2026-08-06",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "90": {
+        "label": "3 tháng tới",
+        "target_date": "2026-10-05",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "180": {
+        "label": "6 tháng tới",
+        "target_date": "2027-01-03",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "365": {
+        "label": "1 năm tới",
+        "target_date": "2027-07-07",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "730": {
+        "label": "2 năm tới",
+        "target_date": "2028-07-06",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1095": {
+        "label": "3 năm tới",
+        "target_date": "2029-07-06",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1825": {
+        "label": "5 năm tới",
+        "target_date": "2031-07-06",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      }
+    },
+    "backfilled": true
+  },
+  {
+    "id": "CL_2026-07-07",
+    "asset": "CL",
+    "asset_name": "Dầu WTI (USD/bbl)",
+    "asset_color": "#4a90d9",
+    "recorded_date": "2026-07-07",
+    "signal": "CÓ XU HƯỚNG GIẢM",
+    "signal_en": "DOWN",
+    "score": -3,
+    "ml_prob_up": 0.346,
+    "ml_confidence": 0.308,
+    "macro_score": -2,
+    "price_now": 70.44,
+    "periods": {
+      "1": {
+        "label": "Ngày mai",
+        "target_date": "2026-07-08",
+        "actual_price": 73.52,
+        "change_pct": 4.37,
+        "result": "SAI"
+      },
+      "3": {
+        "label": "3 ngày tới",
+        "target_date": "2026-07-10",
+        "actual_price": 71.41,
+        "change_pct": 1.38,
+        "result": "SAI"
+      },
+      "7": {
+        "label": "1 tuần tới",
+        "target_date": "2026-07-14",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "14": {
+        "label": "2 tuần tới",
+        "target_date": "2026-07-21",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "21": {
+        "label": "3 tuần tới",
+        "target_date": "2026-07-28",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "30": {
+        "label": "1 tháng tới",
+        "target_date": "2026-08-06",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "90": {
+        "label": "3 tháng tới",
+        "target_date": "2026-10-05",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "180": {
+        "label": "6 tháng tới",
+        "target_date": "2027-01-03",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "365": {
+        "label": "1 năm tới",
+        "target_date": "2027-07-07",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "730": {
+        "label": "2 năm tới",
+        "target_date": "2028-07-06",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1095": {
+        "label": "3 năm tới",
+        "target_date": "2029-07-06",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1825": {
+        "label": "5 năm tới",
+        "target_date": "2031-07-06",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      }
+    },
+    "backfilled": true
+  },
+  {
+    "id": "USDVND_2026-07-07",
+    "asset": "USDVND",
+    "asset_name": "USD/VND",
+    "asset_color": "#2ecc71",
+    "recorded_date": "2026-07-07",
+    "signal": "ĐI NGANG / TRUNG TÍNH",
+    "signal_en": "NEUTRAL",
+    "score": 1,
+    "ml_prob_up": 0.346,
+    "ml_confidence": 0.308,
+    "macro_score": 1,
+    "price_now": 26289.0,
+    "periods": {
+      "1": {
+        "label": "Ngày mai",
+        "target_date": "2026-07-08",
+        "actual_price": 26294.0,
+        "change_pct": 0.02,
+        "result": "ĐÚNG"
+      },
+      "3": {
+        "label": "3 ngày tới",
+        "target_date": "2026-07-10",
+        "actual_price": 26260.0,
+        "change_pct": -0.11,
+        "result": "ĐÚNG"
+      },
+      "7": {
+        "label": "1 tuần tới",
+        "target_date": "2026-07-14",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "14": {
+        "label": "2 tuần tới",
+        "target_date": "2026-07-21",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "21": {
+        "label": "3 tuần tới",
+        "target_date": "2026-07-28",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "30": {
+        "label": "1 tháng tới",
+        "target_date": "2026-08-06",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "90": {
+        "label": "3 tháng tới",
+        "target_date": "2026-10-05",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "180": {
+        "label": "6 tháng tới",
+        "target_date": "2027-01-03",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "365": {
+        "label": "1 năm tới",
+        "target_date": "2027-07-07",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "730": {
+        "label": "2 năm tới",
+        "target_date": "2028-07-06",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1095": {
+        "label": "3 năm tới",
+        "target_date": "2029-07-06",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1825": {
+        "label": "5 năm tới",
+        "target_date": "2031-07-06",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      }
+    },
+    "backfilled": true
+  },
+  {
+    "id": "BTC_2026-07-07",
+    "asset": "BTC",
+    "asset_name": "Bitcoin (BTC/USD)",
+    "asset_color": "#F7931A",
+    "recorded_date": "2026-07-07",
+    "signal": "ĐI NGANG / TRUNG TÍNH",
+    "signal_en": "NEUTRAL",
+    "score": 0,
+    "ml_prob_up": 0.346,
+    "ml_confidence": 0.308,
+    "macro_score": 0,
+    "price_now": 63297.3945,
+    "periods": {
+      "1": {
+        "label": "Ngày mai",
+        "target_date": "2026-07-08",
+        "actual_price": 62257.5742,
+        "change_pct": -1.64,
+        "result": "SAI"
+      },
+      "3": {
+        "label": "3 ngày tới",
+        "target_date": "2026-07-10",
+        "actual_price": 64127.1406,
+        "change_pct": 1.31,
+        "result": "SAI"
+      },
+      "7": {
+        "label": "1 tuần tới",
+        "target_date": "2026-07-14",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "14": {
+        "label": "2 tuần tới",
+        "target_date": "2026-07-21",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "21": {
+        "label": "3 tuần tới",
+        "target_date": "2026-07-28",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "30": {
+        "label": "1 tháng tới",
+        "target_date": "2026-08-06",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "90": {
+        "label": "3 tháng tới",
+        "target_date": "2026-10-05",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "180": {
+        "label": "6 tháng tới",
+        "target_date": "2027-01-03",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "365": {
+        "label": "1 năm tới",
+        "target_date": "2027-07-07",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "730": {
+        "label": "2 năm tới",
+        "target_date": "2028-07-06",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1095": {
+        "label": "3 năm tới",
+        "target_date": "2029-07-06",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1825": {
+        "label": "5 năm tới",
+        "target_date": "2031-07-06",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      }
+    },
+    "backfilled": true
+  },
+  {
+    "id": "XAU_2026-07-08",
+    "asset": "XAU",
+    "asset_name": "Vàng (XAU/USD)",
+    "asset_color": "#FFD700",
+    "recorded_date": "2026-07-08",
+    "signal": "CÓ XU HƯỚNG GIẢM",
+    "signal_en": "DOWN",
+    "score": -2,
+    "ml_prob_up": 0.346,
+    "ml_confidence": 0.308,
+    "macro_score": -1,
+    "price_now": 4083.9086,
+    "periods": {
+      "1": {
+        "label": "Ngày mai",
+        "target_date": "2026-07-09",
+        "actual_price": 4124.5893,
+        "change_pct": 1.0,
+        "result": "SAI"
+      },
+      "3": {
+        "label": "3 ngày tới",
+        "target_date": "2026-07-11",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "7": {
+        "label": "1 tuần tới",
+        "target_date": "2026-07-15",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "14": {
+        "label": "2 tuần tới",
+        "target_date": "2026-07-22",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "21": {
+        "label": "3 tuần tới",
+        "target_date": "2026-07-29",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "30": {
+        "label": "1 tháng tới",
+        "target_date": "2026-08-07",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "90": {
+        "label": "3 tháng tới",
+        "target_date": "2026-10-06",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "180": {
+        "label": "6 tháng tới",
+        "target_date": "2027-01-04",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "365": {
+        "label": "1 năm tới",
+        "target_date": "2027-07-08",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "730": {
+        "label": "2 năm tới",
+        "target_date": "2028-07-07",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1095": {
+        "label": "3 năm tới",
+        "target_date": "2029-07-07",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1825": {
+        "label": "5 năm tới",
+        "target_date": "2031-07-07",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      }
+    },
+    "backfilled": true
+  },
+  {
+    "id": "XAG_2026-07-08",
+    "asset": "XAG",
+    "asset_name": "Bạc (XAG/USD)",
+    "asset_color": "#A8B8C8",
+    "recorded_date": "2026-07-08",
+    "signal": "CÓ XU HƯỚNG GIẢM",
+    "signal_en": "DOWN",
+    "score": -3,
+    "ml_prob_up": 0.346,
+    "ml_confidence": 0.308,
+    "macro_score": -3,
+    "price_now": 61.9752,
+    "periods": {
+      "1": {
+        "label": "Ngày mai",
+        "target_date": "2026-07-09",
+        "actual_price": 63.5119,
+        "change_pct": 2.48,
+        "result": "SAI"
+      },
+      "3": {
+        "label": "3 ngày tới",
+        "target_date": "2026-07-11",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "7": {
+        "label": "1 tuần tới",
+        "target_date": "2026-07-15",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "14": {
+        "label": "2 tuần tới",
+        "target_date": "2026-07-22",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "21": {
+        "label": "3 tuần tới",
+        "target_date": "2026-07-29",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "30": {
+        "label": "1 tháng tới",
+        "target_date": "2026-08-07",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "90": {
+        "label": "3 tháng tới",
+        "target_date": "2026-10-06",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "180": {
+        "label": "6 tháng tới",
+        "target_date": "2027-01-04",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "365": {
+        "label": "1 năm tới",
+        "target_date": "2027-07-08",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "730": {
+        "label": "2 năm tới",
+        "target_date": "2028-07-07",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1095": {
+        "label": "3 năm tới",
+        "target_date": "2029-07-07",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1825": {
+        "label": "5 năm tới",
+        "target_date": "2031-07-07",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      }
+    },
+    "backfilled": true
+  },
+  {
+    "id": "HG_2026-07-08",
+    "asset": "HG",
+    "asset_name": "Đồng (HG/USD)",
+    "asset_color": "#B87333",
+    "recorded_date": "2026-07-08",
+    "signal": "CÓ XU HƯỚNG GIẢM",
+    "signal_en": "DOWN",
+    "score": -2,
+    "ml_prob_up": 0.346,
+    "ml_confidence": 0.308,
+    "macro_score": -2,
+    "price_now": 6.0545,
+    "periods": {
+      "1": {
+        "label": "Ngày mai",
+        "target_date": "2026-07-09",
+        "actual_price": 6.215,
+        "change_pct": 2.65,
+        "result": "SAI"
+      },
+      "3": {
+        "label": "3 ngày tới",
+        "target_date": "2026-07-11",
+        "actual_price": 6.2555,
+        "change_pct": 3.32,
+        "result": "SAI"
+      },
+      "7": {
+        "label": "1 tuần tới",
+        "target_date": "2026-07-15",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "14": {
+        "label": "2 tuần tới",
+        "target_date": "2026-07-22",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "21": {
+        "label": "3 tuần tới",
+        "target_date": "2026-07-29",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "30": {
+        "label": "1 tháng tới",
+        "target_date": "2026-08-07",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "90": {
+        "label": "3 tháng tới",
+        "target_date": "2026-10-06",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "180": {
+        "label": "6 tháng tới",
+        "target_date": "2027-01-04",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "365": {
+        "label": "1 năm tới",
+        "target_date": "2027-07-08",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "730": {
+        "label": "2 năm tới",
+        "target_date": "2028-07-07",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1095": {
+        "label": "3 năm tới",
+        "target_date": "2029-07-07",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1825": {
+        "label": "5 năm tới",
+        "target_date": "2031-07-07",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      }
+    },
+    "backfilled": true
+  },
+  {
+    "id": "CL_2026-07-08",
+    "asset": "CL",
+    "asset_name": "Dầu WTI (USD/bbl)",
+    "asset_color": "#4a90d9",
+    "recorded_date": "2026-07-08",
+    "signal": "CÓ XU HƯỚNG GIẢM",
+    "signal_en": "DOWN",
+    "score": -3,
+    "ml_prob_up": 0.346,
+    "ml_confidence": 0.308,
+    "macro_score": -2,
+    "price_now": 73.52,
+    "periods": {
+      "1": {
+        "label": "Ngày mai",
+        "target_date": "2026-07-09",
+        "actual_price": 72.08,
+        "change_pct": -1.96,
+        "result": "ĐÚNG"
+      },
+      "3": {
+        "label": "3 ngày tới",
+        "target_date": "2026-07-11",
+        "actual_price": 73.36,
+        "change_pct": -0.22,
+        "result": "ĐÚNG"
+      },
+      "7": {
+        "label": "1 tuần tới",
+        "target_date": "2026-07-15",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "14": {
+        "label": "2 tuần tới",
+        "target_date": "2026-07-22",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "21": {
+        "label": "3 tuần tới",
+        "target_date": "2026-07-29",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "30": {
+        "label": "1 tháng tới",
+        "target_date": "2026-08-07",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "90": {
+        "label": "3 tháng tới",
+        "target_date": "2026-10-06",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "180": {
+        "label": "6 tháng tới",
+        "target_date": "2027-01-04",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "365": {
+        "label": "1 năm tới",
+        "target_date": "2027-07-08",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "730": {
+        "label": "2 năm tới",
+        "target_date": "2028-07-07",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1095": {
+        "label": "3 năm tới",
+        "target_date": "2029-07-07",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1825": {
+        "label": "5 năm tới",
+        "target_date": "2031-07-07",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      }
+    },
+    "backfilled": true
+  },
+  {
+    "id": "USDVND_2026-07-08",
+    "asset": "USDVND",
+    "asset_name": "USD/VND",
+    "asset_color": "#2ecc71",
+    "recorded_date": "2026-07-08",
+    "signal": "ĐI NGANG / TRUNG TÍNH",
+    "signal_en": "NEUTRAL",
+    "score": 1,
+    "ml_prob_up": 0.346,
+    "ml_confidence": 0.308,
+    "macro_score": 1,
+    "price_now": 26294.0,
+    "periods": {
+      "1": {
+        "label": "Ngày mai",
+        "target_date": "2026-07-09",
+        "actual_price": 26290.0,
+        "change_pct": -0.02,
+        "result": "ĐÚNG"
+      },
+      "3": {
+        "label": "3 ngày tới",
+        "target_date": "2026-07-11",
+        "actual_price": 26260.0,
+        "change_pct": -0.13,
+        "result": "ĐÚNG"
+      },
+      "7": {
+        "label": "1 tuần tới",
+        "target_date": "2026-07-15",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "14": {
+        "label": "2 tuần tới",
+        "target_date": "2026-07-22",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "21": {
+        "label": "3 tuần tới",
+        "target_date": "2026-07-29",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "30": {
+        "label": "1 tháng tới",
+        "target_date": "2026-08-07",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "90": {
+        "label": "3 tháng tới",
+        "target_date": "2026-10-06",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "180": {
+        "label": "6 tháng tới",
+        "target_date": "2027-01-04",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "365": {
+        "label": "1 năm tới",
+        "target_date": "2027-07-08",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "730": {
+        "label": "2 năm tới",
+        "target_date": "2028-07-07",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1095": {
+        "label": "3 năm tới",
+        "target_date": "2029-07-07",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1825": {
+        "label": "5 năm tới",
+        "target_date": "2031-07-07",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      }
+    },
+    "backfilled": true
+  },
+  {
+    "id": "BTC_2026-07-08",
+    "asset": "BTC",
+    "asset_name": "Bitcoin (BTC/USD)",
+    "asset_color": "#F7931A",
+    "recorded_date": "2026-07-08",
+    "signal": "ĐI NGANG / TRUNG TÍNH",
+    "signal_en": "NEUTRAL",
+    "score": 0,
+    "ml_prob_up": 0.346,
+    "ml_confidence": 0.308,
+    "macro_score": 0,
+    "price_now": 62257.5742,
+    "periods": {
+      "1": {
+        "label": "Ngày mai",
+        "target_date": "2026-07-09",
+        "actual_price": 63193.1484,
+        "change_pct": 1.5,
+        "result": "SAI"
+      },
+      "3": {
+        "label": "3 ngày tới",
+        "target_date": "2026-07-11",
+        "actual_price": 63802.0273,
+        "change_pct": 2.48,
+        "result": "SAI"
+      },
+      "7": {
+        "label": "1 tuần tới",
+        "target_date": "2026-07-15",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "14": {
+        "label": "2 tuần tới",
+        "target_date": "2026-07-22",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "21": {
+        "label": "3 tuần tới",
+        "target_date": "2026-07-29",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "30": {
+        "label": "1 tháng tới",
+        "target_date": "2026-08-07",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "90": {
+        "label": "3 tháng tới",
+        "target_date": "2026-10-06",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "180": {
+        "label": "6 tháng tới",
+        "target_date": "2027-01-04",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "365": {
+        "label": "1 năm tới",
+        "target_date": "2027-07-08",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "730": {
+        "label": "2 năm tới",
+        "target_date": "2028-07-07",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1095": {
+        "label": "3 năm tới",
+        "target_date": "2029-07-07",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1825": {
+        "label": "5 năm tới",
+        "target_date": "2031-07-07",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      }
+    },
+    "backfilled": true
+  },
+  {
+    "id": "XAU_2026-07-09",
+    "asset": "XAU",
+    "asset_name": "Vàng (XAU/USD)",
+    "asset_color": "#FFD700",
+    "recorded_date": "2026-07-09",
+    "signal": "CÓ XU HƯỚNG GIẢM",
+    "signal_en": "DOWN",
+    "score": -2,
+    "ml_prob_up": 0.346,
+    "ml_confidence": 0.308,
+    "macro_score": -1,
+    "price_now": 4124.5893,
+    "periods": {
+      "1": {
+        "label": "Ngày mai",
+        "target_date": "2026-07-10",
+        "actual_price": 4111.829,
+        "change_pct": -0.31,
+        "result": "ĐÚNG"
+      },
+      "3": {
+        "label": "3 ngày tới",
+        "target_date": "2026-07-12",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "7": {
+        "label": "1 tuần tới",
+        "target_date": "2026-07-16",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "14": {
+        "label": "2 tuần tới",
+        "target_date": "2026-07-23",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "21": {
+        "label": "3 tuần tới",
+        "target_date": "2026-07-30",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "30": {
+        "label": "1 tháng tới",
+        "target_date": "2026-08-08",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "90": {
+        "label": "3 tháng tới",
+        "target_date": "2026-10-07",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "180": {
+        "label": "6 tháng tới",
+        "target_date": "2027-01-05",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "365": {
+        "label": "1 năm tới",
+        "target_date": "2027-07-09",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "730": {
+        "label": "2 năm tới",
+        "target_date": "2028-07-08",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1095": {
+        "label": "3 năm tới",
+        "target_date": "2029-07-08",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1825": {
+        "label": "5 năm tới",
+        "target_date": "2031-07-08",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      }
+    },
+    "backfilled": true
+  },
+  {
+    "id": "XAG_2026-07-09",
+    "asset": "XAG",
+    "asset_name": "Bạc (XAG/USD)",
+    "asset_color": "#A8B8C8",
+    "recorded_date": "2026-07-09",
+    "signal": "CÓ XU HƯỚNG GIẢM",
+    "signal_en": "DOWN",
+    "score": -3,
+    "ml_prob_up": 0.346,
+    "ml_confidence": 0.308,
+    "macro_score": -4,
+    "price_now": 63.5119,
+    "periods": {
+      "1": {
+        "label": "Ngày mai",
+        "target_date": "2026-07-10",
+        "actual_price": 63.2891,
+        "change_pct": -0.35,
+        "result": "ĐÚNG"
+      },
+      "3": {
+        "label": "3 ngày tới",
+        "target_date": "2026-07-12",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "7": {
+        "label": "1 tuần tới",
+        "target_date": "2026-07-16",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "14": {
+        "label": "2 tuần tới",
+        "target_date": "2026-07-23",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "21": {
+        "label": "3 tuần tới",
+        "target_date": "2026-07-30",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "30": {
+        "label": "1 tháng tới",
+        "target_date": "2026-08-08",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "90": {
+        "label": "3 tháng tới",
+        "target_date": "2026-10-07",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "180": {
+        "label": "6 tháng tới",
+        "target_date": "2027-01-05",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "365": {
+        "label": "1 năm tới",
+        "target_date": "2027-07-09",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "730": {
+        "label": "2 năm tới",
+        "target_date": "2028-07-08",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1095": {
+        "label": "3 năm tới",
+        "target_date": "2029-07-08",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1825": {
+        "label": "5 năm tới",
+        "target_date": "2031-07-08",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      }
+    },
+    "backfilled": true
+  },
+  {
+    "id": "HG_2026-07-09",
+    "asset": "HG",
+    "asset_name": "Đồng (HG/USD)",
+    "asset_color": "#B87333",
+    "recorded_date": "2026-07-09",
+    "signal": "ĐI NGANG / TRUNG TÍNH",
+    "signal_en": "NEUTRAL",
+    "score": -1,
+    "ml_prob_up": 0.346,
+    "ml_confidence": 0.308,
+    "macro_score": -2,
+    "price_now": 6.215,
+    "periods": {
+      "1": {
+        "label": "Ngày mai",
+        "target_date": "2026-07-10",
+        "actual_price": 6.2335,
+        "change_pct": 0.3,
+        "result": "ĐÚNG"
+      },
+      "3": {
+        "label": "3 ngày tới",
+        "target_date": "2026-07-12",
+        "actual_price": 6.2555,
+        "change_pct": 0.65,
+        "result": "SAI"
+      },
+      "7": {
+        "label": "1 tuần tới",
+        "target_date": "2026-07-16",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "14": {
+        "label": "2 tuần tới",
+        "target_date": "2026-07-23",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "21": {
+        "label": "3 tuần tới",
+        "target_date": "2026-07-30",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "30": {
+        "label": "1 tháng tới",
+        "target_date": "2026-08-08",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "90": {
+        "label": "3 tháng tới",
+        "target_date": "2026-10-07",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "180": {
+        "label": "6 tháng tới",
+        "target_date": "2027-01-05",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "365": {
+        "label": "1 năm tới",
+        "target_date": "2027-07-09",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "730": {
+        "label": "2 năm tới",
+        "target_date": "2028-07-08",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1095": {
+        "label": "3 năm tới",
+        "target_date": "2029-07-08",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1825": {
+        "label": "5 năm tới",
+        "target_date": "2031-07-08",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      }
+    },
+    "backfilled": true
+  },
+  {
+    "id": "CL_2026-07-09",
+    "asset": "CL",
+    "asset_name": "Dầu WTI (USD/bbl)",
+    "asset_color": "#4a90d9",
+    "recorded_date": "2026-07-09",
+    "signal": "CÓ XU HƯỚNG GIẢM",
+    "signal_en": "DOWN",
+    "score": -3,
+    "ml_prob_up": 0.346,
+    "ml_confidence": 0.308,
+    "macro_score": -2,
+    "price_now": 72.08,
+    "periods": {
+      "1": {
+        "label": "Ngày mai",
+        "target_date": "2026-07-10",
+        "actual_price": 71.41,
+        "change_pct": -0.93,
+        "result": "ĐÚNG"
+      },
+      "3": {
+        "label": "3 ngày tới",
+        "target_date": "2026-07-12",
+        "actual_price": 73.36,
+        "change_pct": 1.78,
+        "result": "SAI"
+      },
+      "7": {
+        "label": "1 tuần tới",
+        "target_date": "2026-07-16",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "14": {
+        "label": "2 tuần tới",
+        "target_date": "2026-07-23",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "21": {
+        "label": "3 tuần tới",
+        "target_date": "2026-07-30",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "30": {
+        "label": "1 tháng tới",
+        "target_date": "2026-08-08",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "90": {
+        "label": "3 tháng tới",
+        "target_date": "2026-10-07",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "180": {
+        "label": "6 tháng tới",
+        "target_date": "2027-01-05",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "365": {
+        "label": "1 năm tới",
+        "target_date": "2027-07-09",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "730": {
+        "label": "2 năm tới",
+        "target_date": "2028-07-08",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1095": {
+        "label": "3 năm tới",
+        "target_date": "2029-07-08",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1825": {
+        "label": "5 năm tới",
+        "target_date": "2031-07-08",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      }
+    },
+    "backfilled": true
+  },
+  {
+    "id": "USDVND_2026-07-09",
+    "asset": "USDVND",
+    "asset_name": "USD/VND",
+    "asset_color": "#2ecc71",
+    "recorded_date": "2026-07-09",
+    "signal": "ĐI NGANG / TRUNG TÍNH",
+    "signal_en": "NEUTRAL",
+    "score": 1,
+    "ml_prob_up": 0.346,
+    "ml_confidence": 0.308,
+    "macro_score": 1,
+    "price_now": 26290.0,
+    "periods": {
+      "1": {
+        "label": "Ngày mai",
+        "target_date": "2026-07-10",
+        "actual_price": 26260.0,
+        "change_pct": -0.11,
+        "result": "ĐÚNG"
+      },
+      "3": {
+        "label": "3 ngày tới",
+        "target_date": "2026-07-12",
+        "actual_price": 26260.0,
+        "change_pct": -0.11,
+        "result": "ĐÚNG"
+      },
+      "7": {
+        "label": "1 tuần tới",
+        "target_date": "2026-07-16",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "14": {
+        "label": "2 tuần tới",
+        "target_date": "2026-07-23",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "21": {
+        "label": "3 tuần tới",
+        "target_date": "2026-07-30",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "30": {
+        "label": "1 tháng tới",
+        "target_date": "2026-08-08",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "90": {
+        "label": "3 tháng tới",
+        "target_date": "2026-10-07",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "180": {
+        "label": "6 tháng tới",
+        "target_date": "2027-01-05",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "365": {
+        "label": "1 năm tới",
+        "target_date": "2027-07-09",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "730": {
+        "label": "2 năm tới",
+        "target_date": "2028-07-08",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1095": {
+        "label": "3 năm tới",
+        "target_date": "2029-07-08",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1825": {
+        "label": "5 năm tới",
+        "target_date": "2031-07-08",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      }
+    },
+    "backfilled": true
+  },
+  {
+    "id": "BTC_2026-07-09",
+    "asset": "BTC",
+    "asset_name": "Bitcoin (BTC/USD)",
+    "asset_color": "#F7931A",
+    "recorded_date": "2026-07-09",
+    "signal": "ĐI NGANG / TRUNG TÍNH",
+    "signal_en": "NEUTRAL",
+    "score": 0,
+    "ml_prob_up": 0.346,
+    "ml_confidence": 0.308,
+    "macro_score": -1,
+    "price_now": 63193.1484,
+    "periods": {
+      "1": {
+        "label": "Ngày mai",
+        "target_date": "2026-07-10",
+        "actual_price": 64127.1406,
+        "change_pct": 1.48,
+        "result": "SAI"
+      },
+      "3": {
+        "label": "3 ngày tới",
+        "target_date": "2026-07-12",
+        "actual_price": 63758.2188,
+        "change_pct": 0.89,
+        "result": "SAI"
+      },
+      "7": {
+        "label": "1 tuần tới",
+        "target_date": "2026-07-16",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "14": {
+        "label": "2 tuần tới",
+        "target_date": "2026-07-23",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "21": {
+        "label": "3 tuần tới",
+        "target_date": "2026-07-30",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "30": {
+        "label": "1 tháng tới",
+        "target_date": "2026-08-08",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "90": {
+        "label": "3 tháng tới",
+        "target_date": "2026-10-07",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "180": {
+        "label": "6 tháng tới",
+        "target_date": "2027-01-05",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "365": {
+        "label": "1 năm tới",
+        "target_date": "2027-07-09",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "730": {
+        "label": "2 năm tới",
+        "target_date": "2028-07-08",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1095": {
+        "label": "3 năm tới",
+        "target_date": "2029-07-08",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1825": {
+        "label": "5 năm tới",
+        "target_date": "2031-07-08",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      }
+    },
+    "backfilled": true
+  },
+  {
+    "id": "XAU_2026-07-10",
+    "asset": "XAU",
+    "asset_name": "Vàng (XAU/USD)",
+    "asset_color": "#FFD700",
+    "recorded_date": "2026-07-10",
+    "signal": "CÓ XU HƯỚNG GIẢM",
+    "signal_en": "DOWN",
+    "score": -2,
+    "ml_prob_up": 0.346,
+    "ml_confidence": 0.308,
+    "macro_score": -1,
+    "price_now": 4111.829,
+    "periods": {
+      "1": {
+        "label": "Ngày mai",
+        "target_date": "2026-07-11",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "3": {
+        "label": "3 ngày tới",
+        "target_date": "2026-07-13",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "7": {
+        "label": "1 tuần tới",
+        "target_date": "2026-07-17",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "14": {
+        "label": "2 tuần tới",
+        "target_date": "2026-07-24",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "21": {
+        "label": "3 tuần tới",
+        "target_date": "2026-07-31",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "30": {
+        "label": "1 tháng tới",
+        "target_date": "2026-08-09",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "90": {
+        "label": "3 tháng tới",
+        "target_date": "2026-10-08",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "180": {
+        "label": "6 tháng tới",
+        "target_date": "2027-01-06",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "365": {
+        "label": "1 năm tới",
+        "target_date": "2027-07-10",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "730": {
+        "label": "2 năm tới",
+        "target_date": "2028-07-09",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1095": {
+        "label": "3 năm tới",
+        "target_date": "2029-07-09",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1825": {
+        "label": "5 năm tới",
+        "target_date": "2031-07-09",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      }
+    },
+    "backfilled": true
+  },
+  {
+    "id": "XAG_2026-07-10",
+    "asset": "XAG",
+    "asset_name": "Bạc (XAG/USD)",
+    "asset_color": "#A8B8C8",
+    "recorded_date": "2026-07-10",
+    "signal": "CÓ XU HƯỚNG GIẢM",
+    "signal_en": "DOWN",
+    "score": -3,
+    "ml_prob_up": 0.346,
+    "ml_confidence": 0.308,
+    "macro_score": -4,
+    "price_now": 63.2891,
+    "periods": {
+      "1": {
+        "label": "Ngày mai",
+        "target_date": "2026-07-11",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "3": {
+        "label": "3 ngày tới",
+        "target_date": "2026-07-13",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "7": {
+        "label": "1 tuần tới",
+        "target_date": "2026-07-17",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "14": {
+        "label": "2 tuần tới",
+        "target_date": "2026-07-24",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "21": {
+        "label": "3 tuần tới",
+        "target_date": "2026-07-31",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "30": {
+        "label": "1 tháng tới",
+        "target_date": "2026-08-09",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "90": {
+        "label": "3 tháng tới",
+        "target_date": "2026-10-08",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "180": {
+        "label": "6 tháng tới",
+        "target_date": "2027-01-06",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "365": {
+        "label": "1 năm tới",
+        "target_date": "2027-07-10",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "730": {
+        "label": "2 năm tới",
+        "target_date": "2028-07-09",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1095": {
+        "label": "3 năm tới",
+        "target_date": "2029-07-09",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1825": {
+        "label": "5 năm tới",
+        "target_date": "2031-07-09",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      }
+    },
+    "backfilled": true
+  },
+  {
+    "id": "HG_2026-07-10",
+    "asset": "HG",
+    "asset_name": "Đồng (HG/USD)",
+    "asset_color": "#B87333",
+    "recorded_date": "2026-07-10",
+    "signal": "ĐI NGANG / TRUNG TÍNH",
+    "signal_en": "NEUTRAL",
+    "score": 1,
+    "ml_prob_up": 0.346,
+    "ml_confidence": 0.308,
+    "macro_score": -1,
+    "price_now": 6.2335,
+    "periods": {
+      "1": {
+        "label": "Ngày mai",
+        "target_date": "2026-07-11",
+        "actual_price": 6.2555,
+        "change_pct": 0.35,
+        "result": "ĐÚNG"
+      },
+      "3": {
+        "label": "3 ngày tới",
+        "target_date": "2026-07-13",
+        "actual_price": 6.2555,
+        "change_pct": 0.35,
+        "result": "ĐÚNG"
+      },
+      "7": {
+        "label": "1 tuần tới",
+        "target_date": "2026-07-17",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "14": {
+        "label": "2 tuần tới",
+        "target_date": "2026-07-24",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "21": {
+        "label": "3 tuần tới",
+        "target_date": "2026-07-31",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "30": {
+        "label": "1 tháng tới",
+        "target_date": "2026-08-09",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "90": {
+        "label": "3 tháng tới",
+        "target_date": "2026-10-08",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "180": {
+        "label": "6 tháng tới",
+        "target_date": "2027-01-06",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "365": {
+        "label": "1 năm tới",
+        "target_date": "2027-07-10",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "730": {
+        "label": "2 năm tới",
+        "target_date": "2028-07-09",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1095": {
+        "label": "3 năm tới",
+        "target_date": "2029-07-09",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1825": {
+        "label": "5 năm tới",
+        "target_date": "2031-07-09",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      }
+    },
+    "backfilled": true
+  },
+  {
+    "id": "CL_2026-07-10",
+    "asset": "CL",
+    "asset_name": "Dầu WTI (USD/bbl)",
+    "asset_color": "#4a90d9",
+    "recorded_date": "2026-07-10",
+    "signal": "CÓ XU HƯỚNG GIẢM",
+    "signal_en": "DOWN",
+    "score": -3,
+    "ml_prob_up": 0.346,
+    "ml_confidence": 0.308,
+    "macro_score": -2,
+    "price_now": 71.41,
+    "periods": {
+      "1": {
+        "label": "Ngày mai",
+        "target_date": "2026-07-11",
+        "actual_price": 73.36,
+        "change_pct": 2.73,
+        "result": "SAI"
+      },
+      "3": {
+        "label": "3 ngày tới",
+        "target_date": "2026-07-13",
+        "actual_price": 73.36,
+        "change_pct": 2.73,
+        "result": "SAI"
+      },
+      "7": {
+        "label": "1 tuần tới",
+        "target_date": "2026-07-17",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "14": {
+        "label": "2 tuần tới",
+        "target_date": "2026-07-24",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "21": {
+        "label": "3 tuần tới",
+        "target_date": "2026-07-31",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "30": {
+        "label": "1 tháng tới",
+        "target_date": "2026-08-09",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "90": {
+        "label": "3 tháng tới",
+        "target_date": "2026-10-08",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "180": {
+        "label": "6 tháng tới",
+        "target_date": "2027-01-06",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "365": {
+        "label": "1 năm tới",
+        "target_date": "2027-07-10",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "730": {
+        "label": "2 năm tới",
+        "target_date": "2028-07-09",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1095": {
+        "label": "3 năm tới",
+        "target_date": "2029-07-09",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1825": {
+        "label": "5 năm tới",
+        "target_date": "2031-07-09",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      }
+    },
+    "backfilled": true
+  },
+  {
+    "id": "USDVND_2026-07-10",
+    "asset": "USDVND",
+    "asset_name": "USD/VND",
+    "asset_color": "#2ecc71",
+    "recorded_date": "2026-07-10",
+    "signal": "ĐI NGANG / TRUNG TÍNH",
+    "signal_en": "NEUTRAL",
+    "score": 1,
+    "ml_prob_up": 0.346,
+    "ml_confidence": 0.308,
+    "macro_score": 1,
+    "price_now": 26290.0,
+    "periods": {
+      "1": {
+        "label": "Ngày mai",
+        "target_date": "2026-07-11",
+        "actual_price": 26260.0,
+        "change_pct": -0.11,
+        "result": "ĐÚNG"
+      },
+      "3": {
+        "label": "3 ngày tới",
+        "target_date": "2026-07-13",
+        "actual_price": 26260.0,
+        "change_pct": -0.11,
+        "result": "ĐÚNG"
+      },
+      "7": {
+        "label": "1 tuần tới",
+        "target_date": "2026-07-17",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "14": {
+        "label": "2 tuần tới",
+        "target_date": "2026-07-24",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "21": {
+        "label": "3 tuần tới",
+        "target_date": "2026-07-31",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "30": {
+        "label": "1 tháng tới",
+        "target_date": "2026-08-09",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "90": {
+        "label": "3 tháng tới",
+        "target_date": "2026-10-08",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "180": {
+        "label": "6 tháng tới",
+        "target_date": "2027-01-06",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "365": {
+        "label": "1 năm tới",
+        "target_date": "2027-07-10",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "730": {
+        "label": "2 năm tới",
+        "target_date": "2028-07-09",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1095": {
+        "label": "3 năm tới",
+        "target_date": "2029-07-09",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1825": {
+        "label": "5 năm tới",
+        "target_date": "2031-07-09",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      }
+    },
+    "backfilled": true
+  },
+  {
+    "id": "BTC_2026-07-10",
+    "asset": "BTC",
+    "asset_name": "Bitcoin (BTC/USD)",
+    "asset_color": "#F7931A",
+    "recorded_date": "2026-07-10",
+    "signal": "ĐI NGANG / TRUNG TÍNH",
+    "signal_en": "NEUTRAL",
+    "score": 0,
+    "ml_prob_up": 0.346,
+    "ml_confidence": 0.308,
+    "macro_score": -1,
+    "price_now": 64127.1406,
+    "periods": {
+      "1": {
+        "label": "Ngày mai",
+        "target_date": "2026-07-11",
+        "actual_price": 63802.0273,
+        "change_pct": -0.51,
+        "result": "SAI"
+      },
+      "3": {
+        "label": "3 ngày tới",
+        "target_date": "2026-07-13",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "7": {
+        "label": "1 tuần tới",
+        "target_date": "2026-07-17",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "14": {
+        "label": "2 tuần tới",
+        "target_date": "2026-07-24",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "21": {
+        "label": "3 tuần tới",
+        "target_date": "2026-07-31",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "30": {
+        "label": "1 tháng tới",
+        "target_date": "2026-08-09",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "90": {
+        "label": "3 tháng tới",
+        "target_date": "2026-10-08",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "180": {
+        "label": "6 tháng tới",
+        "target_date": "2027-01-06",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "365": {
+        "label": "1 năm tới",
+        "target_date": "2027-07-10",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "730": {
+        "label": "2 năm tới",
+        "target_date": "2028-07-09",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1095": {
+        "label": "3 năm tới",
+        "target_date": "2029-07-09",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1825": {
+        "label": "5 năm tới",
+        "target_date": "2031-07-09",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      }
+    },
+    "backfilled": true
+  },
+  {
+    "id": "XAU_2026-07-11",
+    "asset": "XAU",
+    "asset_name": "Vàng (XAU/USD)",
+    "asset_color": "#FFD700",
+    "recorded_date": "2026-07-11",
+    "signal": "CÓ XU HƯỚNG GIẢM",
+    "signal_en": "DOWN",
+    "score": -2,
+    "ml_prob_up": 0.346,
+    "ml_confidence": 0.308,
+    "macro_score": -1,
+    "price_now": 4111.829,
+    "periods": {
+      "1": {
+        "label": "Ngày mai",
+        "target_date": "2026-07-12",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "3": {
+        "label": "3 ngày tới",
+        "target_date": "2026-07-14",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "7": {
+        "label": "1 tuần tới",
+        "target_date": "2026-07-18",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "14": {
+        "label": "2 tuần tới",
+        "target_date": "2026-07-25",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "21": {
+        "label": "3 tuần tới",
+        "target_date": "2026-08-01",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "30": {
+        "label": "1 tháng tới",
+        "target_date": "2026-08-10",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "90": {
+        "label": "3 tháng tới",
+        "target_date": "2026-10-09",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "180": {
+        "label": "6 tháng tới",
+        "target_date": "2027-01-07",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "365": {
+        "label": "1 năm tới",
+        "target_date": "2027-07-11",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "730": {
+        "label": "2 năm tới",
+        "target_date": "2028-07-10",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1095": {
+        "label": "3 năm tới",
+        "target_date": "2029-07-10",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1825": {
+        "label": "5 năm tới",
+        "target_date": "2031-07-10",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      }
+    },
+    "backfilled": true
+  },
+  {
+    "id": "XAG_2026-07-11",
+    "asset": "XAG",
+    "asset_name": "Bạc (XAG/USD)",
+    "asset_color": "#A8B8C8",
+    "recorded_date": "2026-07-11",
+    "signal": "CÓ XU HƯỚNG GIẢM",
+    "signal_en": "DOWN",
+    "score": -3,
+    "ml_prob_up": 0.346,
+    "ml_confidence": 0.308,
+    "macro_score": -4,
+    "price_now": 63.2891,
+    "periods": {
+      "1": {
+        "label": "Ngày mai",
+        "target_date": "2026-07-12",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "3": {
+        "label": "3 ngày tới",
+        "target_date": "2026-07-14",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "7": {
+        "label": "1 tuần tới",
+        "target_date": "2026-07-18",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "14": {
+        "label": "2 tuần tới",
+        "target_date": "2026-07-25",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "21": {
+        "label": "3 tuần tới",
+        "target_date": "2026-08-01",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "30": {
+        "label": "1 tháng tới",
+        "target_date": "2026-08-10",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "90": {
+        "label": "3 tháng tới",
+        "target_date": "2026-10-09",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "180": {
+        "label": "6 tháng tới",
+        "target_date": "2027-01-07",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "365": {
+        "label": "1 năm tới",
+        "target_date": "2027-07-11",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "730": {
+        "label": "2 năm tới",
+        "target_date": "2028-07-10",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1095": {
+        "label": "3 năm tới",
+        "target_date": "2029-07-10",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1825": {
+        "label": "5 năm tới",
+        "target_date": "2031-07-10",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      }
+    },
+    "backfilled": true
+  },
+  {
+    "id": "HG_2026-07-11",
+    "asset": "HG",
+    "asset_name": "Đồng (HG/USD)",
+    "asset_color": "#B87333",
+    "recorded_date": "2026-07-11",
+    "signal": "ĐI NGANG / TRUNG TÍNH",
+    "signal_en": "NEUTRAL",
+    "score": 1,
+    "ml_prob_up": 0.346,
+    "ml_confidence": 0.308,
+    "macro_score": -1,
+    "price_now": 6.2335,
+    "periods": {
+      "1": {
+        "label": "Ngày mai",
+        "target_date": "2026-07-12",
+        "actual_price": 6.2555,
+        "change_pct": 0.35,
+        "result": "ĐÚNG"
+      },
+      "3": {
+        "label": "3 ngày tới",
+        "target_date": "2026-07-14",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "7": {
+        "label": "1 tuần tới",
+        "target_date": "2026-07-18",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "14": {
+        "label": "2 tuần tới",
+        "target_date": "2026-07-25",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "21": {
+        "label": "3 tuần tới",
+        "target_date": "2026-08-01",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "30": {
+        "label": "1 tháng tới",
+        "target_date": "2026-08-10",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "90": {
+        "label": "3 tháng tới",
+        "target_date": "2026-10-09",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "180": {
+        "label": "6 tháng tới",
+        "target_date": "2027-01-07",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "365": {
+        "label": "1 năm tới",
+        "target_date": "2027-07-11",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "730": {
+        "label": "2 năm tới",
+        "target_date": "2028-07-10",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1095": {
+        "label": "3 năm tới",
+        "target_date": "2029-07-10",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1825": {
+        "label": "5 năm tới",
+        "target_date": "2031-07-10",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      }
+    },
+    "backfilled": true
+  },
+  {
+    "id": "CL_2026-07-11",
+    "asset": "CL",
+    "asset_name": "Dầu WTI (USD/bbl)",
+    "asset_color": "#4a90d9",
+    "recorded_date": "2026-07-11",
+    "signal": "CÓ XU HƯỚNG GIẢM",
+    "signal_en": "DOWN",
+    "score": -3,
+    "ml_prob_up": 0.346,
+    "ml_confidence": 0.308,
+    "macro_score": -2,
+    "price_now": 71.41,
+    "periods": {
+      "1": {
+        "label": "Ngày mai",
+        "target_date": "2026-07-12",
+        "actual_price": 73.36,
+        "change_pct": 2.73,
+        "result": "SAI"
+      },
+      "3": {
+        "label": "3 ngày tới",
+        "target_date": "2026-07-14",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "7": {
+        "label": "1 tuần tới",
+        "target_date": "2026-07-18",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "14": {
+        "label": "2 tuần tới",
+        "target_date": "2026-07-25",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "21": {
+        "label": "3 tuần tới",
+        "target_date": "2026-08-01",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "30": {
+        "label": "1 tháng tới",
+        "target_date": "2026-08-10",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "90": {
+        "label": "3 tháng tới",
+        "target_date": "2026-10-09",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "180": {
+        "label": "6 tháng tới",
+        "target_date": "2027-01-07",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "365": {
+        "label": "1 năm tới",
+        "target_date": "2027-07-11",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "730": {
+        "label": "2 năm tới",
+        "target_date": "2028-07-10",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1095": {
+        "label": "3 năm tới",
+        "target_date": "2029-07-10",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1825": {
+        "label": "5 năm tới",
+        "target_date": "2031-07-10",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      }
+    },
+    "backfilled": true
+  },
+  {
+    "id": "USDVND_2026-07-11",
+    "asset": "USDVND",
+    "asset_name": "USD/VND",
+    "asset_color": "#2ecc71",
+    "recorded_date": "2026-07-11",
+    "signal": "ĐI NGANG / TRUNG TÍNH",
+    "signal_en": "NEUTRAL",
+    "score": 1,
+    "ml_prob_up": 0.346,
+    "ml_confidence": 0.308,
+    "macro_score": 1,
+    "price_now": 26290.0,
+    "periods": {
+      "1": {
+        "label": "Ngày mai",
+        "target_date": "2026-07-12",
+        "actual_price": 26260.0,
+        "change_pct": -0.11,
+        "result": "ĐÚNG"
+      },
+      "3": {
+        "label": "3 ngày tới",
+        "target_date": "2026-07-14",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "7": {
+        "label": "1 tuần tới",
+        "target_date": "2026-07-18",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "14": {
+        "label": "2 tuần tới",
+        "target_date": "2026-07-25",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "21": {
+        "label": "3 tuần tới",
+        "target_date": "2026-08-01",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "30": {
+        "label": "1 tháng tới",
+        "target_date": "2026-08-10",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "90": {
+        "label": "3 tháng tới",
+        "target_date": "2026-10-09",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "180": {
+        "label": "6 tháng tới",
+        "target_date": "2027-01-07",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "365": {
+        "label": "1 năm tới",
+        "target_date": "2027-07-11",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "730": {
+        "label": "2 năm tới",
+        "target_date": "2028-07-10",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1095": {
+        "label": "3 năm tới",
+        "target_date": "2029-07-10",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1825": {
+        "label": "5 năm tới",
+        "target_date": "2031-07-10",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      }
+    },
+    "backfilled": true
+  },
+  {
+    "id": "BTC_2026-07-11",
+    "asset": "BTC",
+    "asset_name": "Bitcoin (BTC/USD)",
+    "asset_color": "#F7931A",
+    "recorded_date": "2026-07-11",
+    "signal": "ĐI NGANG / TRUNG TÍNH",
+    "signal_en": "NEUTRAL",
+    "score": -1,
+    "ml_prob_up": 0.346,
+    "ml_confidence": 0.308,
+    "macro_score": -2,
+    "price_now": 63802.0273,
+    "periods": {
+      "1": {
+        "label": "Ngày mai",
+        "target_date": "2026-07-12",
+        "actual_price": 63758.2188,
+        "change_pct": -0.07,
+        "result": "ĐÚNG"
+      },
+      "3": {
+        "label": "3 ngày tới",
+        "target_date": "2026-07-14",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "7": {
+        "label": "1 tuần tới",
+        "target_date": "2026-07-18",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "14": {
+        "label": "2 tuần tới",
+        "target_date": "2026-07-25",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "21": {
+        "label": "3 tuần tới",
+        "target_date": "2026-08-01",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "30": {
+        "label": "1 tháng tới",
+        "target_date": "2026-08-10",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "90": {
+        "label": "3 tháng tới",
+        "target_date": "2026-10-09",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "180": {
+        "label": "6 tháng tới",
+        "target_date": "2027-01-07",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "365": {
+        "label": "1 năm tới",
+        "target_date": "2027-07-11",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "730": {
+        "label": "2 năm tới",
+        "target_date": "2028-07-10",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1095": {
+        "label": "3 năm tới",
+        "target_date": "2029-07-10",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1825": {
+        "label": "5 năm tới",
+        "target_date": "2031-07-10",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      }
+    },
+    "backfilled": true
+  },
+  {
+    "id": "XAU_2026-07-12",
+    "asset": "XAU",
+    "asset_name": "Vàng (XAU/USD)",
+    "asset_color": "#FFD700",
+    "recorded_date": "2026-07-12",
+    "signal": "CÓ XU HƯỚNG GIẢM",
+    "signal_en": "DOWN",
+    "score": -2,
+    "ml_prob_up": 0.346,
+    "ml_confidence": 0.308,
+    "macro_score": -1,
+    "price_now": 4111.829,
+    "periods": {
+      "1": {
+        "label": "Ngày mai",
+        "target_date": "2026-07-13",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "3": {
+        "label": "3 ngày tới",
+        "target_date": "2026-07-15",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "7": {
+        "label": "1 tuần tới",
+        "target_date": "2026-07-19",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "14": {
+        "label": "2 tuần tới",
+        "target_date": "2026-07-26",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "21": {
+        "label": "3 tuần tới",
+        "target_date": "2026-08-02",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "30": {
+        "label": "1 tháng tới",
+        "target_date": "2026-08-11",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "90": {
+        "label": "3 tháng tới",
+        "target_date": "2026-10-10",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "180": {
+        "label": "6 tháng tới",
+        "target_date": "2027-01-08",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "365": {
+        "label": "1 năm tới",
+        "target_date": "2027-07-12",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "730": {
+        "label": "2 năm tới",
+        "target_date": "2028-07-11",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1095": {
+        "label": "3 năm tới",
+        "target_date": "2029-07-11",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1825": {
+        "label": "5 năm tới",
+        "target_date": "2031-07-11",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      }
+    },
+    "backfilled": true
+  },
+  {
+    "id": "XAG_2026-07-12",
+    "asset": "XAG",
+    "asset_name": "Bạc (XAG/USD)",
+    "asset_color": "#A8B8C8",
+    "recorded_date": "2026-07-12",
+    "signal": "CÓ XU HƯỚNG GIẢM",
+    "signal_en": "DOWN",
+    "score": -3,
+    "ml_prob_up": 0.346,
+    "ml_confidence": 0.308,
+    "macro_score": -4,
+    "price_now": 63.2891,
+    "periods": {
+      "1": {
+        "label": "Ngày mai",
+        "target_date": "2026-07-13",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "3": {
+        "label": "3 ngày tới",
+        "target_date": "2026-07-15",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "7": {
+        "label": "1 tuần tới",
+        "target_date": "2026-07-19",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "14": {
+        "label": "2 tuần tới",
+        "target_date": "2026-07-26",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "21": {
+        "label": "3 tuần tới",
+        "target_date": "2026-08-02",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "30": {
+        "label": "1 tháng tới",
+        "target_date": "2026-08-11",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "90": {
+        "label": "3 tháng tới",
+        "target_date": "2026-10-10",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "180": {
+        "label": "6 tháng tới",
+        "target_date": "2027-01-08",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "365": {
+        "label": "1 năm tới",
+        "target_date": "2027-07-12",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "730": {
+        "label": "2 năm tới",
+        "target_date": "2028-07-11",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1095": {
+        "label": "3 năm tới",
+        "target_date": "2029-07-11",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1825": {
+        "label": "5 năm tới",
+        "target_date": "2031-07-11",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      }
+    },
+    "backfilled": true
+  },
+  {
+    "id": "HG_2026-07-12",
+    "asset": "HG",
+    "asset_name": "Đồng (HG/USD)",
+    "asset_color": "#B87333",
+    "recorded_date": "2026-07-12",
+    "signal": "ĐI NGANG / TRUNG TÍNH",
+    "signal_en": "NEUTRAL",
+    "score": 1,
+    "ml_prob_up": 0.346,
+    "ml_confidence": 0.308,
+    "macro_score": -1,
+    "price_now": 6.2335,
+    "periods": {
+      "1": {
+        "label": "Ngày mai",
+        "target_date": "2026-07-13",
+        "actual_price": 6.2555,
+        "change_pct": 0.35,
+        "result": "ĐÚNG"
+      },
+      "3": {
+        "label": "3 ngày tới",
+        "target_date": "2026-07-15",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "7": {
+        "label": "1 tuần tới",
+        "target_date": "2026-07-19",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "14": {
+        "label": "2 tuần tới",
+        "target_date": "2026-07-26",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "21": {
+        "label": "3 tuần tới",
+        "target_date": "2026-08-02",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "30": {
+        "label": "1 tháng tới",
+        "target_date": "2026-08-11",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "90": {
+        "label": "3 tháng tới",
+        "target_date": "2026-10-10",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "180": {
+        "label": "6 tháng tới",
+        "target_date": "2027-01-08",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "365": {
+        "label": "1 năm tới",
+        "target_date": "2027-07-12",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "730": {
+        "label": "2 năm tới",
+        "target_date": "2028-07-11",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1095": {
+        "label": "3 năm tới",
+        "target_date": "2029-07-11",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1825": {
+        "label": "5 năm tới",
+        "target_date": "2031-07-11",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      }
+    },
+    "backfilled": true
+  },
+  {
+    "id": "CL_2026-07-12",
+    "asset": "CL",
+    "asset_name": "Dầu WTI (USD/bbl)",
+    "asset_color": "#4a90d9",
+    "recorded_date": "2026-07-12",
+    "signal": "CÓ XU HƯỚNG GIẢM",
+    "signal_en": "DOWN",
+    "score": -3,
+    "ml_prob_up": 0.346,
+    "ml_confidence": 0.308,
+    "macro_score": -2,
+    "price_now": 71.41,
+    "periods": {
+      "1": {
+        "label": "Ngày mai",
+        "target_date": "2026-07-13",
+        "actual_price": 73.36,
+        "change_pct": 2.73,
+        "result": "SAI"
+      },
+      "3": {
+        "label": "3 ngày tới",
+        "target_date": "2026-07-15",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "7": {
+        "label": "1 tuần tới",
+        "target_date": "2026-07-19",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "14": {
+        "label": "2 tuần tới",
+        "target_date": "2026-07-26",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "21": {
+        "label": "3 tuần tới",
+        "target_date": "2026-08-02",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "30": {
+        "label": "1 tháng tới",
+        "target_date": "2026-08-11",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "90": {
+        "label": "3 tháng tới",
+        "target_date": "2026-10-10",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "180": {
+        "label": "6 tháng tới",
+        "target_date": "2027-01-08",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "365": {
+        "label": "1 năm tới",
+        "target_date": "2027-07-12",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "730": {
+        "label": "2 năm tới",
+        "target_date": "2028-07-11",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1095": {
+        "label": "3 năm tới",
+        "target_date": "2029-07-11",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1825": {
+        "label": "5 năm tới",
+        "target_date": "2031-07-11",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      }
+    },
+    "backfilled": true
+  },
+  {
+    "id": "USDVND_2026-07-12",
+    "asset": "USDVND",
+    "asset_name": "USD/VND",
+    "asset_color": "#2ecc71",
+    "recorded_date": "2026-07-12",
+    "signal": "ĐI NGANG / TRUNG TÍNH",
+    "signal_en": "NEUTRAL",
+    "score": 1,
+    "ml_prob_up": 0.346,
+    "ml_confidence": 0.308,
+    "macro_score": 1,
+    "price_now": 26290.0,
+    "periods": {
+      "1": {
+        "label": "Ngày mai",
+        "target_date": "2026-07-13",
+        "actual_price": 26260.0,
+        "change_pct": -0.11,
+        "result": "ĐÚNG"
+      },
+      "3": {
+        "label": "3 ngày tới",
+        "target_date": "2026-07-15",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "7": {
+        "label": "1 tuần tới",
+        "target_date": "2026-07-19",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "14": {
+        "label": "2 tuần tới",
+        "target_date": "2026-07-26",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "21": {
+        "label": "3 tuần tới",
+        "target_date": "2026-08-02",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "30": {
+        "label": "1 tháng tới",
+        "target_date": "2026-08-11",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "90": {
+        "label": "3 tháng tới",
+        "target_date": "2026-10-10",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "180": {
+        "label": "6 tháng tới",
+        "target_date": "2027-01-08",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "365": {
+        "label": "1 năm tới",
+        "target_date": "2027-07-12",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "730": {
+        "label": "2 năm tới",
+        "target_date": "2028-07-11",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1095": {
+        "label": "3 năm tới",
+        "target_date": "2029-07-11",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1825": {
+        "label": "5 năm tới",
+        "target_date": "2031-07-11",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      }
+    },
+    "backfilled": true
+  },
+  {
+    "id": "BTC_2026-07-12",
+    "asset": "BTC",
+    "asset_name": "Bitcoin (BTC/USD)",
+    "asset_color": "#F7931A",
+    "recorded_date": "2026-07-12",
+    "signal": "ĐI NGANG / TRUNG TÍNH",
+    "signal_en": "NEUTRAL",
+    "score": 0,
+    "ml_prob_up": 0.346,
+    "ml_confidence": 0.308,
+    "macro_score": -1,
+    "price_now": 63758.2188,
+    "periods": {
+      "1": {
+        "label": "Ngày mai",
+        "target_date": "2026-07-13",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "3": {
+        "label": "3 ngày tới",
+        "target_date": "2026-07-15",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "7": {
+        "label": "1 tuần tới",
+        "target_date": "2026-07-19",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "14": {
+        "label": "2 tuần tới",
+        "target_date": "2026-07-26",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "21": {
+        "label": "3 tuần tới",
+        "target_date": "2026-08-02",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "30": {
+        "label": "1 tháng tới",
+        "target_date": "2026-08-11",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "90": {
+        "label": "3 tháng tới",
+        "target_date": "2026-10-10",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "180": {
+        "label": "6 tháng tới",
+        "target_date": "2027-01-08",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "365": {
+        "label": "1 năm tới",
+        "target_date": "2027-07-12",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "730": {
+        "label": "2 năm tới",
+        "target_date": "2028-07-11",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1095": {
+        "label": "3 năm tới",
+        "target_date": "2029-07-11",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      },
+      "1825": {
+        "label": "5 năm tới",
+        "target_date": "2031-07-11",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING"
+      }
+    },
+    "backfilled": true
   }
 ]
