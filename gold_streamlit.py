@@ -6542,6 +6542,168 @@ def _auto_save_daily(macro: dict):
     st.session_state["_pred_saved"] = today_str
 
 
+# ── Backfill historical data ───────────────────────────────────────────────
+
+def _backfill_history(days_back: int) -> tuple:
+    """
+    Tái tạo dữ liệu lịch sử cho `days_back` ngày qua.
+    - Tín hiệu kỹ thuật (RSI, MA, ML): chính xác theo lịch sử (no lookahead).
+    - Macro score: dùng giá trị hiện tại (gần đúng).
+    Trả về (n_added, n_verified).
+    """
+    try:
+        macro = fetch_macro()
+    except Exception:
+        return 0, 0
+
+    existing     = load_predictions_from_github()
+    existing_ids = {r["id"] for r in existing}
+
+    today      = datetime.now().date()
+    new_records = []
+    total_ops  = days_back * len(ASSETS)
+    done       = 0
+    prog       = st.progress(0, text="Đang khởi động...")
+
+    for offset in range(days_back, 0, -1):
+        past_date = today - timedelta(days=offset)
+        past_str  = past_date.strftime("%Y-%m-%d")
+
+        for asset_key in ASSETS:
+            done += 1
+            record_id = f"{asset_key}_{past_str}"
+            aname     = ASSETS[asset_key]["short"]
+            prog.progress(done / total_ops,
+                          text=f"Tái tạo: **{aname}** — {past_str} ({done}/{total_ops})")
+
+            if record_id in existing_ids:
+                continue   # Đã có, bỏ qua
+
+            try:
+                price, _ = fetch_price(asset_key)
+                if price is None or len(price) < 60:
+                    continue
+
+                # Cắt giá đến đúng ngày đó — không dùng dữ liệu tương lai
+                mask     = price.index.normalize() <= pd.Timestamp(past_date)
+                price_sl = price[mask]
+                if len(price_sl) < 60:
+                    continue
+
+                cur   = float(price_sl.iloc[-1])
+                ma20  = price_sl.rolling(20).mean()
+                ma50  = price_sl.rolling(50).mean()
+                ma200 = price_sl.rolling(200).mean()
+                rsi_s = calc_rsi(price_sl)
+                rsi_v = float(rsi_s.iloc[-1])
+
+                macro_score, _, _, _ = macro_regime(macro, price_sl, asset_key)
+                ml_res  = ml_directional_signal(price_sl.values, 30)
+                ml_prob = ml_res.get("prob_up", 0.5)    if ml_res.get("ok") else 0.5
+                ml_conf = ml_res.get("confidence", 0.0) if ml_res.get("ok") else 0.0
+
+                score = 0
+                if cur > float(ma20.iloc[-1]):                    score += 1
+                if cur > float(ma50.iloc[-1]):                    score += 1
+                if cur > float(ma200.iloc[-1]):                   score += 1
+                if float(ma20.iloc[-1]) > float(ma50.iloc[-1]):  score += 1
+                if   45 < rsi_v < 70:  score += 1
+                elif rsi_v >= 70:      score -= 1
+                elif rsi_v <= 30:      score += 1
+                score += max(-2, min(2, round(macro_score / 3)))
+                if   ml_prob >= 0.65:  score += 2
+                elif ml_prob >= 0.55:  score += 1
+                elif ml_prob <= 0.35:  score -= 2
+                elif ml_prob <= 0.45:  score -= 1
+
+                if   score >= 6:  sig_vi, sig_en = "TĂNG MẠNH",             "UP"
+                elif score >= 3:  sig_vi, sig_en = "CÓ XU HƯỚNG TĂNG",      "UP"
+                elif score <= -5: sig_vi, sig_en = "GIẢM MẠNH",             "DOWN"
+                elif score <= -2: sig_vi, sig_en = "CÓ XU HƯỚNG GIẢM",      "DOWN"
+                else:             sig_vi, sig_en = "ĐI NGANG / TRUNG TÍNH",  "NEUTRAL"
+
+                periods_data = {}
+                for d in PERIOD_LABELS:
+                    target = (past_date + timedelta(days=d)).strftime("%Y-%m-%d")
+                    periods_data[str(d)] = {
+                        "label":        PERIOD_LABELS[d],
+                        "target_date":  target,
+                        "actual_price": None,
+                        "change_pct":   None,
+                        "result":       "PENDING",
+                    }
+
+                new_records.append({
+                    "id":            record_id,
+                    "asset":         asset_key,
+                    "asset_name":    ASSETS[asset_key]["name"],
+                    "asset_color":   ASSETS[asset_key]["color"],
+                    "recorded_date": past_str,
+                    "signal":        sig_vi,
+                    "signal_en":     sig_en,
+                    "score":         score,
+                    "ml_prob_up":    round(ml_prob, 3),
+                    "ml_confidence": round(ml_conf, 3),
+                    "macro_score":   macro_score,
+                    "price_now":     round(cur, 4),
+                    "periods":       periods_data,
+                    "backfilled":    True,
+                })
+            except Exception:
+                continue
+
+    prog.progress(1.0, text="Đang kiểm chứng kết quả đã đáo hạn...")
+
+    if not new_records:
+        prog.empty()
+        return 0, 0
+
+    merged          = existing + new_records
+    merged, changed = _verify_predictions(merged)
+    n_verified      = sum(
+        1 for r in merged
+        for p in r.get("periods", {}).values()
+        if p.get("result") != "PENDING"
+    ) if changed else 0
+
+    if len(merged) > 2000:
+        merged = merged[-2000:]
+    _save_predictions_to_github(merged)
+    prog.empty()
+    return len(new_records), n_verified
+
+
+# ── Backfill UI section (dùng lại ở 2 nơi) ────────────────────────────────
+
+def _render_backfill_section():
+    st.markdown("**Tái tạo tín hiệu dự báo từ dữ liệu giá lịch sử**")
+    st.caption(
+        "Tín hiệu kỹ thuật (RSI, MA, ML) chính xác theo lịch sử. "
+        "Macro score dùng giá trị hiện tại (gần đúng ~80%). "
+        "Kỳ hạn ngắn (1d, 3d, 7d) sẽ được kiểm chứng kết quả ngay."
+    )
+    bf1, bf2 = st.columns([2, 4])
+    with bf1:
+        days_back = st.selectbox(
+            "Số ngày muốn tái tạo",
+            [7, 14, 30],
+            format_func=lambda x: f"{x} ngày qua  (~{x * len(ASSETS)} records)",
+            key="backfill_days",
+        )
+    with bf2:
+        st.markdown("")   # spacer
+        if st.button("🔄 Bắt đầu tái tạo", type="primary", key="do_backfill"):
+            n_added, n_verified = _backfill_history(days_back)
+            if n_added > 0:
+                st.success(
+                    f"Đã thêm **{n_added}** records · "
+                    f"Kiểm chứng được **{n_verified}** kết quả đã đáo hạn!"
+                )
+                st.rerun()
+            else:
+                st.info("Tất cả records trong khoảng này đã tồn tại, không có gì mới.")
+
+
 # ── History tab renderer ───────────────────────────────────────────────────
 
 def render_history_tab():
@@ -6556,7 +6718,7 @@ def render_history_tab():
         predictions = load_predictions_from_github()
 
     if not predictions:
-        st.info("⏳ Chưa có dữ liệu. Snapshot đầu tiên sẽ được lưu vào cuối ngày hôm nay.")
+        st.info("⏳ Chưa có dữ liệu tự động. Dùng tính năng bên dưới để tái tạo dữ liệu lịch sử.")
         with st.expander("ℹ️ Cách hoạt động"):
             st.markdown("""
 - **Lưu tự động**: Mỗi ngày, app thu thập tín hiệu (MUA / BÁN / TRUNG TÍNH) cho 6 tài sản và lưu vào GitHub.
@@ -6564,6 +6726,7 @@ def render_history_tab():
 - **Tiêu chí đúng**: Signal MUA → giá thực tế **tăng**; BÁN → **giảm**; Trung tính → dao động **< 0.5%**.
 - **Kỳ hạn theo dõi**: 12 mốc từ Ngày mai đến 5 năm tới.
 """)
+        _render_backfill_section()
         return
 
     # ── Flatten records ──────────────────────────────────────────────────
@@ -6823,6 +6986,10 @@ def render_history_tab():
             mime="text/csv",
             use_container_width=True,
         )
+
+    # ── Backfill section ──────────────────────────────────────────────
+    with st.expander("🕐 Tái tạo dữ liệu lịch sử (backfill)"):
+        _render_backfill_section()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
