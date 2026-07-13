@@ -71,6 +71,7 @@ PERIOD_LABELS = {
     30:   "1 tháng tới",
     90:   "3 tháng tới",
     180:  "6 tháng tới",
+    270:  "9 tháng tới",
     365:  "1 năm tới",
     730:  "2 năm tới",
     1095: "3 năm tới",
