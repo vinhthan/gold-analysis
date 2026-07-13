@@ -6314,6 +6314,518 @@ def render_expert_tab(macro: dict, fred_data: dict):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+#  PREDICTION HISTORY — GitHub JSON Storage
+# ══════════════════════════════════════════════════════════════════════════════
+
+_GH_REPO      = "vinhthan/gold-analysis"
+_GH_PRED_FILE = "predictions.json"
+
+
+def _gh_token() -> str:
+    """Lấy GitHub token từ Streamlit secrets (an toàn, không hardcode)."""
+    try:
+        return st.secrets["GITHUB_TOKEN"]
+    except Exception:
+        return ""
+
+
+@st.cache_data(ttl=1800, show_spinner=False)
+def load_predictions_from_github() -> list:
+    """Tải file predictions.json từ GitHub repo."""
+    import requests as _req, json as _json, base64 as _b64
+    token = _gh_token()
+    if not token:
+        return []
+    url  = f"https://api.github.com/repos/{_GH_REPO}/contents/{_GH_PRED_FILE}"
+    hdrs = {"Authorization": f"token {token}",
+            "Accept": "application/vnd.github.v3+json"}
+    try:
+        r = _req.get(url, headers=hdrs, timeout=15)
+        if r.status_code == 404:
+            return []
+        r.raise_for_status()
+        raw = _b64.b64decode(r.json()["content"]).decode("utf-8")
+        return _json.loads(raw)
+    except Exception:
+        return []
+
+
+def _save_predictions_to_github(predictions: list) -> bool:
+    """Ghi file predictions.json lên GitHub (overwrite)."""
+    import requests as _req, json as _json, base64 as _b64
+    token = _gh_token()
+    if not token:
+        return False
+    url  = f"https://api.github.com/repos/{_GH_REPO}/contents/{_GH_PRED_FILE}"
+    hdrs = {"Authorization": f"token {token}",
+            "Accept": "application/vnd.github.v3+json"}
+    try:
+        sha = None
+        r = _req.get(url, headers=hdrs, timeout=15)
+        if r.status_code == 200:
+            sha = r.json().get("sha")
+        body = _json.dumps(predictions, ensure_ascii=False, indent=2).encode("utf-8")
+        payload = {
+            "message":   f"auto: predictions {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+            "content":   _b64.b64encode(body).decode("ascii"),
+            "committer": {"name": "Gold Bot", "email": "bot@gold-analysis.app"},
+        }
+        if sha:
+            payload["sha"] = sha
+        r2 = _req.put(url, headers=hdrs, json=payload, timeout=30)
+        r2.raise_for_status()
+        load_predictions_from_github.clear()
+        return True
+    except Exception:
+        return False
+
+
+# ── Snapshot collection ────────────────────────────────────────────────────
+
+def _collect_snapshot(asset_key: str, macro: dict) -> dict:
+    """
+    Thu thập signal snapshot hôm nay cho một asset.
+    Reuse @st.cache_data đã có — không tạo request mới nếu đã cached.
+    """
+    try:
+        price, _ = fetch_price(asset_key)
+        if price is None or len(price) < 60:
+            return {}
+
+        cur   = float(price.iloc[-1])
+        ma20  = price.rolling(20).mean()
+        ma50  = price.rolling(50).mean()
+        ma200 = price.rolling(200).mean()
+        rsi_s = calc_rsi(price)
+        rsi_v = float(rsi_s.iloc[-1])
+
+        macro_score, _, _, _ = macro_regime(macro, price, asset_key)
+        ml_res  = ml_directional_signal(price.values, 30)
+        ml_prob = ml_res.get("prob_up", 0.5)   if ml_res.get("ok") else 0.5
+        ml_conf = ml_res.get("confidence", 0.0) if ml_res.get("ok") else 0.0
+
+        score = 0
+        if cur > float(ma20.iloc[-1]):                       score += 1
+        if cur > float(ma50.iloc[-1]):                       score += 1
+        if cur > float(ma200.iloc[-1]):                      score += 1
+        if float(ma20.iloc[-1]) > float(ma50.iloc[-1]):      score += 1
+        if   45 < rsi_v < 70:   score += 1
+        elif rsi_v >= 70:       score -= 1
+        elif rsi_v <= 30:       score += 1
+        score += max(-2, min(2, round(macro_score / 3)))
+        if   ml_prob >= 0.65:   score += 2
+        elif ml_prob >= 0.55:   score += 1
+        elif ml_prob <= 0.35:   score -= 2
+        elif ml_prob <= 0.45:   score -= 1
+
+        if   score >= 6:  sig_vi, sig_en = "TĂNG MẠNH",             "UP"
+        elif score >= 3:  sig_vi, sig_en = "CÓ XU HƯỚNG TĂNG",      "UP"
+        elif score <= -5: sig_vi, sig_en = "GIẢM MẠNH",             "DOWN"
+        elif score <= -2: sig_vi, sig_en = "CÓ XU HƯỚNG GIẢM",      "DOWN"
+        else:             sig_vi, sig_en = "ĐI NGANG / TRUNG TÍNH",  "NEUTRAL"
+
+        today_str    = datetime.now().strftime("%Y-%m-%d")
+        periods_data = {}
+        for d in PERIOD_LABELS:
+            periods_data[str(d)] = {
+                "label":        PERIOD_LABELS[d],
+                "target_date":  (datetime.now() + timedelta(days=d)).strftime("%Y-%m-%d"),
+                "actual_price": None,
+                "change_pct":   None,
+                "result":       "PENDING",
+            }
+
+        return {
+            "id":            f"{asset_key}_{today_str}",
+            "asset":         asset_key,
+            "asset_name":    ASSETS[asset_key]["name"],
+            "asset_color":   ASSETS[asset_key]["color"],
+            "recorded_date": today_str,
+            "signal":        sig_vi,
+            "signal_en":     sig_en,
+            "score":         score,
+            "ml_prob_up":    round(ml_prob, 3),
+            "ml_confidence": round(ml_conf, 3),
+            "macro_score":   macro_score,
+            "price_now":     round(cur, 4),
+            "periods":       periods_data,
+        }
+    except Exception:
+        return {}
+
+
+# ── Verification ───────────────────────────────────────────────────────────
+
+def _verify_predictions(predictions: list) -> tuple:
+    """
+    Kiểm chứng các dự báo đã đến hạn: điền actual_price + result.
+    Trả về (updated_list, changed_bool).
+    """
+    today        = datetime.now().date()
+    changed      = False
+    NEUTRAL_BAND = 0.5   # % — ngưỡng "trung tính"
+
+    for rec in predictions:
+        asset_key = rec.get("asset", "")
+        price_now = rec.get("price_now", 0.0)
+        sig_en    = rec.get("signal_en", "NEUTRAL")
+
+        if not price_now or asset_key not in ASSETS:
+            continue
+        try:
+            price_s, _ = fetch_price(asset_key)
+        except Exception:
+            continue
+
+        for d_str, pdata in rec.get("periods", {}).items():
+            if pdata.get("result") != "PENDING":
+                continue
+            tgt_str = pdata.get("target_date", "")
+            try:
+                tgt_date = datetime.strptime(tgt_str, "%Y-%m-%d").date()
+            except ValueError:
+                continue
+            if tgt_date > today:
+                continue   # Chưa đến hạn
+
+            try:
+                mask = price_s.index.normalize() >= pd.Timestamp(tgt_date)
+                if not mask.any():
+                    continue
+                actual = float(price_s[mask].iloc[0])
+                chg    = (actual - price_now) / price_now * 100
+
+                if   sig_en == "UP":   result = "ĐÚNG" if chg > 0            else "SAI"
+                elif sig_en == "DOWN": result = "ĐÚNG" if chg < 0            else "SAI"
+                else:                  result = "ĐÚNG" if abs(chg) <= NEUTRAL_BAND else "SAI"
+
+                pdata["actual_price"] = round(actual, 4)
+                pdata["change_pct"]   = round(chg, 2)
+                pdata["result"]       = result
+                changed = True
+            except Exception:
+                continue
+
+    return predictions, changed
+
+
+# ── Auto-save daily ────────────────────────────────────────────────────────
+
+def _auto_save_daily(macro: dict):
+    """
+    Lưu snapshot hôm nay cho mọi asset (1 lần/ngày/session).
+    Gọi ở cuối main() sau khi tabs đã render — dùng cached data.
+    """
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    if st.session_state.get("_pred_saved") == today_str:
+        return
+
+    existing    = load_predictions_from_github()
+    saved_today = {r["asset"] for r in existing if r.get("recorded_date") == today_str}
+
+    new_snaps = []
+    for ak in ASSETS:
+        if ak in saved_today:
+            continue
+        snap = _collect_snapshot(ak, macro)
+        if snap:
+            new_snaps.append(snap)
+
+    existing, verified = _verify_predictions(existing)
+
+    if new_snaps or verified:
+        merged = existing + new_snaps
+        if len(merged) > 2000:          # giới hạn tối đa 2000 records
+            merged = merged[-2000:]
+        _save_predictions_to_github(merged)
+
+    st.session_state["_pred_saved"] = today_str
+
+
+# ── History tab renderer ───────────────────────────────────────────────────
+
+def render_history_tab():
+    """Tab 📋 Lịch Sử & Thống Kê Độ Chính Xác Dự Báo."""
+    st.markdown("### 📋 Lịch Sử & Thống Kê Độ Chính Xác Dự Báo")
+    st.caption(
+        "Mỗi ngày app tự động lưu tín hiệu phân tích cho 6 tài sản. "
+        "Khi đến ngày đáo hạn, giá thực tế được đối chiếu tự động để tính đúng/sai."
+    )
+
+    with st.spinner("📂 Đang tải lịch sử từ GitHub..."):
+        predictions = load_predictions_from_github()
+
+    if not predictions:
+        st.info("⏳ Chưa có dữ liệu. Snapshot đầu tiên sẽ được lưu vào cuối ngày hôm nay.")
+        with st.expander("ℹ️ Cách hoạt động"):
+            st.markdown("""
+- **Lưu tự động**: Mỗi ngày, app thu thập tín hiệu (MUA / BÁN / TRUNG TÍNH) cho 6 tài sản và lưu vào GitHub.
+- **Kiểm chứng tự động**: Khi đến ngày đáo hạn, app lấy giá thực tế và đánh giá đúng/sai.
+- **Tiêu chí đúng**: Signal MUA → giá thực tế **tăng**; BÁN → **giảm**; Trung tính → dao động **< 0.5%**.
+- **Kỳ hạn theo dõi**: 12 mốc từ Ngày mai đến 5 năm tới.
+""")
+        return
+
+    # ── Flatten records ──────────────────────────────────────────────────
+    rows = []
+    for rec in predictions:
+        for d_str, pdata in rec.get("periods", {}).items():
+            try:
+                d_int = int(d_str)
+            except ValueError:
+                continue
+            rows.append({
+                "asset":          rec["asset"],
+                "Tài sản":        rec.get("asset_name", rec["asset"]),
+                "asset_color":    rec.get("asset_color", "#FFD700"),
+                "Ngày ghi":       rec.get("recorded_date", ""),
+                "Tín hiệu":       rec.get("signal", ""),
+                "signal_en":      rec.get("signal_en", "NEUTRAL"),
+                "ML Prob %":      round(rec.get("ml_prob_up", 0.5) * 100, 1),
+                "Giá ghi nhận":   rec.get("price_now", 0),
+                "period_days":    d_int,
+                "Kỳ hạn":         pdata.get("label", d_str),
+                "Ngày đáo hạn":   pdata.get("target_date", ""),
+                "Giá thực tế":    pdata.get("actual_price"),
+                "Thay đổi %":     pdata.get("change_pct"),
+                "Kết quả":        pdata.get("result", "PENDING"),
+            })
+
+    if not rows:
+        st.info("⏳ Chưa có dữ liệu chi tiết.")
+        return
+
+    df_all = pd.DataFrame(rows)
+
+    # ── Filters ──────────────────────────────────────────────────────────
+    fc1, fc2, fc3 = st.columns([2, 2, 2])
+    with fc1:
+        asset_opts = ["Tất cả"] + sorted(df_all["asset"].unique().tolist())
+        sel_asset  = st.selectbox(
+            "🪙 Tài sản", asset_opts,
+            format_func=lambda x: ("Tất cả" if x == "Tất cả"
+                                   else ASSETS.get(x, {}).get("short", x))
+        )
+    with fc2:
+        p_days = sorted(df_all["period_days"].unique().tolist())
+        p_map  = {0: "Tất cả", **{d: PERIOD_LABELS.get(d, str(d)) for d in p_days}}
+        sel_period = st.selectbox("📅 Kỳ hạn", [0] + p_days,
+                                   format_func=lambda x: p_map.get(x, str(x)))
+    with fc3:
+        r_opts = {"all": "Tất cả", "ĐÚNG": "✅ Đúng",
+                  "SAI": "❌ Sai", "PENDING": "⏳ Đang chờ"}
+        sel_result = st.selectbox("🎯 Kết quả", list(r_opts.keys()),
+                                   format_func=lambda x: r_opts[x])
+
+    df = df_all.copy()
+    if sel_asset != "Tất cả":
+        df = df[df["asset"] == sel_asset]
+    if sel_period != 0:
+        df = df[df["period_days"] == sel_period]
+    if sel_result != "all":
+        df = df[df["Kết quả"] == sel_result]
+
+    # ── Summary metrics ────────────────────────────────────────────────
+    df_done   = df[df["Kết quả"].isin(["ĐÚNG", "SAI"])]
+    n_total   = len(df)
+    n_correct = int((df["Kết quả"] == "ĐÚNG").sum())
+    n_wrong   = int((df["Kết quả"] == "SAI").sum())
+    n_pending = int((df["Kết quả"] == "PENDING").sum())
+    accuracy  = n_correct / len(df_done) * 100 if len(df_done) > 0 else 0.0
+
+    st.markdown("---")
+    cm1, cm2, cm3, cm4, cm5 = st.columns(5)
+    cm1.metric("📊 Tổng dự báo",   f"{n_total:,}")
+    cm2.metric("✅ Đúng",          f"{n_correct:,}")
+    cm3.metric("❌ Sai",           f"{n_wrong:,}")
+    cm4.metric("⏳ Đang chờ",     f"{n_pending:,}")
+    cm5.metric("🎯 Độ chính xác", f"{accuracy:.1f}%",
+               delta="Chỉ tính đã đáo hạn", delta_color="off")
+    st.markdown("---")
+
+    # ── Charts ────────────────────────────────────────────────────────
+    if len(df_done) >= 3:
+        ch1, ch2 = st.columns(2)
+
+        # Chart 1: Accuracy by period
+        with ch1:
+            st.markdown("#### 📈 Độ chính xác theo kỳ hạn")
+            pa_rows = []
+            for d in sorted(p_days):
+                sub = df_done[df_done["period_days"] == d]
+                if len(sub) == 0:
+                    continue
+                acc = (sub["Kết quả"] == "ĐÚNG").sum() / len(sub) * 100
+                pa_rows.append({"lbl": PERIOD_LABELS.get(d, str(d)), "acc": acc, "n": len(sub)})
+            if pa_rows:
+                bar_colors = [
+                    "#3fb950" if r["acc"] >= 60 else
+                    "#f9a825" if r["acc"] >= 50 else "#f85149"
+                    for r in pa_rows
+                ]
+                fig1 = go.Figure(go.Bar(
+                    x=[r["lbl"] for r in pa_rows],
+                    y=[r["acc"] for r in pa_rows],
+                    text=[f"{r['acc']:.0f}%<br>n={r['n']}" for r in pa_rows],
+                    textposition="outside",
+                    marker_color=bar_colors,
+                    marker_line_width=0,
+                ))
+                fig1.add_hline(y=50, line_dash="dash", line_color="#FFD700",
+                               annotation_text="50% ngẫu nhiên",
+                               annotation_position="top right")
+                fig1.update_layout(
+                    template="plotly_dark", plot_bgcolor="#0d1117",
+                    paper_bgcolor="#0d1117", height=340,
+                    yaxis=dict(range=[0, 118], title="Tỷ lệ đúng (%)"),
+                    xaxis_title="Kỳ hạn", margin=dict(t=30, b=20, l=40, r=20),
+                )
+                st.plotly_chart(fig1, use_container_width=True)
+
+        # Chart 2: Accuracy by asset
+        with ch2:
+            st.markdown("#### 🪙 Độ chính xác theo tài sản")
+            aa_rows = []
+            for ak, ainfo in ASSETS.items():
+                sub = df_done[df_done["asset"] == ak]
+                if len(sub) == 0:
+                    continue
+                acc = (sub["Kết quả"] == "ĐÚNG").sum() / len(sub) * 100
+                aa_rows.append({
+                    "name":  ainfo["short"],
+                    "acc":   acc,
+                    "n":     len(sub),
+                    "color": ainfo["color"],
+                })
+            if aa_rows:
+                fig2 = go.Figure(go.Bar(
+                    x=[r["name"]  for r in aa_rows],
+                    y=[r["acc"]   for r in aa_rows],
+                    text=[f"{r['acc']:.0f}%<br>n={r['n']}" for r in aa_rows],
+                    textposition="outside",
+                    marker_color=[r["color"] for r in aa_rows],
+                    marker_line_width=0,
+                ))
+                fig2.add_hline(y=50, line_dash="dash", line_color="#FFD700",
+                               annotation_text="50% ngẫu nhiên",
+                               annotation_position="top right")
+                fig2.update_layout(
+                    template="plotly_dark", plot_bgcolor="#0d1117",
+                    paper_bgcolor="#0d1117", height=340,
+                    yaxis=dict(range=[0, 118], title="Tỷ lệ đúng (%)"),
+                    xaxis_title="Tài sản", margin=dict(t=30, b=20, l=40, r=20),
+                )
+                st.plotly_chart(fig2, use_container_width=True)
+
+        # Chart 3: Accuracy trend over time
+        st.markdown("#### 📅 Xu hướng độ chính xác theo thời gian")
+        df_tl = (
+            df_done.groupby("Ngày ghi")
+            .apply(lambda g: (g["Kết quả"] == "ĐÚNG").sum() / len(g) * 100)
+            .reset_index(name="acc")
+            .sort_values("Ngày ghi")
+        )
+        if len(df_tl) >= 2:
+            dot_colors = ["#3fb950" if v >= 50 else "#f85149" for v in df_tl["acc"]]
+            fig3 = go.Figure()
+            fig3.add_trace(go.Scatter(
+                x=df_tl["Ngày ghi"], y=df_tl["acc"],
+                mode="lines+markers",
+                line=dict(color="#FFD700", width=2),
+                marker=dict(size=9, color=dot_colors,
+                            line=dict(color="#0d1117", width=1)),
+                name="Accuracy / ngày",
+            ))
+            fig3.add_hline(y=50, line_dash="dash", line_color="#8b949e",
+                           annotation_text="50% ngưỡng ngẫu nhiên",
+                           annotation_position="bottom right")
+            fig3.update_layout(
+                template="plotly_dark", plot_bgcolor="#0d1117",
+                paper_bgcolor="#0d1117", height=260,
+                yaxis=dict(range=[0, 110], title="Tỷ lệ đúng (%)"),
+                margin=dict(t=15, b=15, l=40, r=20),
+            )
+            st.plotly_chart(fig3, use_container_width=True)
+
+    elif len(df_done) > 0:
+        st.info(f"ℹ️ Cần ít nhất 3 kết quả đã đáo hạn để vẽ biểu đồ. Hiện có: **{len(df_done)}**.")
+
+    # ── Detail Table ──────────────────────────────────────────────────
+    st.markdown("---")
+    st.markdown("#### 📝 Bảng chi tiết dự báo")
+
+    df_sorted = df.sort_values(
+        ["Ngày ghi", "asset", "period_days"], ascending=[False, True, True]
+    )
+
+    def _fp(x):
+        if x is None:
+            return "⏳"
+        try:
+            return f"{float(x):,.4f}"
+        except Exception:
+            return str(x)
+
+    def _fpct(x):
+        if x is None:
+            return "⏳"
+        try:
+            return f"{float(x):+.2f}%"
+        except Exception:
+            return str(x)
+
+    DISPLAY_COLS = [
+        "Ngày ghi", "Tài sản", "Kỳ hạn", "Tín hiệu",
+        "ML Prob %", "Giá ghi nhận", "Ngày đáo hạn",
+        "Giá thực tế", "Thay đổi %", "Kết quả",
+    ]
+    disp = df_sorted[DISPLAY_COLS].copy()
+    disp["Giá ghi nhận"] = disp["Giá ghi nhận"].apply(_fp)
+    disp["Giá thực tế"]  = disp["Giá thực tế"].apply(_fp)
+    disp["Thay đổi %"]   = disp["Thay đổi %"].apply(_fpct)
+
+    def _style_row(row):
+        r = row["Kết quả"]
+        if r == "ĐÚNG":
+            base = "background-color:#071f12; color:#3fb950"
+            bold = base + "; font-weight:bold"
+            return [base] * (len(row) - 1) + [bold]
+        elif r == "SAI":
+            base = "background-color:#2d0f0f; color:#f85149"
+            bold = base + "; font-weight:bold"
+            return [base] * (len(row) - 1) + [bold]
+        else:
+            return ["color:#8b949e; font-style:italic"] * len(row)
+
+    styled = disp.style.apply(_style_row, axis=1)
+    st.dataframe(styled, use_container_width=True, height=520)
+
+    # ── Action buttons ────────────────────────────────────────────────
+    st.markdown("---")
+    ba1, ba2, _ = st.columns([2, 2, 5])
+    with ba1:
+        if st.button("🔄 Kiểm chứng kết quả ngay", use_container_width=True):
+            with st.spinner("Đang kiểm chứng..."):
+                all_p = load_predictions_from_github()
+                upd, chg = _verify_predictions(all_p)
+                if chg:
+                    _save_predictions_to_github(upd)
+                    st.success("Đã cập nhật kết quả dự báo đã đáo hạn!")
+                    st.rerun()
+                else:
+                    st.info("Không có kết quả mới cần cập nhật.")
+    with ba2:
+        csv_bytes = df_sorted[DISPLAY_COLS].to_csv(index=False, encoding="utf-8-sig")
+        st.download_button(
+            "📥 Xuất CSV",
+            data=csv_bytes,
+            file_name=f"predictions_{datetime.now().strftime('%Y%m%d')}.csv",
+            mime="text/csv",
+            use_container_width=True,
+        )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 #  AUTO-REBOOT
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -6382,10 +6894,10 @@ def main():
     # ── Tabs ──────────────────────────────────────────────────────────────────
     tab_keys   = list(ASSETS.keys())
     tab_labels = [ASSETS[k]["tab"] for k in tab_keys]
-    all_tab_labels = tab_labels + ["🧠 Chuyên Gia"]
+    all_tab_labels = tab_labels + ["🧠 Chuyên Gia", "📋 Lịch Sử"]
     tabs = st.tabs(all_tab_labels)
 
-    for tab, asset_key in zip(tabs[:-1], tab_keys):
+    for tab, asset_key in zip(tabs[:-2], tab_keys):
         with tab:
             try:
                 render_asset_tab(asset_key, macro, forecast_days)
@@ -6395,13 +6907,26 @@ def main():
                 with st.expander("Chi tiết lỗi (để báo cáo bug)"):
                     st.code(str(_e))
 
-    with tabs[-1]:
+    with tabs[-2]:
         try:
             fred_data = fetch_fred_rates()
             render_expert_tab(macro, fred_data)
         except Exception as _e:
             st.error(f"⚠️ Lỗi tab Chuyên Gia: {_e}")
             st.info("Nhấn 🔄 **Làm mới** hoặc reload trang để thử lại.")
+
+    with tabs[-1]:
+        try:
+            render_history_tab()
+        except Exception as _e:
+            st.error(f"⚠️ Lỗi tab Lịch Sử: {_e}")
+            st.info("Nhấn 🔄 **Làm mới** hoặc reload trang để thử lại.")
+
+    # ── Auto-save daily snapshot (sau khi tabs render) ────────────────────────
+    try:
+        _auto_save_daily(macro)
+    except Exception:
+        pass   # silent — không block UI
 
 
 if __name__ == "__main__":
