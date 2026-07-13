@@ -6314,10 +6314,40 @@ def render_expert_tab(macro: dict, fred_data: dict):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+#  AUTO-REBOOT
+# ══════════════════════════════════════════════════════════════════════════════
+
+@st.cache_resource
+def _get_boot_time():
+    """Lưu thời điểm khởi động — chỉ reset khi cache bị xoá hoàn toàn."""
+    return {"ts": datetime.now()}
+
+def check_auto_reboot(interval_hours: float = 3.0):
+    """Tự động reboot sau mỗi interval_hours bằng cách xoá toàn bộ cache."""
+    boot = _get_boot_time()
+    elapsed = (datetime.now() - boot["ts"]).total_seconds()
+    interval_sec = interval_hours * 3600
+
+    if elapsed >= interval_sec:
+        st.cache_data.clear()
+        st.cache_resource.clear()   # xoá luôn _get_boot_time → timer reset
+        st.rerun()
+
+    remaining = interval_sec - elapsed
+    h, r = divmod(int(remaining), 3600)
+    m = r // 60
+    next_reboot = datetime.now() + timedelta(seconds=remaining)
+    st.sidebar.caption(
+        f"🔄 Auto-reboot sau: **{h}g{m:02d}p** ({next_reboot.strftime('%H:%M')})"
+    )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 #  MAIN APP
 # ══════════════════════════════════════════════════════════════════════════════
 
 def main():
+    check_auto_reboot(interval_hours=3.0)
 
     # ── Header ────────────────────────────────────────────────────────────────
     st.markdown("""
