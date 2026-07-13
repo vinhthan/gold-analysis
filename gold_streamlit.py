@@ -1241,6 +1241,31 @@ def fed_policy_analysis(fred_data: dict, macro: dict, leaders: dict = None) -> d
             score += 1  # Lạm phát thấp → Fed có thể cắt lãi
             signals.append(("✅", f"Kỳ vọng lạm phát 5Y5Y: {inflation_exp:.2f}% — thấp → áp lực deflation → Fed có lý do cắt lãi sớm hơn", "green"))
 
+    # ── 8. FED BALANCE SHEET — WALCL (QT vs QE) ──────────────────────────
+    # WALCL = tổng tài sản Fed (nghìn tỷ USD). Tăng = QE (bơm tiền) = bullish vàng.
+    # Giảm = QT (rút tiền) = bearish vàng. So sánh YoY (52 tuần = ~1 năm dữ liệu weekly).
+    if "fed_balance" in fred_data and len(fred_data["fed_balance"]) >= 10:
+        wb      = fred_data["fed_balance"]
+        wb_now  = float(wb.iloc[-1])
+        wb_ref  = float(wb.iloc[-52]) if len(wb) >= 52 else float(wb.iloc[0])
+        wb_chg  = (wb_now / wb_ref - 1) * 100 if wb_ref > 0 else 0
+        metrics["walcl"]     = round(wb_now, 2)
+        metrics["walcl_chg"] = round(wb_chg, 1)
+        if wb_chg < -10:
+            score -= 2
+            signals.append(("🔴", f"Fed Balance Sheet: {wb_now:.1f}T USD, giảm {abs(wb_chg):.1f}% YoY — QT mạnh → rút thanh khoản khỏi hệ thống, bearish vàng", "red"))
+        elif wb_chg < -5:
+            score -= 1
+            signals.append(("⚠️", f"Fed Balance Sheet: {wb_now:.1f}T USD, QT -{abs(wb_chg):.1f}% YoY — siết thanh khoản, áp lực nhẹ", "orange"))
+        elif wb_chg > 10:
+            score += 2
+            signals.append(("✅", f"Fed Balance Sheet: {wb_now:.1f}T USD, +{wb_chg:.1f}% YoY — QE / bơm thanh khoản → bullish vàng mạnh", "green"))
+        elif wb_chg > 5:
+            score += 1
+            signals.append(("✅", f"Fed Balance Sheet: {wb_now:.1f}T USD, +{wb_chg:.1f}% YoY — nới lỏng định lượng nhẹ", "green"))
+        else:
+            signals.append(("➡️", f"Fed Balance Sheet: {wb_now:.1f}T USD, ổn định ({wb_chg:+.1f}% YoY) — không QE cũng không QT tích cực", "gray"))
+
     # ── Clamp & label ─────────────────────────────────────────────────────
     score = max(-5, min(5, score))
 
@@ -1399,7 +1424,7 @@ def fetch_cot_data(asset_key: str) -> dict:
         url = (
             "https://publicreporting.cftc.gov/resource/6dca-aqww.json"
             f"?$where=market_and_exchange_names+like+%27{market_kw.replace(' ','+')}%25%27"
-            "&$limit=20&$order=report_date_as_mm_dd_yyyy+DESC"
+            "&$limit=52&$order=report_date_as_mm_dd_yyyy+DESC"
         )
         r    = _req.get(url, timeout=12,
                         headers={"User-Agent": "Mozilla/5.0", "Accept": "application/json"})
@@ -1427,13 +1452,17 @@ def fetch_cot_data(asset_key: str) -> dict:
         records.sort(key=lambda x: x["date"], reverse=True)
         latest  = records[0]
         prev1   = records[1]
-        prev4   = records[4] if len(records) > 4 else records[-1]
+        prev4   = records[4]  if len(records) > 4  else records[-1]
+        prev12  = records[12] if len(records) > 12 else records[-1]
+        prev52  = records[51] if len(records) > 51 else records[-1]
 
         net_now  = latest["net"]
         chg_1w   = net_now - prev1["net"]
         chg_4w   = net_now - prev4["net"]
+        chg_12w  = net_now - prev12["net"]
+        chg_52w  = net_now - prev52["net"]
 
-        # Percentile so với 20 tuần gần nhất
+        # Percentile so với toàn bộ 52 tuần (1 chu kỳ đầy đủ)
         all_nets = [r["net"] for r in records]
         pct_rank = sum(1 for n in all_nets if n <= net_now) / len(all_nets) * 100
 
@@ -1441,7 +1470,7 @@ def fetch_cot_data(asset_key: str) -> dict:
         score = 0
         signals = []
 
-        # Trend momentum (tuần này vs tuần trước và 4 tuần trước)
+        # Trend momentum ngắn hạn (1W vs 4W)
         if chg_1w > 5000 and chg_4w > 10000:
             score += 2
             signals.append(f"✅ MM tăng mua mạnh 1W +{chg_1w:,.0f} / 4W +{chg_4w:,.0f} → Bullish")
@@ -1455,27 +1484,37 @@ def fetch_cot_data(asset_key: str) -> dict:
             score -= 1
             signals.append(f"🔴 MM giảm nhẹ 1W {chg_1w:,.0f} → Nghiêng Bearish")
 
-        # Contrarian extreme signals
+        # Xu hướng dài hạn 52W — whale đang build hay liquidate?
+        if chg_52w > 50000:
+            score += 1
+            signals.append(f"✅ Xu hướng 52W: MM tăng mua +{chg_52w:,.0f} hợp đồng — Bull cycle dài hạn đang hình thành")
+        elif chg_52w < -50000:
+            score -= 1
+            signals.append(f"🔴 Xu hướng 52W: MM giảm {abs(chg_52w):,.0f} hợp đồng — Bear cycle dài hạn, cá mập đang rút lui")
+
+        # Contrarian extreme signals (so với 52W percentile — chính xác hơn 20W)
         if pct_rank >= 85 and chg_1w < 0:
             score -= 1
-            signals.append(f"⚠️ Vị thế cực đoan LONG ({pct_rank:.0f}th percentile) và đang giảm → Nguy cơ điều chỉnh")
+            signals.append(f"⚠️ Vị thế cực đoan LONG ({pct_rank:.0f}/100 percentile-52W) và đang giảm → Nguy cơ điều chỉnh mạnh")
         elif pct_rank <= 15 and chg_1w > 0:
             score += 1
-            signals.append(f"✅ Vị thế cực đoan SHORT ({pct_rank:.0f}th percentile) và đang đảo chiều → Short squeeze")
+            signals.append(f"✅ Vị thế cực đoan SHORT ({pct_rank:.0f}/100 percentile-52W) và đang đảo chiều → Short squeeze tiềm năng")
 
         score = max(-3, min(3, score))
 
         return {
-            "ok":          True,
-            "date":        latest["date"],
-            "net":         net_now,
-            "long":        latest["long"],
-            "short":       latest["short"],
-            "chg_1w":      chg_1w,
-            "chg_4w":      chg_4w,
-            "pct_rank":    round(pct_rank, 1),
-            "score":       score,
-            "signals":     signals,
+            "ok":       True,
+            "date":     latest["date"],
+            "net":      net_now,
+            "long":     latest["long"],
+            "short":    latest["short"],
+            "chg_1w":   chg_1w,
+            "chg_4w":   chg_4w,
+            "chg_12w":  chg_12w,
+            "chg_52w":  chg_52w,
+            "pct_rank": round(pct_rank, 1),
+            "score":    score,
+            "signals":  signals,
         }
 
     except Exception as e:
@@ -2907,16 +2946,56 @@ def fetch_whale_data(asset_key: str) -> dict:
         except Exception:
             pass
 
+    # ── 1b. IAU cross-confirm (XAU only) ─────────────────────────────────────
+    if asset_key == "XAU":
+        try:
+            raw_iau = yf.download("IAU", period="3mo", interval="1d",
+                                  progress=False, auto_adjust=True)
+            if not raw_iau.empty:
+                if isinstance(raw_iau.columns, pd.MultiIndex):
+                    raw_iau.columns = raw_iau.columns.get_level_values(0)
+                p_iau = raw_iau["Close"].dropna()
+                if len(p_iau) >= 20:
+                    p20_iau = float(p_iau.rolling(20).mean().iloc[-1])
+                    tail60_iau = p_iau.tail(60)
+                    p60_iau = (float(tail60_iau.rolling(20).mean().dropna().iloc[0])
+                               if len(tail60_iau) >= 20 else float(p_iau.iloc[0]))
+                    iau_chg = (p20_iau / p60_iau - 1) * 100 if p60_iau > 0 else 0
+                    result["etf_iau"] = {"aum_chg": iau_chg}
+                    etf = result.get("etf_flow")
+                    if etf and abs(etf["aum_chg"]) > 2 and abs(iau_chg) > 2:
+                        avg_chg = (etf["aum_chg"] + iau_chg) / 2
+                        if etf["aum_chg"] > 0 and iau_chg > 0:
+                            score += 1
+                            signals.append(("🏦", f"XÁC NHẬN ĐA ETF: GLD+IAU đều tăng (~{avg_chg:.1f}%) → dòng tiền tổ chức vào vàng đồng loạt", "green"))
+                        elif etf["aum_chg"] < 0 and iau_chg < 0:
+                            score -= 1
+                            signals.append(("🏦", f"XÁC NHẬN ĐA ETF: GLD+IAU đều giảm (~{avg_chg:.1f}%) → outflow đồng loạt", "red"))
+        except Exception:
+            pass
+
     # ── 2. Futures Open Interest ─────────────────────────────────────────────
+    OI_THRESHOLDS = {
+        "XAU": (400000, 600000),
+        "XAG": (100000, 150000),
+        "HG":  (150000, 250000),
+        "CL":  (1200000, 1800000),
+    }
     if fut_ticker:
         try:
             tk  = yf.Ticker(fut_ticker)
             inf = tk.info
             oi  = inf.get("openInterest")
             if oi and int(oi) > 0:
-                result["oi"] = {"value": int(oi), "ticker": fut_ticker}
-                oi_label = "tập trung lớn → sắp có biến động mạnh" if oi > 400000 else "mức trung bình"
-                signals.append(("📌", f"Open Interest {fut_ticker}: {oi:,} hợp đồng — {oi_label}", "gray"))
+                oi_val = int(oi)
+                result["oi"] = {"value": oi_val, "ticker": fut_ticker}
+                oi_mid, oi_high = OI_THRESHOLDS.get(asset_key, (200000, 350000))
+                if oi_val > oi_high:
+                    signals.append(("📌", f"OI {fut_ticker}: {oi_val:,} — CỰC CAO (>{oi_high:,}) → thị trường rất crowded, nguy cơ squeeze 2 chiều", "orange"))
+                elif oi_val > oi_mid:
+                    signals.append(("📌", f"OI {fut_ticker}: {oi_val:,} — Cao → vị thế lớn, theo dõi breakout", "gray"))
+                else:
+                    signals.append(("📌", f"OI {fut_ticker}: {oi_val:,} — Bình thường", "gray"))
         except Exception:
             pass
 
@@ -4961,15 +5040,26 @@ def analyze_fedspeak(news_items: list) -> dict:
     Returns dict: score (-3..+3), label, signals, color.
     """
     HAWK_PHRASES = {
-        "higher for longer":   ("🦅 Hawkish", "Fed muốn duy trì lãi suất cao — thực ra đang cân nhắc cắt giảm"),
-        "data dependent":      ("🦅 Hawkish", "Fed chuẩn bị thay đổi hướng — tín hiệu pivot sắp tới"),
-        "remain vigilant":     ("🦅 Hawkish", "Fed lo ngại lạm phát — nhưng thường là peak hawkishness"),
-        "inflation too high":  ("🦅 Hawkish", "Lạm phát vẫn là ưu tiên — tuy nhiên tín hiệu thị trường đã chiết khấu"),
-        "price stability":     ("🦅 Hawkish", "Fed ưu tiên ổn định giá — áp lực giảm ngắn hạn cho vàng"),
-        "strong labor market": ("🦅 Hawkish", "Thị trường lao động mạnh — lý do để không cắt lãi suất"),
-        "not cutting":         ("🦅 Hawkish", "Fed công khai từ chối cắt — nhưng thị trường vẫn định giá cắt"),
+        # ── Cốt lõi (7 cũ) ──────────────────────────────────────────────────
+        "higher for longer":        ("🦅 Hawkish", "Fed muốn duy trì lãi suất cao — thực ra đang cân nhắc cắt giảm"),
+        "data dependent":           ("🦅 Hawkish", "Fed chuẩn bị thay đổi hướng — tín hiệu pivot sắp tới"),
+        "remain vigilant":          ("🦅 Hawkish", "Fed lo ngại lạm phát — nhưng thường là peak hawkishness"),
+        "inflation too high":       ("🦅 Hawkish", "Lạm phát vẫn là ưu tiên — tuy nhiên tín hiệu thị trường đã chiết khấu"),
+        "price stability":          ("🦅 Hawkish", "Fed ưu tiên ổn định giá — áp lực giảm ngắn hạn cho vàng"),
+        "strong labor market":      ("🦅 Hawkish", "Thị trường lao động mạnh — lý do để không cắt lãi suất"),
+        "not cutting":              ("🦅 Hawkish", "Fed công khai từ chối cắt — nhưng thị trường vẫn định giá cắt"),
+        # ── Mở rộng (8 mới) ─────────────────────────────────────────────────
+        "2 percent":                ("🦅 Hawkish", "Fed nhấn mạnh mục tiêu 2% — chưa hài lòng với lạm phát hiện tại"),
+        "still elevated":           ("🦅 Hawkish", "Lạm phát 'vẫn còn cao' — tín hiệu chưa cắt lãi sớm"),
+        "further progress":         ("🦅 Hawkish", "Cần thêm bằng chứng trước khi cắt — Fed chưa tự tin"),
+        "not the time":             ("🦅 Hawkish", "Chưa đến lúc cắt lãi — tín hiệu hawkish rõ ràng"),
+        "bumpy path":               ("🦅 Hawkish", "Con đường về target lạm phát gập ghềnh — Fed thận trọng kéo dài"),
+        "resilient economy":        ("🦅 Hawkish", "Kinh tế mạnh → Fed không có lý do vội cắt lãi"),
+        "quantitative tightening":  ("🦅 Hawkish", "QT đang chạy — thu hẹp bảng cân đối, hút tiền ra khỏi hệ thống"),
+        "upside risk":              ("🦅 Hawkish", "Rủi ro lạm phát tăng thêm — Fed khó cắt giảm lãi suất"),
     }
     DOVE_PHRASES = {
+        # ── Cốt lõi (10 cũ) ─────────────────────────────────────────────────
         "restrictive territory": ("🕊️ Dovish", "Lãi suất đang quá cao — Fed chuẩn bị cắt giảm sớm"),
         "balanced risks":        ("🕊️ Dovish", "Rủi ro cân bằng — pivot sắp đến, bullish cho vàng"),
         "financial stability":   ("🕊️ Dovish", "⚠️ Cảnh báo: Có gì đó đang gãy trong hệ thống!"),
@@ -4980,7 +5070,19 @@ def analyze_fedspeak(news_items: list) -> dict:
         "on track":              ("🕊️ Dovish", "Fed hài lòng với tiến trình — pivot gần hơn"),
         "progress":              ("🕊️ Dovish", "Fed nhận thấy tiến bộ — tín hiệu hawkish đang suy yếu"),
         "appropriate":           ("🕊️ Dovish", "Fed cho rằng chính sách phù hợp — cắt giảm sắp tới"),
+        # ── Mở rộng (8 mới) ─────────────────────────────────────────────────
+        "cooling inflation":     ("🕊️ Dovish", "Lạm phát đang hạ nhiệt — tạo điều kiện thuận lợi cho cắt lãi"),
+        "disinflation":          ("🕊️ Dovish", "Xu hướng giảm phát đang diễn ra — Fed có lý do nới lỏng"),
+        "full employment":       ("🕊️ Dovish", "Việc làm đầy đủ đạt được — Fed có thể chuyển sang bảo vệ tăng trưởng"),
+        "downside risk":         ("🕊️ Dovish", "Rủi ro tăng trưởng giảm — nghiêng về cắt lãi để bảo vệ kinh tế"),
+        "soft landing":          ("🕊️ Dovish", "Hạ cánh mềm — Fed tự tin giảm lãi suất mà không gây suy thoái"),
+        "insurance cut":         ("🕊️ Dovish", "Cắt lãi phòng ngừa — Fed hành động chủ động trước khi kinh tế yếu"),
+        "accommodation":         ("🕊️ Dovish", "Chính sách nới lỏng/hỗ trợ — Fed đang chuyển sang dễ tiền tệ"),
+        "gradual":               ("🕊️ Dovish", "Cắt lãi từ từ, thận trọng — vẫn là hướng dovish rõ ràng"),
     }
+
+    # ── Negation prefixes — phủ định dove phrase = tín hiệu hawkish ──────
+    _NEGATIONS = ("not ", "no ", "never ", "don't ", "doesn't ", "won't ", "haven't ", "without ")
 
     detected = []
     hawk_score = 0
@@ -4994,7 +5096,17 @@ def analyze_fedspeak(news_items: list) -> dict:
             hawk_score += 1
 
     for phrase, (label, meaning) in DOVE_PHRASES.items():
-        if phrase in all_text:
+        # Kiểm tra phủ định trước: "not cutting", "won't ease", v.v.
+        negated = any((neg + phrase) in all_text for neg in _NEGATIONS)
+        if negated:
+            detected.append({
+                "phrase":  f"NOT {phrase}",
+                "label":   "🦅 Hawkish (phủ định)",
+                "meaning": f"Fed phủ nhận '{phrase}' — tín hiệu hawkish ẩn",
+                "type":    "hawk",
+            })
+            hawk_score += 1
+        elif phrase in all_text:
             detected.append({"phrase": phrase, "label": label, "meaning": meaning, "type": "dove"})
             dove_score += 1
 
@@ -6045,6 +6157,84 @@ def render_expert_tab(macro: dict, fred_data: dict):
 
         # Clamp
         total_expert_score = max(-8, min(8, total_expert_score))
+
+        # ── Hawk-o-meter ─────────────────────────────────────────────────────
+        # hawk_score_fed: dùng futures_data (market pricing of Fed hawkishness)
+        _fs = futures_data.get("score", 0) if futures_data.get("ok") else 0
+        hawk_score_fed    = -1 if _fs < -1 else (1 if _fs > 1 else 0)
+        hawk_score_speech = fedspeak.get("score", 0)  # -3..+3 từ analyze_fedspeak
+        # WALCL: QT/QE check
+        _walcl_ok = "fed_balance" in fred_data and len(fred_data["fed_balance"]) >= 52
+        if _walcl_ok:
+            _wb = fred_data["fed_balance"]
+            _wb_chg = (float(_wb.iloc[-1]) / float(_wb.iloc[-52]) - 1) * 100
+        else:
+            _wb_chg = 0
+        hawk_score_walcl = -1 if _wb_chg < -5 else 0
+        # Yield 2Y rising check
+        _y2y_ok = "yield2y" in fred_data and len(fred_data["yield2y"]) >= 20
+        if _y2y_ok:
+            _y2y = fred_data["yield2y"].dropna()
+            _y2y_rise = float(_y2y.iloc[-1]) - float(_y2y.iloc[-20]) if len(_y2y) >= 20 else 0
+        else:
+            _y2y_rise = 0
+        hawk_score_yield2y = -1 if _y2y_rise > 0.15 else 0
+        # COT: whale đảo chiều bearish
+        _cot_rank = cot_xau.get("pct_rank", 50) if cot_xau.get("ok") else 50
+        _cot_chg  = cot_xau.get("chg_1w", 0) if cot_xau.get("ok") else 0
+        hawk_score_cot = (-1 if _cot_rank > 80 and _cot_chg < 0
+                          else (1 if _cot_rank < 20 and _cot_chg > 0 else 0))
+
+        hawk_composite = max(-5, min(5,
+            hawk_score_fed + hawk_score_speech + hawk_score_walcl
+            + hawk_score_yield2y + hawk_score_cot
+        ))
+        hawkish_signals_count = sum([
+            1 if hawk_score_fed     < 0 else 0,
+            1 if hawk_score_speech  < 0 else 0,
+            1 if hawk_score_walcl   < 0 else 0,
+            1 if hawk_score_yield2y < 0 else 0,
+            1 if hawk_score_cot     < 0 else 0,
+        ])
+
+        # Cảnh báo khi nhiều tín hiệu cùng chiều hawkish
+        if hawkish_signals_count >= 3:
+            st.error(f"🚨 CẢNH BÁO DIỀU HÂU: {hawkish_signals_count}/5 tín hiệu đang cùng hướng BEARISH vàng — áp lực giảm giá mạnh!")
+        elif hawkish_signals_count == 2:
+            st.warning(f"⚠️ CHÚ Ý: {hawkish_signals_count}/5 tín hiệu diều hâu — theo dõi sát thêm 1-2 ngày tới.")
+
+        # Visual Hawk-o-meter bar
+        _level_pct = (hawk_composite + 5) / 10 * 100  # -5..+5 → 0%..100%
+        _bar_color = ("#f85149" if hawk_composite <= -3 else
+                      "#f9a825" if hawk_composite < 0 else
+                      "#3fb950" if hawk_composite >= 3 else
+                      "#FFD700")
+        _hawk_label = ("Rất Hawkish 🦅🦅" if hawk_composite <= -4 else
+                       "Hawkish 🦅"       if hawk_composite <= -2 else
+                       "Hơi Hawkish"      if hawk_composite < 0 else
+                       "Hơi Dovish"       if hawk_composite <= 1 else
+                       "Dovish 🕊️"       if hawk_composite <= 3 else
+                       "Rất Dovish 🕊️🕊️")
+        st.markdown(f"""
+<div style='background:#161b22;border-radius:10px;padding:14px 18px;border:1px solid #30363d;margin:8px 0'>
+  <div style='display:flex;justify-content:space-between;margin-bottom:6px'>
+    <span style='color:#f85149;font-size:0.82rem'>🦅 Diều Hâu (Bearish Gold)</span>
+    <b style='color:{_bar_color};font-size:1.0rem'>{_hawk_label}</b>
+    <span style='color:#3fb950;font-size:0.82rem'>Bồ Câu (Bullish Gold) 🕊️</span>
+  </div>
+  <div style='background:#0d1117;border-radius:6px;height:18px;position:relative'>
+    <div style='background:{_bar_color};width:{_level_pct:.0f}%;height:100%;border-radius:6px'></div>
+    <div style='position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#e6edf3;font-size:0.78rem;font-weight:bold'>Trung lập</div>
+  </div>
+  <div style='display:flex;justify-content:space-between;margin-top:4px;color:#8b949e;font-size:0.72rem'>
+    <span>Mkt Futures: {'✅ Hawk' if hawk_score_fed < 0 else '○'}</span>
+    <span>Fedspeak: {'✅ Hawk' if hawk_score_speech < 0 else '○'}</span>
+    <span>QT (WALCL): {'✅ Hawk' if hawk_score_walcl < 0 else '○'}</span>
+    <span>Yield 2Y↑: {'✅ Hawk' if hawk_score_yield2y < 0 else '○'}</span>
+    <span>COT đảo chiều: {'✅ Hawk' if hawk_score_cot < 0 else '○'}</span>
+  </div>
+</div>
+""", unsafe_allow_html=True)
 
         if total_expert_score >= 4:
             verdict       = "🚀 STRONG BULLISH"
