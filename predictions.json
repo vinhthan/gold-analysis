@@ -1135,9 +1135,9 @@
       "7": {
         "label": "1 tuần tới",
         "target_date": "2026-07-13",
-        "actual_price": null,
-        "change_pct": null,
-        "result": "PENDING"
+        "actual_price": 63995.7383,
+        "change_pct": 0.0,
+        "result": "ĐÚNG"
       },
       "14": {
         "label": "2 tuần tới",
@@ -3552,9 +3552,9 @@
       "3": {
         "label": "3 ngày tới",
         "target_date": "2026-07-13",
-        "actual_price": null,
-        "change_pct": null,
-        "result": "PENDING"
+        "actual_price": 63995.7383,
+        "change_pct": -0.2,
+        "result": "ĐÚNG"
       },
       "7": {
         "label": "1 tuần tới",
@@ -4757,9 +4757,9 @@
       "1": {
         "label": "Ngày mai",
         "target_date": "2026-07-13",
-        "actual_price": null,
-        "change_pct": null,
-        "result": "PENDING"
+        "actual_price": 63995.7383,
+        "change_pct": 0.37,
+        "result": "ĐÚNG"
       },
       "3": {
         "label": "3 ngày tới",
