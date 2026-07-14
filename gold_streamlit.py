@@ -5740,6 +5740,9 @@ def render_expert_tab(macro: dict, fred_data: dict):
         max_pain     = calc_expert_max_pain()
         cot_xau      = fetch_cot_data("XAU")
         macro_news   = fetch_macro_news()
+        cot_xag      = fetch_cot_data("XAG")
+        cot_hg       = fetch_cot_data("HG")
+        cot_cl       = fetch_cot_data("CL")
 
     # ── Tính sơ bộ Expert Score + Hawk metrics (dùng cho AI narrative ở đầu) ─
     _ai_fed_es  = fedspeak.get("score", 0)
@@ -6691,60 +6694,42 @@ def render_expert_tab(macro: dict, fred_data: dict):
 
     _FORECAST_PERIODS = [1, 3, 7, 14, 21, 30, 60, 90, 180, 270, 365]
 
-    with st.spinner("🔮 Chạy mô hình dự báo giá vàng..."):
-        try:
-            _xau_px, _ = fetch_gold()
-            _cur   = float(_xau_px.iloc[-1])
-            _ldate = str(_xau_px.index[-1])
+    # ── Helper: tính expert score và chạy forecast cho một tài sản ────────────
+    def _compute_asset_forecast(asset_key, px_series, expert_score, hk_composite, tech_summary):
+        """Chạy forecast 11 kỳ cho một tài sản với expert score đã tính sẵn."""
+        _ldate = str(px_series.index[-1])
+        _cur   = float(px_series.iloc[-1])
+        _tech  = tech_summary.get(asset_key, {})
+        _hk    = hk_composite if isinstance(hk_composite, (int, float)) else 0
+        rows   = []
+        for _d in _FORECAST_PERIODS:
+            try:
+                _ts = _tech.get(_d, {}).get("score", 0)
+                if _d <= 7:
+                    _wt, _we = 0.60, 0.40
+                    _src = "KT 60% · Expert 40%"
+                elif _d <= 30:
+                    _wt, _we = 0.45, 0.55
+                    _src = "KT 45% · Expert 55%"
+                elif _d <= 90:
+                    _wt, _we = 0.25, 0.75
+                    _src = "Expert 75% · KT 25%"
+                else:
+                    _wt, _we = 0.10, 0.90
+                    _src = "FED·Whale·COT·Macro"
+                _hk_adj = _hk * 0.30
+                _ms = max(-12, min(12, int(_wt * _ts + _we * expert_score + _hk_adj)))
+                _agree = ((_ts >= 0 and expert_score >= 0) or (_ts < 0 and expert_score < 0))
+                _fm, _flo, _fhi = forecast(px_series.values, _ldate, _d, _ms, asset_key, 0.5)
+                rows.append((_d, float(_fm.iloc[-1]), float(_flo.iloc[-1]),
+                             float(_fhi.iloc[-1]), (_fm.iloc[-1]/_cur - 1)*100, _src, _agree))
+            except Exception:
+                pass
+        return _cur, rows
 
-            # Lấy tech score XAU từ bảng kết luận nhanh (đã cached, không tốn thêm request)
-            _summary    = calc_summary_forecast()
-            _xau_tech   = _summary.get("XAU", {})
-
-            # Hawk modifier: hawk_composite -5(rất hawkish)→+5(rất dovish)
-            # Hawkish → bearish gold → bias âm; dovish → bias dương
-            _hk_adj = (hawk_composite if isinstance(hawk_composite, (int, float)) else 0) * 0.35
-
-            _fc_rows = []
-            for _d in _FORECAST_PERIODS:
-                try:
-                    _tech_score = _xau_tech.get(_d, {}).get("score", 0)
-
-                    # Expert signals ảnh hưởng TẤT CẢ kỳ — trọng số tăng dần theo thời gian
-                    # Ngắn hạn: kỹ thuật chủ đạo nhưng macro/hawk vẫn là bias quan trọng
-                    # Dài hạn: FED + whale + COT + hawk quyết định hoàn toàn
-                    if _d <= 7:
-                        _wt, _we = 0.60, 0.40
-                        _src = "KT 60% · FED+Whale 40%"
-                    elif _d <= 30:
-                        _wt, _we = 0.45, 0.55
-                        _src = "KT 45% · FED+Whale 55%"
-                    elif _d <= 90:
-                        _wt, _we = 0.25, 0.75
-                        _src = "FED+Whale 75% · KT 25%"
-                    else:
-                        _wt, _we = 0.10, 0.90
-                        _src = "FED · Whale · COT · Hawk"
-
-                    _raw    = _wt * _tech_score + _we * total_expert_score + _hk_adj
-                    _mscore = max(-12, min(12, int(_raw)))
-
-                    # Phát hiện mâu thuẫn: tech và expert ngược chiều nhau
-                    _agree = ((_tech_score >= 0 and total_expert_score >= 0) or
-                              (_tech_score < 0  and total_expert_score < 0))
-
-                    _fm, _flo, _fhi = forecast(_xau_px.values, _ldate, _d, _mscore, "XAU", 0.5)
-                    _tgt = float(_fm.iloc[-1])
-                    _lo  = float(_flo.iloc[-1])
-                    _hi  = float(_fhi.iloc[-1])
-                    _chg = (_tgt / _cur - 1) * 100
-                    _fc_rows.append((_d, _tgt, _lo, _hi, _chg, _src, _agree))
-                except Exception:
-                    pass
-        except Exception:
-            _fc_rows = []
-
-    if _fc_rows:
+    def _render_forecast_table(rows, cur_price, asset_key, expert_score, hk_composite):
+        """Render HTML bảng forecast từ rows đã tính."""
+        _mn_s = macro_news.get("score", 0)
         _hdr = (
             "<div style='overflow-x:auto'>"
             "<table style='width:100%;border-collapse:collapse;font-size:0.84rem;'>"
@@ -6758,43 +6743,133 @@ def render_expert_tab(macro: dict, fred_data: dict):
             "<th style='padding:8px;border-bottom:1px solid #30363d;'>Độ tin cậy</th>"
             "</tr></thead><tbody>"
         )
-        _rows_html = ""
-        for _i, (_d, _tgt, _lo, _hi, _chg, _src, _agree) in enumerate(_fc_rows):
-            _lbl   = PERIOD_LABELS.get(_d, f"{_d}d")
-            _up    = _chg > 0.3
-            _dn    = _chg < -0.3
-            _arrow = ("📈 TĂNG" if _up else "📉 GIẢM" if _dn else "➡️ ĐI NGANG")
-            _tclr  = ("#3fb950" if _up else "#f85149" if _dn else "#f9a825")
-            _chg_s = f"{_chg:+.2f}%"
-            _conf_dots = ("🔵🔵🔵" if _d <= 7 else "🔵🔵○" if _d <= 30 else "🔵○○" if _d <= 90 else "○○○")
-            _conf_lvl  = ("Cao" if _d <= 7 else "Khá" if _d <= 30 else "TB" if _d <= 90 else "Thấp")
-            _conf_note = " ✓ Đồng thuận" if _agree else " ⚡ Mâu thuẫn"
-            _conf = f"{_conf_dots} {_conf_lvl}{_conf_note}"
-            _row_bg = "#0d1117" if _i % 2 == 0 else "#161b22"
-            _rows_html += (
-                f"<tr style='background:{_row_bg};text-align:center;'>"
-                f"<td style='padding:9px 12px;text-align:left;color:#e6edf3;font-weight:600;border-bottom:1px solid #21262d;'>{_lbl}</td>"
-                f"<td style='padding:9px 8px;color:{_tclr};font-weight:700;border-bottom:1px solid #21262d;'>{_arrow}</td>"
-                f"<td style='padding:9px 8px;color:{_tclr};font-weight:700;font-size:0.95rem;border-bottom:1px solid #21262d;'>${_tgt:,.0f}</td>"
-                f"<td style='padding:9px 8px;color:{_tclr};font-weight:600;border-bottom:1px solid #21262d;'>{_chg_s}</td>"
-                f"<td style='padding:9px 8px;color:#8b949e;font-size:0.82rem;border-bottom:1px solid #21262d;'>${_lo:,.0f} – ${_hi:,.0f}</td>"
-                f"<td style='padding:9px 8px;color:#8b949e;font-size:0.78rem;border-bottom:1px solid #21262d;'>{_src}</td>"
-                f"<td style='padding:9px 8px;color:#8b949e;font-size:0.80rem;border-bottom:1px solid #21262d;'>{_conf}</td>"
+        _body = ""
+        for _i, (_d, _tgt, _lo, _hi, _chg, _src, _agree) in enumerate(rows):
+            _lbl  = PERIOD_LABELS.get(_d, f"{_d}d")
+            _up   = _chg > 0.3; _dn = _chg < -0.3
+            _arrow = "📈 TĂNG" if _up else "📉 GIẢM" if _dn else "➡️ ĐI NGANG"
+            _tclr  = "#3fb950" if _up else "#f85149" if _dn else "#f9a825"
+            _dots  = "🔵🔵🔵" if _d<=7 else "🔵🔵○" if _d<=30 else "🔵○○" if _d<=90 else "○○○"
+            _lvl   = "Cao" if _d<=7 else "Khá" if _d<=30 else "TB" if _d<=90 else "Thấp"
+            _note  = " ✓" if _agree else " ⚡"
+            _bg    = "#0d1117" if _i % 2 == 0 else "#161b22"
+            _body += (
+                f"<tr style='background:{_bg};text-align:center;'>"
+                f"<td style='padding:9px 12px;text-align:left;color:#e6edf3;font-weight:600;"
+                f"border-bottom:1px solid #21262d;'>{_lbl}</td>"
+                f"<td style='padding:9px 8px;color:{_tclr};font-weight:700;"
+                f"border-bottom:1px solid #21262d;'>{_arrow}</td>"
+                f"<td style='padding:9px 8px;color:{_tclr};font-weight:700;font-size:0.95rem;"
+                f"border-bottom:1px solid #21262d;'>${_tgt:,.2f}</td>"
+                f"<td style='padding:9px 8px;color:{_tclr};font-weight:600;"
+                f"border-bottom:1px solid #21262d;'>{_chg:+.2f}%</td>"
+                f"<td style='padding:9px 8px;color:#8b949e;font-size:0.82rem;"
+                f"border-bottom:1px solid #21262d;'>${_lo:,.2f} – ${_hi:,.2f}</td>"
+                f"<td style='padding:9px 8px;color:#8b949e;font-size:0.78rem;"
+                f"border-bottom:1px solid #21262d;'>{_src}</td>"
+                f"<td style='padding:9px 8px;color:#8b949e;font-size:0.80rem;"
+                f"border-bottom:1px solid #21262d;'>{_dots} {_lvl}{_note}</td>"
                 f"</tr>"
             )
-        st.markdown(_hdr + _rows_html + "</tbody></table></div>", unsafe_allow_html=True)
+        st.markdown(_hdr + _body + "</tbody></table></div>", unsafe_allow_html=True)
         st.markdown(
             f"<p style='color:#8b949e;font-size:0.76rem;margin-top:6px;'>"
-            f"📍 Giá hiện tại: <b style='color:#FFD700;'>${_cur:,.2f}</b> · "
-            f"Expert Score: <b>{total_expert_score:+d}/8</b> · "
-            f"Hawk-o-meter: <b>{hawk_composite:+d}/5</b> · "
-            f"Tín hiệu: KT+FED+Whale+COT+Hawk tất cả kỳ · "
-            f"✓ Đồng thuận = KT & Macro cùng chiều · ⚡ Mâu thuẫn = theo dõi kỹ · "
-            f"⚠️ Không phải khuyến nghị đầu tư.</p>",
+            f"📍 Giá hiện tại: <b style='color:#FFD700;'>${cur_price:,.2f}</b> · "
+            f"Expert Score: <b>{expert_score:+d}/8</b> · "
+            f"Hawk: <b>{hk_composite:+d}/5</b> · "
+            f"Macro News: <b>{_mn_s:+d}/3</b> · "
+            f"✓ Đồng thuận · ⚡ Mâu thuẫn · ⚠️ Không phải khuyến nghị đầu tư.</p>",
             unsafe_allow_html=True,
         )
+
+    # ── 🥇 DỰ BÁO VÀNG (XAU) ────────────────────────────────────────────────
+    _summary_all = calc_summary_forecast()
+    _hk_val      = hawk_composite if isinstance(hawk_composite, (int, float)) else 0
+
+    with st.spinner("🔮 Dự báo Vàng (XAU)..."):
+        try:
+            _xau_px, _ = fetch_gold()
+            _xau_cur, _xau_rows = _compute_asset_forecast(
+                "XAU", _xau_px, total_expert_score, _hk_val, _summary_all)
+        except Exception:
+            _xau_rows, _xau_cur = [], 0.0
+
+    if _xau_rows:
+        _render_forecast_table(_xau_rows, _xau_cur, "XAU", total_expert_score, _hk_val)
     else:
         st.info("⚠️ Không lấy được giá XAU để chạy dự báo.")
+
+    st.markdown("---")
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # DỰ BÁO ĐA TÀI SẢN — Silver · Copper · Crude Oil · Bitcoin
+    # ══════════════════════════════════════════════════════════════════════════
+    st.markdown("## 🌍 DỰ BÁO ĐA TÀI SẢN")
+    st.markdown(
+        "<p style='color:#8b949e;font-size:0.85rem;'>"
+        "Mỗi tài sản dùng expert score riêng phù hợp với bản chất: "
+        "<b>Bạc</b> theo vàng 70% · <b>Đồng</b> nhạy cảm thương chiến · "
+        "<b>Dầu</b> phụ thuộc địa chính trị · <b>Bitcoin</b> theo thanh khoản FED. "
+        "Tất cả tích hợp: COT · Macro News · FED · Hawk-o-meter.</p>",
+        unsafe_allow_html=True,
+    )
+
+    # Tính expert score riêng cho từng tài sản
+    _fed_es   = fedspeak.get("score", 0)
+    _mn_s     = macro_news.get("score", 0)
+    _cot_xag_s = int(cot_xag.get("score", 0)) if cot_xag.get("ok") else 0
+    _cot_hg_s  = int(cot_hg.get("score",  0)) if cot_hg.get("ok")  else 0
+    _cot_cl_s  = int(cot_cl.get("score",  0)) if cot_cl.get("ok")  else 0
+
+    # XAG: Kim loại tiền tệ (theo vàng 70%) + công nghiệp (pin mặt trời, điện tử)
+    _xag_exp = max(-8, min(8, round(total_expert_score * 0.70 + _cot_xag_s * 0.30)))
+
+    # HG: Phong vũ biểu kinh tế — thuế quan/thương chiến = BEARISH đồng
+    # (giảm sản xuất toàn cầu), USD mạnh (hawkish FED) = bearish đồng
+    _hg_exp  = max(-8, min(8, round(-_mn_s * 1.2 + _cot_hg_s * 0.8 - _fed_es * 0.4)))
+
+    # CL: Địa chính trị — xung đột/chiến tranh = BULLISH dầu (gián đoạn cung)
+    _cl_exp  = max(-8, min(8, round(_mn_s * 1.0 + _cot_cl_s * 0.7)))
+
+    # BTC: Tài sản rủi ro — hawkish FED = bearish (rút thanh khoản)
+    _btc_exp = max(-8, min(8, round(-_fed_es * 0.8 - _mn_s * 0.3)))
+
+    MULTI_ASSETS = [
+        ("XAG", "🥈 Bạc (Silver/SI=F)",      "SI=F",    _xag_exp, _hk_val,
+         "Bạc = Kim loại tiền tệ (đồng hành vàng 70%) + công nghiệp. FED, COT bạc và macro news làm tín hiệu chính."),
+        ("HG",  "🔶 Đồng (Copper/HG=F)",     "HG=F",    _hg_exp,  _hk_val,
+         "Đồng = Phong vũ biểu kinh tế toàn cầu. Thuế quan/chiến tranh TM → BEARISH. COT đồng + USD strength là yếu tố chính."),
+        ("CL",  "🛢️ Dầu WTI (CL=F)",         "CL=F",    _cl_exp,  0,
+         "Dầu = Địa chính trị + cung/cầu OPEC. Xung đột/chiến tranh → BULLISH (gián đoạn cung). COT dầu phản ánh định vị trader chuyên nghiệp."),
+        ("BTC", "₿ Bitcoin (BTC-USD)",        "BTC-USD", _btc_exp, -_hk_val,
+         "Bitcoin = Tài sản rủi ro. FED hawkish = bearish (rút thanh khoản). Dovish FED + thị trường tốt = bullish BTC."),
+    ]
+
+    for _ak, _aname, _ticker, _aexp, _ahk, _adesc in MULTI_ASSETS:
+        with st.expander(f"{_aname} — Expert Score: {_aexp:+d}/8", expanded=False):
+            st.markdown(
+                f"<p style='color:#8b949e;font-size:0.82rem;margin:0 0 8px 0;'>{_adesc}</p>",
+                unsafe_allow_html=True,
+            )
+            with st.spinner(f"🔮 Dự báo {_aname}..."):
+                try:
+                    import yfinance as _yf
+                    _raw = _yf.download(_ticker, period="2y", interval="1d",
+                                        progress=False, auto_adjust=True)
+                    if isinstance(_raw.columns, pd.MultiIndex):
+                        _raw.columns = _raw.columns.get_level_values(0)
+                    _apx = _raw["Close"].dropna()
+                    if len(_apx) < 30:
+                        st.warning(f"Không đủ dữ liệu lịch sử cho {_aname}.")
+                        continue
+                    _acur, _arows = _compute_asset_forecast(
+                        _ak, _apx, _aexp, _ahk, _summary_all)
+                    if _arows:
+                        _render_forecast_table(_arows, _acur, _ak, _aexp, _ahk)
+                    else:
+                        st.warning(f"Không chạy được dự báo cho {_aname}.")
+                except Exception as _ae:
+                    st.warning(f"Lỗi dự báo {_aname}: {_ae}")
 
     st.markdown("---")
 
