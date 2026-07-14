@@ -5563,20 +5563,45 @@ Phong cách: Briefing sáng hedge fund — sắc bén, số liệu thực, khôn
         "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": {"temperature": 0.65, "maxOutputTokens": 1200},
     }
-    # (api_version, model_name) — thứ tự ưu tiên: v1 stable trước, v1beta sau
-    # gemini-1.5-x → dùng v1 endpoint; gemini-2.0-x → dùng v1beta
-    _models_to_try = [
-        ("v1",     "gemini-1.5-flash"),       # stable, free tier, ít bị 429
-        ("v1",     "gemini-1.5-flash-8b"),    # nhỏ hơn, nhanh hơn
-        ("v1",     "gemini-1.5-pro"),         # pro stable
-        ("v1beta", "gemini-2.0-flash-lite"),  # mới, có thể 429 nếu test nhiều
-        ("v1beta", "gemini-2.0-flash"),       # mới nhất
-    ]
-    _all_errs = []
-    for _api_ver, _mn in _models_to_try:
+
+    # Bước 1: Lấy danh sách model thực tế từ API (không đoán mò tên)
+    _available_models = []
+    try:
+        _list_url = f"https://generativelanguage.googleapis.com/v1beta/models?key={_api_key}&pageSize=50"
+        _lr = _req.get(_list_url, timeout=10)
+        if _lr.status_code == 200:
+            for _m in _lr.json().get("models", []):
+                _mname = _m.get("name", "").replace("models/", "")
+                _methods = _m.get("supportedGenerationMethods", [])
+                if "generateContent" in _methods and _mname:
+                    _available_models.append(_mname)
+    except Exception:
+        pass
+
+    # Bước 2: Ưu tiên model flash nhỏ (ít quota nhất), lọc bỏ preview/exp/vision nếu có
+    def _model_priority(name):
+        if "flash-lite" in name or "flash-8b" in name:
+            return 0
+        if "flash" in name and "pro" not in name:
+            return 1
+        if "pro" in name:
+            return 2
+        return 3
+
+    if _available_models:
+        _available_models.sort(key=_model_priority)
+    else:
+        # Fallback nếu ListModels thất bại
+        _available_models = [
+            "gemini-2.0-flash-lite", "gemini-2.0-flash",
+            "gemini-1.5-flash-8b", "gemini-1.5-flash",
+        ]
+
+    _all_errs = [f"Models khả dụng: {_available_models[:6]}"]
+    for _mn in _available_models[:6]:  # thử tối đa 6 model
         try:
             _url = (
-                f"https://generativelanguage.googleapis.com/{_api_ver}/models/"
+                f"https://generativelanguage.googleapis.com/v1beta/models/"
                 f"{_mn}:generateContent?key={_api_key}"
             )
             _r = _req.post(_url, json=_payload, timeout=30)
@@ -5586,13 +5611,15 @@ Phong cách: Briefing sáng hedge fund — sắc bén, số liệu thực, khôn
                 if _candidates:
                     return _candidates[0]["content"]["parts"][0]["text"]
                 else:
-                    _all_errs.append(f"{_mn}: response OK nhưng không có candidates (bị block?)")
+                    _all_errs.append(f"{_mn}: OK nhưng không có candidates")
+            elif _r.status_code == 429:
+                _all_errs.append(f"{_mn}: 429 quota — thử model tiếp theo")
             else:
-                _all_errs.append(f"{_mn} ({_api_ver}): HTTP {_r.status_code} — {_r.text[:200]}")
+                _all_errs.append(f"{_mn}: HTTP {_r.status_code} — {_r.text[:150]}")
         except Exception as _e:
             _all_errs.append(f"{_mn}: {_e}")
             continue
-    return "⚠️ Lỗi Gemini API — tất cả models thất bại:\n" + "\n".join(f"  • {e}" for e in _all_errs)
+    return "⚠️ Lỗi Gemini API:\n" + "\n".join(f"  • {e}" for e in _all_errs)
 
 
 def render_expert_tab(macro: dict, fred_data: dict):
