@@ -5491,6 +5491,8 @@ def generate_expert_narrative(
     price_1w_chg: float,
     price_1m_chg: float,
     price_3m_chg: float,
+    macro_news_titles: tuple = (),
+    macro_news_score: int = 0,
 ) -> str:
     """Gọi Gemini AI (REST API trực tiếp) để tổng hợp phân tích chuyên gia."""
     import requests as _req
@@ -5536,6 +5538,11 @@ Fed Funds Futures: score {futures_score:+d}
 Net position XAU: {cot_net:,} hợp đồng | Percentile 52W: {cot_rank}%
 Thay đổi 1 tuần: {cot_chg_1w:+,} hợp đồng → {cot_trend}
 
+══════ VĨ MÔ & ĐỊA CHÍNH TRỊ (Tổng thống, Thuế quan, Chiến tranh TM) ══════
+Tin nóng ảnh hưởng vàng:
+{chr(10).join(f"  • {t}" for t in macro_news_titles[:5]) or "  • Không có tin vĩ mô đặc biệt"}
+Macro News Score: {macro_news_score:+d}/3 ({'Bất ổn → Bullish vàng' if macro_news_score > 0 else 'Ổn định → Bearish vàng' if macro_news_score < 0 else 'Trung lập'})
+
 ══════ TỔNG HỢP HỆ THỐNG ══════
 Expert Score: {total_expert_score:+d}/8 → {exp_dir}
 
@@ -5548,11 +5555,14 @@ Viết theo cấu trúc sau, DÙNG số liệu thực tế ở trên, KHÔNG vi�
 ## 🏦 FED ĐANG LÀM GÌ
 [Giải mã ngôn ngữ FED từ tin tức thực tế trên — họ đang thực sự muốn gì, tác động đến vàng ra sao. 2-3 câu.]
 
+## 🌐 VĨ MÔ & ĐỊA CHÍNH TRỊ
+[Phân tích tin tức Tổng thống/thuế quan/xung đột trên — tác động cụ thể đến vàng như thế nào. Có tăng hay giảm safe haven demand không? 2-3 câu.]
+
 ## 🐋 CÁ MẬP ĐANG ĐẶT CỬA THẾ NÀO
 [Phân tích COT: vị thế hiện tại nói lên điều gì, {cot_rank}% percentile có ý nghĩa gì, xu hướng đang thay đổi ra sao. 2-3 câu.]
 
 ## ⚡ TÍN HIỆU MÂU THUẪN HAY ĐỒNG THUẬN
-[FED và cá mập đang cùng chiều hay ngược chiều? Điều đó quan trọng như thế nào? 2 câu.]
+[FED, vĩ mô và cá mập đang cùng chiều hay ngược chiều? Điều đó quan trọng như thế nào? 2 câu.]
 
 ## 🎯 HÀNH ĐỘNG CỤ THỂ
 [Vùng giá tham khảo để vào lệnh, mức stop loss logic, cỡ vị thế. Thực chiến, cụ thể. 2-3 câu.]
@@ -5622,6 +5632,86 @@ Phong cách: Briefing sáng hedge fund — sắc bén, số liệu thực, khôn
     return "⚠️ Lỗi Gemini API:\n" + "\n".join(f"  • {e}" for e in _all_errs)
 
 
+@st.cache_data(ttl=3600, show_spinner=False)
+def fetch_macro_news():
+    """Fetch macro/geopolitical/presidential news from RSS — tariff, trade war, White House, conflict."""
+    import requests as _req
+    import xml.etree.ElementTree as ET
+
+    FEEDS = [
+        "https://feeds.reuters.com/reuters/businessNews",
+        "https://feeds.reuters.com/reuters/worldNews",
+        "https://www.marketwatch.com/rss/realtimeheadlines",
+    ]
+
+    # Từ khóa bullish cho vàng (tạo bất ổn → safe haven)
+    BULL_KW = {
+        "tariff": 2, "tariffs": 2, "trade war": 2, "trade dispute": 1,
+        "sanction": 2, "sanctions": 2, "embargo": 2,
+        "war": 2, "conflict": 1, "tension": 1, "geopolit": 1,
+        "trump": 1, "white house": 1, "executive order": 1,
+        "recession": 2, "crisis": 1, "default": 2, "debt ceiling": 1,
+        "inflation surge": 1, "dollar fall": 1, "dollar weak": 1,
+        "safe haven": 2, "gold demand": 2, "gold rally": 2,
+        "uncertainty": 1, "escalat": 1, "attack": 1,
+    }
+    # Từ khóa bearish cho vàng (giảm bất ổn → risk-on)
+    BEAR_KW = {
+        "trade deal": -2, "trade agreement": -2, "deal signed": -1,
+        "ceasefire": -2, "peace deal": -2, "de-escalat": -1,
+        "dollar surges": -1, "dollar strengthens": -1, "dollar rallies": -1,
+        "risk-on": -1, "stocks surge": -1, "stocks rally": -1,
+        "truce": -1, "resolution": -1,
+    }
+
+    items = []
+    for url in FEEDS:
+        try:
+            r = _req.get(url, timeout=10, headers={"User-Agent": "Mozilla/5.0"})
+            if r.status_code != 200:
+                continue
+            root = ET.fromstring(r.content)
+            for item in root.iter("item"):
+                title = (item.findtext("title") or "").strip()
+                desc  = (item.findtext("description") or "").strip()
+                text  = (title + " " + desc).lower()
+
+                score, kws = 0, []
+                for kw, val in BULL_KW.items():
+                    if kw in text:
+                        score += val
+                        kws.append(kw)
+                for kw, val in BEAR_KW.items():
+                    if kw in text:
+                        score += val
+                        kws.append(kw)
+
+                if kws and title:
+                    items.append({
+                        "title": title,
+                        "score": score,
+                        "keywords": kws[:3],
+                        "pub_date": (item.findtext("pubDate") or ""),
+                    })
+        except Exception:
+            continue
+
+    # Sắp xếp theo độ tác động (abs score cao nhất trước)
+    items.sort(key=lambda x: -abs(x["score"]))
+    items = items[:10]
+
+    agg  = sum(x["score"] for x in items[:6])
+    agg_score = max(-3, min(3, round(agg / 4)))  # clamp -3..+3
+
+    return {
+        "ok": bool(items),
+        "items": items,
+        "score": agg_score,
+        "bullish": sum(1 for x in items if x["score"] > 0),
+        "bearish": sum(1 for x in items if x["score"] < 0),
+    }
+
+
 def render_expert_tab(macro: dict, fred_data: dict):
     """
     🧠 Tab Phân Tích Chuyên Gia — 17 modules · 4 blocks.
@@ -5649,6 +5739,7 @@ def render_expert_tab(macro: dict, fred_data: dict):
         gold_jpy     = fetch_gold_jpy_signal()
         max_pain     = calc_expert_max_pain()
         cot_xau      = fetch_cot_data("XAU")
+        macro_news   = fetch_macro_news()
 
     # ── Tính sơ bộ Expert Score + Hawk metrics (dùng cho AI narrative ở đầu) ─
     _ai_fed_es  = fedspeak.get("score", 0)
@@ -5723,6 +5814,8 @@ def render_expert_tab(macro: dict, fred_data: dict):
             price_1w_chg       = round(_ai_p1w, 2),
             price_1m_chg       = round(_ai_p1m, 2),
             price_3m_chg       = round(_ai_p3m, 2),
+            macro_news_titles  = tuple(x.get("title", "") for x in macro_news.get("items", [])[:5]),
+            macro_news_score   = int(macro_news.get("score", 0)),
         )
     st.markdown(
         f"<div style='background:#0d1117;border:1px solid #30363d;border-radius:12px;"
@@ -5944,6 +6037,44 @@ def render_expert_tab(macro: dict, fred_data: dict):
             f"<span style='font-size:0.62rem;font-weight:400;'>{m['date'].strftime('%d/%m')}</span></div>",
             unsafe_allow_html=True,
         )
+
+    st.markdown("---")
+
+    # ── 🌐 VĨ MÔ & ĐỊA CHÍNH TRỊ ────────────────────────────────────────────
+    st.markdown("### 🌐 Tin Vĩ Mô & Địa Chính Trị")
+    _mn_score = macro_news.get("score", 0)
+    _mn_bull  = macro_news.get("bullish", 0)
+    _mn_bear  = macro_news.get("bearish", 0)
+    _mn_clr   = "#f85149" if _mn_score < 0 else "#3fb950" if _mn_score > 0 else "#8b949e"
+    _mn_lbl   = ("🔴 Bất ổn cao — Bullish vàng" if _mn_score >= 2 else
+                 "⚠️ Có yếu tố bất ổn" if _mn_score == 1 else
+                 "🟢 Ổn định — Bearish vàng" if _mn_score <= -2 else
+                 "⚪ Trung lập" if _mn_score == 0 else "🟡 Giảm bất ổn nhẹ")
+    st.markdown(
+        f"<div style='background:#161b22;border-radius:8px;padding:10px 14px;"
+        f"border-left:3px solid {_mn_clr};margin-bottom:8px;'>"
+        f"<span style='color:{_mn_clr};font-weight:700;'>{_mn_lbl}</span>"
+        f" &nbsp;·&nbsp; <span style='color:#8b949e;font-size:0.82rem;'>"
+        f"📈 Bullish: {_mn_bull} tin &nbsp;|&nbsp; 📉 Bearish: {_mn_bear} tin"
+        f" &nbsp;|&nbsp; Score tác động: <b style='color:{_mn_clr};'>{_mn_score:+d}/3</b></span></div>",
+        unsafe_allow_html=True,
+    )
+    if macro_news.get("ok") and macro_news.get("items"):
+        for _ni in macro_news["items"][:6]:
+            _ns  = _ni.get("score", 0)
+            _nclr = "#3fb950" if _ns > 0 else "#f85149" if _ns < 0 else "#8b949e"
+            _ndir = "📈" if _ns > 0 else "📉" if _ns < 0 else "➡️"
+            _nkw  = ", ".join(_ni.get("keywords", []))
+            st.markdown(
+                f"<div style='padding:4px 0 4px 8px;border-left:2px solid {_nclr};"
+                f"margin:3px 0;font-size:0.83rem;'>"
+                f"{_ndir} <span style='color:#e6edf3;'>{_ni['title']}</span>"
+                f"<span style='color:#8b949e;font-size:0.72rem;'> [{_nkw}]</span></div>",
+                unsafe_allow_html=True,
+            )
+    else:
+        st.markdown("<p style='color:#8b949e;font-size:0.82rem;'>Chưa lấy được tin vĩ mô.</p>",
+                    unsafe_allow_html=True)
 
     st.markdown("---")
 
@@ -6397,6 +6528,12 @@ def render_expert_tab(macro: dict, fred_data: dict):
         narr_score = 1 if "BULL" in narrative else -1 if "BEAR" in narrative else 0
         total_expert_score += narr_score
         score_breakdown.append(f"Narrative: {narr_score:+d}")
+
+        # Macro/Geopolitical news (tariff, trade war, White House, conflict)
+        if macro_news.get("ok"):
+            mnews_es = macro_news.get("score", 0)
+            total_expert_score += mnews_es
+            score_breakdown.append(f"Macro News: {mnews_es:+d}")
 
         # Clamp
         total_expert_score = max(-8, min(8, total_expert_score))
