@@ -69,6 +69,7 @@ PERIOD_LABELS = {
     14:   "2 tuần tới",
     21:   "3 tuần tới",
     30:   "1 tháng tới",
+    60:   "2 tháng tới",
     90:   "3 tháng tới",
     180:  "6 tháng tới",
     270:  "9 tháng tới",
@@ -6296,6 +6297,92 @@ def render_expert_tab(macro: dict, fred_data: dict):
             "Quản lý rủi ro là ưu tiên số 1.</p></div>",
             unsafe_allow_html=True,
         )
+
+    st.markdown("---")
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # BẢNG DỰ BÁO GIÁ VÀNG XAU THEO KỲ
+    # ══════════════════════════════════════════════════════════════════════════
+    st.markdown("## 🔮 Dự Báo Giá Vàng (XAU/USD) theo Kỳ")
+    st.markdown(
+        "<p style='color:#8b949e;font-size:0.84rem;'>"
+        "Giá mục tiêu từ mô hình tổng hợp: Holt-Winters · ARIMA · Momentum · Macro Expert Score. "
+        "<b style='color:#FFD700;'>Kỳ càng dài → vùng dao động càng rộng</b> — bình thường về mặt thống kê.</p>",
+        unsafe_allow_html=True,
+    )
+
+    _FORECAST_PERIODS = [1, 3, 7, 14, 21, 30, 60, 90, 180, 270, 365]
+
+    with st.spinner("🔮 Chạy mô hình dự báo giá vàng..."):
+        try:
+            _xau_px, _ = fetch_gold()
+            _cur   = float(_xau_px.iloc[-1])
+            _ldate = str(_xau_px.index[-1])
+            # Dùng total_expert_score như macro proxy (scale ~1.5 để match combined_macro range)
+            _mproxy = max(-12, min(12, int(total_expert_score * 1.5)))
+            _fc_rows = []
+            for _d in _FORECAST_PERIODS:
+                try:
+                    _fm, _flo, _fhi = forecast(_xau_px.values, _ldate, _d, _mproxy, "XAU", 0.5)
+                    _tgt = float(_fm.iloc[-1])
+                    _lo  = float(_flo.iloc[-1])
+                    _hi  = float(_fhi.iloc[-1])
+                    _chg = (_tgt / _cur - 1) * 100
+                    _fc_rows.append((_d, _tgt, _lo, _hi, _chg))
+                except Exception:
+                    pass
+        except Exception:
+            _fc_rows = []
+
+    if _fc_rows:
+        # Header
+        _hdr = (
+            "<div style='overflow-x:auto'>"
+            "<table style='width:100%;border-collapse:collapse;font-size:0.84rem;'>"
+            "<thead><tr style='background:#161b22;color:#8b949e;text-align:center;'>"
+            "<th style='padding:8px 12px;text-align:left;border-bottom:1px solid #30363d;'>Kỳ dự báo</th>"
+            "<th style='padding:8px;border-bottom:1px solid #30363d;'>Xu hướng</th>"
+            "<th style='padding:8px;border-bottom:1px solid #30363d;'>Giá mục tiêu</th>"
+            "<th style='padding:8px;border-bottom:1px solid #30363d;'>Thay đổi %</th>"
+            "<th style='padding:8px;border-bottom:1px solid #30363d;'>Vùng dao động (90%)</th>"
+            "<th style='padding:8px;border-bottom:1px solid #30363d;'>Độ tin cậy</th>"
+            "</tr></thead><tbody>"
+        )
+        _rows_html = ""
+        for _d, _tgt, _lo, _hi, _chg in _fc_rows:
+            _lbl   = PERIOD_LABELS.get(_d, f"{_d}d")
+            _up    = _chg > 0.3
+            _dn    = _chg < -0.3
+            _arrow = ("🟢 TĂNG" if _up else "🔴 GIẢM" if _dn else "⚪ SIDEWAYS")
+            _tclr  = ("#3fb950" if _up else "#f85149" if _dn else "#8b949e")
+            _chg_s = f"{_chg:+.2f}%"
+            _spread_pct = (_hi - _lo) / _cur * 100
+            # Độ tin cậy: ngắn hạn cao, dài hạn thấp
+            _conf = ("🔵🔵🔵 Cao" if _d <= 7 else
+                     "🔵🔵○ Khá" if _d <= 30 else
+                     "🔵○○ Trung bình" if _d <= 90 else
+                     "○○○ Thấp")
+            _row_bg = "#0d1117" if _fc_rows.index((_d, _tgt, _lo, _hi, _chg)) % 2 == 0 else "#161b22"
+            _rows_html += (
+                f"<tr style='background:{_row_bg};text-align:center;'>"
+                f"<td style='padding:9px 12px;text-align:left;color:#e6edf3;font-weight:600;border-bottom:1px solid #21262d;'>{_lbl}</td>"
+                f"<td style='padding:9px 8px;color:{_tclr};font-weight:700;border-bottom:1px solid #21262d;'>{_arrow}</td>"
+                f"<td style='padding:9px 8px;color:{_tclr};font-weight:700;font-size:0.95rem;border-bottom:1px solid #21262d;'>${_tgt:,.0f}</td>"
+                f"<td style='padding:9px 8px;color:{_tclr};font-weight:600;border-bottom:1px solid #21262d;'>{_chg_s}</td>"
+                f"<td style='padding:9px 8px;color:#8b949e;font-size:0.82rem;border-bottom:1px solid #21262d;'>${_lo:,.0f} – ${_hi:,.0f}</td>"
+                f"<td style='padding:9px 8px;color:#8b949e;font-size:0.80rem;border-bottom:1px solid #21262d;'>{_conf}</td>"
+                f"</tr>"
+            )
+        st.markdown(_hdr + _rows_html + "</tbody></table></div>", unsafe_allow_html=True)
+        st.markdown(
+            f"<p style='color:#8b949e;font-size:0.76rem;margin-top:6px;'>"
+            f"📍 Giá hiện tại: <b style='color:#FFD700;'>${_cur:,.2f}</b> · "
+            f"Expert Score: <b>{total_expert_score:+d}/8</b> · "
+            f"⚠️ Không phải khuyến nghị đầu tư — chỉ mang tính tham khảo.</p>",
+            unsafe_allow_html=True,
+        )
+    else:
+        st.info("⚠️ Không lấy được giá XAU để chạy dự báo.")
 
     st.markdown("---")
 
