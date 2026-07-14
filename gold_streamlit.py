@@ -5354,7 +5354,7 @@ def calc_summary_forecast() -> dict:
         "USDVND": "USDVND=X",
         "BTC":    "BTC-USD",
     }
-    PERIODS = [1, 3, 7, 14, 21, 30, 90, 180, 270, 365, 730, 1095, 1825]
+    PERIODS = [1, 3, 7, 14, 21, 30, 60, 90, 180, 270, 365, 730, 1095, 1825]
 
     result = {}
 
@@ -6318,24 +6318,42 @@ def render_expert_tab(macro: dict, fred_data: dict):
             _xau_px, _ = fetch_gold()
             _cur   = float(_xau_px.iloc[-1])
             _ldate = str(_xau_px.index[-1])
-            # Dùng total_expert_score như macro proxy (scale ~1.5 để match combined_macro range)
-            _mproxy = max(-12, min(12, int(total_expert_score * 1.5)))
+
+            # Lấy tech score XAU từ bảng kết luận nhanh (đã cached, không tốn thêm request)
+            _summary    = calc_summary_forecast()
+            _xau_tech   = _summary.get("XAU", {})
+
             _fc_rows = []
             for _d in _FORECAST_PERIODS:
                 try:
-                    _fm, _flo, _fhi = forecast(_xau_px.values, _ldate, _d, _mproxy, "XAU", 0.5)
+                    _tech_score = _xau_tech.get(_d, {}).get("score", 0)
+
+                    # Blend signal theo timeframe:
+                    # ≤30d  → 100% technical (MA/RSI/Momentum) — nhất quán bảng kết luận nhanh
+                    # 60–90d → 50% tech + 50% expert score
+                    # ≥180d → 100% expert score (Fedspeak, COT, Whale, macro)
+                    if _d <= 30:
+                        _mscore = max(-12, min(12, int(_tech_score * 1.5)))
+                        _src    = "Kỹ thuật"
+                    elif _d <= 90:
+                        _mscore = max(-12, min(12, int((_tech_score + total_expert_score) * 0.75)))
+                        _src    = "Kỹ thuật + Chuyên gia"
+                    else:
+                        _mscore = max(-12, min(12, int(total_expert_score * 1.5)))
+                        _src    = "Chuyên gia"
+
+                    _fm, _flo, _fhi = forecast(_xau_px.values, _ldate, _d, _mscore, "XAU", 0.5)
                     _tgt = float(_fm.iloc[-1])
                     _lo  = float(_flo.iloc[-1])
                     _hi  = float(_fhi.iloc[-1])
                     _chg = (_tgt / _cur - 1) * 100
-                    _fc_rows.append((_d, _tgt, _lo, _hi, _chg))
+                    _fc_rows.append((_d, _tgt, _lo, _hi, _chg, _src))
                 except Exception:
                     pass
         except Exception:
             _fc_rows = []
 
     if _fc_rows:
-        # Header
         _hdr = (
             "<div style='overflow-x:auto'>"
             "<table style='width:100%;border-collapse:collapse;font-size:0.84rem;'>"
@@ -6345,24 +6363,23 @@ def render_expert_tab(macro: dict, fred_data: dict):
             "<th style='padding:8px;border-bottom:1px solid #30363d;'>Giá mục tiêu</th>"
             "<th style='padding:8px;border-bottom:1px solid #30363d;'>Thay đổi %</th>"
             "<th style='padding:8px;border-bottom:1px solid #30363d;'>Vùng dao động (90%)</th>"
+            "<th style='padding:8px;border-bottom:1px solid #30363d;'>Nguồn tín hiệu</th>"
             "<th style='padding:8px;border-bottom:1px solid #30363d;'>Độ tin cậy</th>"
             "</tr></thead><tbody>"
         )
         _rows_html = ""
-        for _d, _tgt, _lo, _hi, _chg in _fc_rows:
+        for _i, (_d, _tgt, _lo, _hi, _chg, _src) in enumerate(_fc_rows):
             _lbl   = PERIOD_LABELS.get(_d, f"{_d}d")
             _up    = _chg > 0.3
             _dn    = _chg < -0.3
             _arrow = ("📈 TĂNG" if _up else "📉 GIẢM" if _dn else "➡️ ĐI NGANG")
             _tclr  = ("#3fb950" if _up else "#f85149" if _dn else "#f9a825")
             _chg_s = f"{_chg:+.2f}%"
-            _spread_pct = (_hi - _lo) / _cur * 100
-            # Độ tin cậy: ngắn hạn cao, dài hạn thấp
-            _conf = ("🔵🔵🔵 Cao" if _d <= 7 else
-                     "🔵🔵○ Khá" if _d <= 30 else
-                     "🔵○○ Trung bình" if _d <= 90 else
-                     "○○○ Thấp")
-            _row_bg = "#0d1117" if _fc_rows.index((_d, _tgt, _lo, _hi, _chg)) % 2 == 0 else "#161b22"
+            _conf  = ("🔵🔵🔵 Cao"       if _d <= 7  else
+                      "🔵🔵○ Khá"        if _d <= 30 else
+                      "🔵○○ Trung bình"  if _d <= 90 else
+                      "○○○ Thấp")
+            _row_bg = "#0d1117" if _i % 2 == 0 else "#161b22"
             _rows_html += (
                 f"<tr style='background:{_row_bg};text-align:center;'>"
                 f"<td style='padding:9px 12px;text-align:left;color:#e6edf3;font-weight:600;border-bottom:1px solid #21262d;'>{_lbl}</td>"
@@ -6370,6 +6387,7 @@ def render_expert_tab(macro: dict, fred_data: dict):
                 f"<td style='padding:9px 8px;color:{_tclr};font-weight:700;font-size:0.95rem;border-bottom:1px solid #21262d;'>${_tgt:,.0f}</td>"
                 f"<td style='padding:9px 8px;color:{_tclr};font-weight:600;border-bottom:1px solid #21262d;'>{_chg_s}</td>"
                 f"<td style='padding:9px 8px;color:#8b949e;font-size:0.82rem;border-bottom:1px solid #21262d;'>${_lo:,.0f} – ${_hi:,.0f}</td>"
+                f"<td style='padding:9px 8px;color:#8b949e;font-size:0.78rem;border-bottom:1px solid #21262d;'>{_src}</td>"
                 f"<td style='padding:9px 8px;color:#8b949e;font-size:0.80rem;border-bottom:1px solid #21262d;'>{_conf}</td>"
                 f"</tr>"
             )
@@ -6378,7 +6396,8 @@ def render_expert_tab(macro: dict, fred_data: dict):
             f"<p style='color:#8b949e;font-size:0.76rem;margin-top:6px;'>"
             f"📍 Giá hiện tại: <b style='color:#FFD700;'>${_cur:,.2f}</b> · "
             f"Expert Score: <b>{total_expert_score:+d}/8</b> · "
-            f"⚠️ Không phải khuyến nghị đầu tư — chỉ mang tính tham khảo.</p>",
+            f"Nguồn: Kỹ thuật (≤30d) · Kỹ thuật+Chuyên gia (60–90d) · Chuyên gia (≥180d) · "
+            f"⚠️ Không phải khuyến nghị đầu tư.</p>",
             unsafe_allow_html=True,
         )
     else:
