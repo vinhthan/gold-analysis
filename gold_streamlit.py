@@ -6564,31 +6564,44 @@ def render_expert_tab(macro: dict, fred_data: dict):
             _summary    = calc_summary_forecast()
             _xau_tech   = _summary.get("XAU", {})
 
+            # Hawk modifier: hawk_composite -5(rất hawkish)→+5(rất dovish)
+            # Hawkish → bearish gold → bias âm; dovish → bias dương
+            _hk_adj = (hawk_composite if isinstance(hawk_composite, (int, float)) else 0) * 0.35
+
             _fc_rows = []
             for _d in _FORECAST_PERIODS:
                 try:
                     _tech_score = _xau_tech.get(_d, {}).get("score", 0)
 
-                    # Blend signal theo timeframe:
-                    # ≤30d  → 100% technical (MA/RSI/Momentum) — nhất quán bảng kết luận nhanh
-                    # 60–90d → 50% tech + 50% expert score
-                    # ≥180d → 100% expert score (Fedspeak, COT, Whale, macro)
-                    if _d <= 30:
-                        _mscore = max(-12, min(12, int(_tech_score * 1.5)))
-                        _src    = "Kỹ thuật"
+                    # Expert signals ảnh hưởng TẤT CẢ kỳ — trọng số tăng dần theo thời gian
+                    # Ngắn hạn: kỹ thuật chủ đạo nhưng macro/hawk vẫn là bias quan trọng
+                    # Dài hạn: FED + whale + COT + hawk quyết định hoàn toàn
+                    if _d <= 7:
+                        _wt, _we = 0.60, 0.40
+                        _src = "KT 60% · FED+Whale 40%"
+                    elif _d <= 30:
+                        _wt, _we = 0.45, 0.55
+                        _src = "KT 45% · FED+Whale 55%"
                     elif _d <= 90:
-                        _mscore = max(-12, min(12, int((_tech_score + total_expert_score) * 0.75)))
-                        _src    = "Kỹ thuật + Chuyên gia"
+                        _wt, _we = 0.25, 0.75
+                        _src = "FED+Whale 75% · KT 25%"
                     else:
-                        _mscore = max(-12, min(12, int(total_expert_score * 1.5)))
-                        _src    = "Chuyên gia"
+                        _wt, _we = 0.10, 0.90
+                        _src = "FED · Whale · COT · Hawk"
+
+                    _raw    = _wt * _tech_score + _we * total_expert_score + _hk_adj
+                    _mscore = max(-12, min(12, int(_raw)))
+
+                    # Phát hiện mâu thuẫn: tech và expert ngược chiều nhau
+                    _agree = ((_tech_score >= 0 and total_expert_score >= 0) or
+                              (_tech_score < 0  and total_expert_score < 0))
 
                     _fm, _flo, _fhi = forecast(_xau_px.values, _ldate, _d, _mscore, "XAU", 0.5)
                     _tgt = float(_fm.iloc[-1])
                     _lo  = float(_flo.iloc[-1])
                     _hi  = float(_fhi.iloc[-1])
                     _chg = (_tgt / _cur - 1) * 100
-                    _fc_rows.append((_d, _tgt, _lo, _hi, _chg, _src))
+                    _fc_rows.append((_d, _tgt, _lo, _hi, _chg, _src, _agree))
                 except Exception:
                     pass
         except Exception:
@@ -6609,17 +6622,17 @@ def render_expert_tab(macro: dict, fred_data: dict):
             "</tr></thead><tbody>"
         )
         _rows_html = ""
-        for _i, (_d, _tgt, _lo, _hi, _chg, _src) in enumerate(_fc_rows):
+        for _i, (_d, _tgt, _lo, _hi, _chg, _src, _agree) in enumerate(_fc_rows):
             _lbl   = PERIOD_LABELS.get(_d, f"{_d}d")
             _up    = _chg > 0.3
             _dn    = _chg < -0.3
             _arrow = ("📈 TĂNG" if _up else "📉 GIẢM" if _dn else "➡️ ĐI NGANG")
             _tclr  = ("#3fb950" if _up else "#f85149" if _dn else "#f9a825")
             _chg_s = f"{_chg:+.2f}%"
-            _conf  = ("🔵🔵🔵 Cao"       if _d <= 7  else
-                      "🔵🔵○ Khá"        if _d <= 30 else
-                      "🔵○○ Trung bình"  if _d <= 90 else
-                      "○○○ Thấp")
+            _conf_dots = ("🔵🔵🔵" if _d <= 7 else "🔵🔵○" if _d <= 30 else "🔵○○" if _d <= 90 else "○○○")
+            _conf_lvl  = ("Cao" if _d <= 7 else "Khá" if _d <= 30 else "TB" if _d <= 90 else "Thấp")
+            _conf_note = " ✓ Đồng thuận" if _agree else " ⚡ Mâu thuẫn"
+            _conf = f"{_conf_dots} {_conf_lvl}{_conf_note}"
             _row_bg = "#0d1117" if _i % 2 == 0 else "#161b22"
             _rows_html += (
                 f"<tr style='background:{_row_bg};text-align:center;'>"
@@ -6637,7 +6650,9 @@ def render_expert_tab(macro: dict, fred_data: dict):
             f"<p style='color:#8b949e;font-size:0.76rem;margin-top:6px;'>"
             f"📍 Giá hiện tại: <b style='color:#FFD700;'>${_cur:,.2f}</b> · "
             f"Expert Score: <b>{total_expert_score:+d}/8</b> · "
-            f"Nguồn: Kỹ thuật (≤30d) · Kỹ thuật+Chuyên gia (60–90d) · Chuyên gia (≥180d) · "
+            f"Hawk-o-meter: <b>{hawk_composite:+d}/5</b> · "
+            f"Tín hiệu: KT+FED+Whale+COT+Hawk tất cả kỳ · "
+            f"✓ Đồng thuận = KT & Macro cùng chiều · ⚡ Mâu thuẫn = theo dõi kỹ · "
             f"⚠️ Không phải khuyến nghị đầu tư.</p>",
             unsafe_allow_html=True,
         )
