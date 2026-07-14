@@ -5563,14 +5563,14 @@ Phong cách: Briefing sáng hedge fund — sắc bén, số liệu thực, khôn
         "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": {"temperature": 0.65, "maxOutputTokens": 1200},
     }
-    # (api_version, model_name) — thử nhiều endpoint + tên model
+    # (api_version, model_name) — thứ tự ưu tiên: v1 stable trước, v1beta sau
+    # gemini-1.5-x → dùng v1 endpoint; gemini-2.0-x → dùng v1beta
     _models_to_try = [
-        ("v1beta", "gemini-2.0-flash"),
-        ("v1beta", "gemini-2.0-flash-lite"),
-        ("v1beta", "gemini-1.5-flash"),
-        ("v1",     "gemini-1.5-flash-001"),
-        ("v1",     "gemini-1.5-flash-002"),
-        ("v1beta", "gemini-1.5-pro"),
+        ("v1",     "gemini-1.5-flash"),       # stable, free tier, ít bị 429
+        ("v1",     "gemini-1.5-flash-8b"),    # nhỏ hơn, nhanh hơn
+        ("v1",     "gemini-1.5-pro"),         # pro stable
+        ("v1beta", "gemini-2.0-flash-lite"),  # mới, có thể 429 nếu test nhiều
+        ("v1beta", "gemini-2.0-flash"),       # mới nhất
     ]
     _all_errs = []
     for _api_ver, _mn in _models_to_try:
