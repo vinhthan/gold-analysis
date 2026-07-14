@@ -216,9 +216,10 @@
       "1": {
         "label": "Ngày mai",
         "target_date": "2026-07-14",
-        "actual_price": 6.348,
-        "change_pct": 1.48,
-        "result": "SAI"
+        "actual_price": 6.377,
+        "change_pct": 1.94,
+        "result": "SAI",
+        "quick_result": "SAI"
       },
       "3": {
         "label": "3 ngày tới",
@@ -316,9 +317,10 @@
       "1": {
         "label": "Ngày mai",
         "target_date": "2026-07-14",
-        "actual_price": 79.55,
-        "change_pct": 8.44,
-        "result": "SAI"
+        "actual_price": 80.61,
+        "change_pct": 9.88,
+        "result": "SAI",
+        "quick_result": "SAI"
       },
       "3": {
         "label": "3 ngày tới",
@@ -418,7 +420,8 @@
         "target_date": "2026-07-14",
         "actual_price": 26252.0,
         "change_pct": -0.03,
-        "result": "ĐÚNG"
+        "result": "ĐÚNG",
+        "quick_result": "ĐÚNG"
       },
       "3": {
         "label": "3 ngày tới",
@@ -616,23 +619,26 @@
       "1": {
         "label": "Ngày mai",
         "target_date": "2026-07-07",
-        "actual_price": 4117.0639,
+        "actual_price": 4117.1091,
         "change_pct": -1.21,
-        "result": "SAI"
+        "result": "SAI",
+        "quick_result": "SAI"
       },
       "3": {
         "label": "3 ngày tới",
         "target_date": "2026-07-09",
-        "actual_price": 4124.5893,
+        "actual_price": 4124.6346,
         "change_pct": -1.03,
-        "result": "SAI"
+        "result": "SAI",
+        "quick_result": "SAI"
       },
       "7": {
         "label": "1 tuần tới",
         "target_date": "2026-07-13",
         "actual_price": 4004.1175,
         "change_pct": -3.92,
-        "result": "SAI"
+        "result": "SAI",
+        "quick_result": "SAI"
       },
       "14": {
         "label": "2 tuần tới",
@@ -717,23 +723,26 @@
       "1": {
         "label": "Ngày mai",
         "target_date": "2026-07-07",
-        "actual_price": 63.8873,
+        "actual_price": 63.8882,
         "change_pct": -2.94,
-        "result": "ĐÚNG"
+        "result": "ĐÚNG",
+        "quick_result": "ĐÚNG"
       },
       "3": {
         "label": "3 ngày tới",
         "target_date": "2026-07-09",
-        "actual_price": 63.5119,
+        "actual_price": 63.5128,
         "change_pct": -3.51,
-        "result": "ĐÚNG"
+        "result": "ĐÚNG",
+        "quick_result": "ĐÚNG"
       },
       "7": {
         "label": "1 tuần tới",
         "target_date": "2026-07-13",
         "actual_price": 61.19,
         "change_pct": -7.04,
-        "result": "ĐÚNG"
+        "result": "ĐÚNG",
+        "quick_result": "ĐÚNG"
       },
       "14": {
         "label": "2 tuần tới",
@@ -820,21 +829,24 @@
         "target_date": "2026-07-07",
         "actual_price": 6.1715,
         "change_pct": -0.11,
-        "result": "ĐÚNG"
+        "result": "ĐÚNG",
+        "quick_result": "ĐÚNG"
       },
       "3": {
         "label": "3 ngày tới",
         "target_date": "2026-07-09",
         "actual_price": 6.215,
         "change_pct": 0.6,
-        "result": "SAI"
+        "result": "SAI",
+        "quick_result": "SAI"
       },
       "7": {
         "label": "1 tuần tới",
         "target_date": "2026-07-13",
-        "actual_price": 6.2555,
-        "change_pct": 1.25,
-        "result": "SAI"
+        "actual_price": 6.233,
+        "change_pct": 0.89,
+        "result": "SAI",
+        "quick_result": "SAI"
       },
       "14": {
         "label": "2 tuần tới",
@@ -921,21 +933,24 @@
         "target_date": "2026-07-07",
         "actual_price": 70.44,
         "change_pct": 2.76,
-        "result": "SAI"
+        "result": "SAI",
+        "quick_result": "SAI"
       },
       "3": {
         "label": "3 ngày tới",
         "target_date": "2026-07-09",
         "actual_price": 72.08,
         "change_pct": 5.15,
-        "result": "SAI"
+        "result": "SAI",
+        "quick_result": "SAI"
       },
       "7": {
         "label": "1 tuần tới",
         "target_date": "2026-07-13",
-        "actual_price": 73.36,
-        "change_pct": 7.02,
-        "result": "SAI"
+        "actual_price": 78.14,
+        "change_pct": 13.99,
+        "result": "SAI",
+        "quick_result": "SAI"
       },
       "14": {
         "label": "2 tuần tới",
@@ -1022,21 +1037,24 @@
         "target_date": "2026-07-07",
         "actual_price": 26289.0,
         "change_pct": -0.04,
-        "result": "ĐÚNG"
+        "result": "ĐÚNG",
+        "quick_result": "ĐÚNG"
       },
       "3": {
         "label": "3 ngày tới",
         "target_date": "2026-07-09",
         "actual_price": 26290.0,
         "change_pct": -0.03,
-        "result": "ĐÚNG"
+        "result": "ĐÚNG",
+        "quick_result": "ĐÚNG"
       },
       "7": {
         "label": "1 tuần tới",
         "target_date": "2026-07-13",
-        "actual_price": 26260.0,
-        "change_pct": -0.15,
-        "result": "ĐÚNG"
+        "actual_price": 26252.0,
+        "change_pct": -0.18,
+        "result": "ĐÚNG",
+        "quick_result": "ĐÚNG"
       },
       "14": {
         "label": "2 tuần tới",
@@ -1123,21 +1141,24 @@
         "target_date": "2026-07-07",
         "actual_price": 63297.3945,
         "change_pct": -1.09,
-        "result": "SAI"
+        "result": "SAI",
+        "quick_result": "SAI"
       },
       "3": {
         "label": "3 ngày tới",
         "target_date": "2026-07-09",
         "actual_price": 63193.1484,
         "change_pct": -1.25,
-        "result": "SAI"
+        "result": "SAI",
+        "quick_result": "SAI"
       },
       "7": {
         "label": "1 tuần tới",
         "target_date": "2026-07-13",
-        "actual_price": 63995.7383,
-        "change_pct": 0.0,
-        "result": "ĐÚNG"
+        "actual_price": 62239.1211,
+        "change_pct": -2.74,
+        "result": "SAI",
+        "quick_result": "SAI"
       },
       "14": {
         "label": "2 tuần tới",
@@ -1222,16 +1243,18 @@
       "1": {
         "label": "Ngày mai",
         "target_date": "2026-07-08",
-        "actual_price": 4083.9086,
-        "change_pct": -0.81,
-        "result": "ĐÚNG"
+        "actual_price": 4083.9534,
+        "change_pct": -0.8,
+        "result": "ĐÚNG",
+        "quick_result": "ĐÚNG"
       },
       "3": {
         "label": "3 ngày tới",
         "target_date": "2026-07-10",
-        "actual_price": 4111.829,
+        "actual_price": 4111.8741,
         "change_pct": -0.13,
-        "result": "ĐÚNG"
+        "result": "ĐÚNG",
+        "quick_result": "ĐÚNG"
       },
       "7": {
         "label": "1 tuần tới",
@@ -1323,16 +1346,18 @@
       "1": {
         "label": "Ngày mai",
         "target_date": "2026-07-08",
-        "actual_price": 61.9752,
+        "actual_price": 61.976,
         "change_pct": -2.99,
-        "result": "ĐÚNG"
+        "result": "ĐÚNG",
+        "quick_result": "ĐÚNG"
       },
       "3": {
         "label": "3 ngày tới",
         "target_date": "2026-07-10",
-        "actual_price": 63.2891,
+        "actual_price": 63.2899,
         "change_pct": -0.94,
-        "result": "ĐÚNG"
+        "result": "ĐÚNG",
+        "quick_result": "ĐÚNG"
       },
       "7": {
         "label": "1 tuần tới",
@@ -1426,21 +1451,24 @@
         "target_date": "2026-07-08",
         "actual_price": 6.0545,
         "change_pct": -1.9,
-        "result": "SAI"
+        "result": "SAI",
+        "quick_result": "SAI"
       },
       "3": {
         "label": "3 ngày tới",
         "target_date": "2026-07-10",
         "actual_price": 6.2335,
         "change_pct": 1.0,
-        "result": "SAI"
+        "result": "SAI",
+        "quick_result": "SAI"
       },
       "7": {
         "label": "1 tuần tới",
         "target_date": "2026-07-14",
-        "actual_price": 6.348,
-        "change_pct": 2.86,
-        "result": "SAI"
+        "actual_price": 6.377,
+        "change_pct": 3.33,
+        "result": "SAI",
+        "quick_result": "SAI"
       },
       "14": {
         "label": "2 tuần tới",
@@ -1527,21 +1555,24 @@
         "target_date": "2026-07-08",
         "actual_price": 73.52,
         "change_pct": 4.37,
-        "result": "SAI"
+        "result": "SAI",
+        "quick_result": "SAI"
       },
       "3": {
         "label": "3 ngày tới",
         "target_date": "2026-07-10",
         "actual_price": 71.41,
         "change_pct": 1.38,
-        "result": "SAI"
+        "result": "SAI",
+        "quick_result": "SAI"
       },
       "7": {
         "label": "1 tuần tới",
         "target_date": "2026-07-14",
-        "actual_price": 79.55,
-        "change_pct": 12.93,
-        "result": "SAI"
+        "actual_price": 80.61,
+        "change_pct": 14.44,
+        "result": "SAI",
+        "quick_result": "SAI"
       },
       "14": {
         "label": "2 tuần tới",
@@ -1628,21 +1659,24 @@
         "target_date": "2026-07-08",
         "actual_price": 26294.0,
         "change_pct": 0.02,
-        "result": "ĐÚNG"
+        "result": "ĐÚNG",
+        "quick_result": "ĐÚNG"
       },
       "3": {
         "label": "3 ngày tới",
         "target_date": "2026-07-10",
-        "actual_price": 26260.0,
+        "actual_price": 26261.0,
         "change_pct": -0.11,
-        "result": "ĐÚNG"
+        "result": "ĐÚNG",
+        "quick_result": "ĐÚNG"
       },
       "7": {
         "label": "1 tuần tới",
         "target_date": "2026-07-14",
         "actual_price": 26252.0,
         "change_pct": -0.14,
-        "result": "ĐÚNG"
+        "result": "ĐÚNG",
+        "quick_result": "ĐÚNG"
       },
       "14": {
         "label": "2 tuần tới",
@@ -1729,14 +1763,16 @@
         "target_date": "2026-07-08",
         "actual_price": 62257.5742,
         "change_pct": -1.64,
-        "result": "SAI"
+        "result": "SAI",
+        "quick_result": "SAI"
       },
       "3": {
         "label": "3 ngày tới",
         "target_date": "2026-07-10",
         "actual_price": 64127.1406,
         "change_pct": 1.31,
-        "result": "SAI"
+        "result": "SAI",
+        "quick_result": "SAI"
       },
       "7": {
         "label": "1 tuần tới",
@@ -1828,16 +1864,18 @@
       "1": {
         "label": "Ngày mai",
         "target_date": "2026-07-09",
-        "actual_price": 4124.5893,
+        "actual_price": 4124.6346,
         "change_pct": 1.0,
-        "result": "SAI"
+        "result": "SAI",
+        "quick_result": "SAI"
       },
       "3": {
         "label": "3 ngày tới",
         "target_date": "2026-07-11",
         "actual_price": 4004.1175,
         "change_pct": -1.95,
-        "result": "ĐÚNG"
+        "result": "ĐÚNG",
+        "quick_result": "ĐÚNG"
       },
       "7": {
         "label": "1 tuần tới",
@@ -1929,16 +1967,18 @@
       "1": {
         "label": "Ngày mai",
         "target_date": "2026-07-09",
-        "actual_price": 63.5119,
+        "actual_price": 63.5128,
         "change_pct": 2.48,
-        "result": "SAI"
+        "result": "SAI",
+        "quick_result": "SAI"
       },
       "3": {
         "label": "3 ngày tới",
         "target_date": "2026-07-11",
         "actual_price": 61.19,
         "change_pct": -1.27,
-        "result": "ĐÚNG"
+        "result": "ĐÚNG",
+        "quick_result": "ĐÚNG"
       },
       "7": {
         "label": "1 tuần tới",
@@ -2032,14 +2072,16 @@
         "target_date": "2026-07-09",
         "actual_price": 6.215,
         "change_pct": 2.65,
-        "result": "SAI"
+        "result": "SAI",
+        "quick_result": "SAI"
       },
       "3": {
         "label": "3 ngày tới",
         "target_date": "2026-07-11",
-        "actual_price": 6.2555,
-        "change_pct": 3.32,
-        "result": "SAI"
+        "actual_price": 6.233,
+        "change_pct": 2.95,
+        "result": "SAI",
+        "quick_result": "SAI"
       },
       "7": {
         "label": "1 tuần tới",
@@ -2133,14 +2175,16 @@
         "target_date": "2026-07-09",
         "actual_price": 72.08,
         "change_pct": -1.96,
-        "result": "ĐÚNG"
+        "result": "ĐÚNG",
+        "quick_result": "ĐÚNG"
       },
       "3": {
         "label": "3 ngày tới",
         "target_date": "2026-07-11",
-        "actual_price": 73.36,
-        "change_pct": -0.22,
-        "result": "ĐÚNG"
+        "actual_price": 78.14,
+        "change_pct": 6.28,
+        "result": "SAI",
+        "quick_result": "SAI"
       },
       "7": {
         "label": "1 tuần tới",
@@ -2234,14 +2278,16 @@
         "target_date": "2026-07-09",
         "actual_price": 26290.0,
         "change_pct": -0.02,
-        "result": "ĐÚNG"
+        "result": "ĐÚNG",
+        "quick_result": "ĐÚNG"
       },
       "3": {
         "label": "3 ngày tới",
         "target_date": "2026-07-11",
-        "actual_price": 26260.0,
+        "actual_price": 26261.0,
         "change_pct": -0.13,
-        "result": "ĐÚNG"
+        "result": "ĐÚNG",
+        "quick_result": "ĐÚNG"
       },
       "7": {
         "label": "1 tuần tới",
@@ -2335,14 +2381,16 @@
         "target_date": "2026-07-09",
         "actual_price": 63193.1484,
         "change_pct": 1.5,
-        "result": "SAI"
+        "result": "SAI",
+        "quick_result": "SAI"
       },
       "3": {
         "label": "3 ngày tới",
         "target_date": "2026-07-11",
         "actual_price": 63802.0273,
         "change_pct": 2.48,
-        "result": "SAI"
+        "result": "SAI",
+        "quick_result": "SAI"
       },
       "7": {
         "label": "1 tuần tới",
@@ -2434,16 +2482,18 @@
       "1": {
         "label": "Ngày mai",
         "target_date": "2026-07-10",
-        "actual_price": 4111.829,
+        "actual_price": 4111.8741,
         "change_pct": -0.31,
-        "result": "ĐÚNG"
+        "result": "ĐÚNG",
+        "quick_result": "ĐÚNG"
       },
       "3": {
         "label": "3 ngày tới",
         "target_date": "2026-07-12",
         "actual_price": 4004.1175,
         "change_pct": -2.92,
-        "result": "ĐÚNG"
+        "result": "ĐÚNG",
+        "quick_result": "ĐÚNG"
       },
       "7": {
         "label": "1 tuần tới",
@@ -2535,16 +2585,18 @@
       "1": {
         "label": "Ngày mai",
         "target_date": "2026-07-10",
-        "actual_price": 63.2891,
+        "actual_price": 63.2899,
         "change_pct": -0.35,
-        "result": "ĐÚNG"
+        "result": "ĐÚNG",
+        "quick_result": "ĐÚNG"
       },
       "3": {
         "label": "3 ngày tới",
         "target_date": "2026-07-12",
         "actual_price": 61.19,
         "change_pct": -3.66,
-        "result": "ĐÚNG"
+        "result": "ĐÚNG",
+        "quick_result": "ĐÚNG"
       },
       "7": {
         "label": "1 tuần tới",
@@ -2638,14 +2690,16 @@
         "target_date": "2026-07-10",
         "actual_price": 6.2335,
         "change_pct": 0.3,
-        "result": "ĐÚNG"
+        "result": "ĐÚNG",
+        "quick_result": "ĐÚNG"
       },
       "3": {
         "label": "3 ngày tới",
         "target_date": "2026-07-12",
-        "actual_price": 6.2555,
-        "change_pct": 0.65,
-        "result": "SAI"
+        "actual_price": 6.233,
+        "change_pct": 0.29,
+        "result": "ĐÚNG",
+        "quick_result": "ĐÚNG"
       },
       "7": {
         "label": "1 tuần tới",
@@ -2739,14 +2793,16 @@
         "target_date": "2026-07-10",
         "actual_price": 71.41,
         "change_pct": -0.93,
-        "result": "ĐÚNG"
+        "result": "ĐÚNG",
+        "quick_result": "ĐÚNG"
       },
       "3": {
         "label": "3 ngày tới",
         "target_date": "2026-07-12",
-        "actual_price": 73.36,
-        "change_pct": 1.78,
-        "result": "SAI"
+        "actual_price": 78.14,
+        "change_pct": 8.41,
+        "result": "SAI",
+        "quick_result": "SAI"
       },
       "7": {
         "label": "1 tuần tới",
@@ -2838,16 +2894,18 @@
       "1": {
         "label": "Ngày mai",
         "target_date": "2026-07-10",
-        "actual_price": 26260.0,
+        "actual_price": 26261.0,
         "change_pct": -0.11,
-        "result": "ĐÚNG"
+        "result": "ĐÚNG",
+        "quick_result": "ĐÚNG"
       },
       "3": {
         "label": "3 ngày tới",
         "target_date": "2026-07-12",
-        "actual_price": 26260.0,
+        "actual_price": 26261.0,
         "change_pct": -0.11,
-        "result": "ĐÚNG"
+        "result": "ĐÚNG",
+        "quick_result": "ĐÚNG"
       },
       "7": {
         "label": "1 tuần tới",
@@ -2941,14 +2999,16 @@
         "target_date": "2026-07-10",
         "actual_price": 64127.1406,
         "change_pct": 1.48,
-        "result": "SAI"
+        "result": "SAI",
+        "quick_result": "SAI"
       },
       "3": {
         "label": "3 ngày tới",
         "target_date": "2026-07-12",
         "actual_price": 63758.2188,
         "change_pct": 0.89,
-        "result": "SAI"
+        "result": "SAI",
+        "quick_result": "SAI"
       },
       "7": {
         "label": "1 tuần tới",
@@ -3042,14 +3102,16 @@
         "target_date": "2026-07-11",
         "actual_price": 4004.1175,
         "change_pct": -2.62,
-        "result": "ĐÚNG"
+        "result": "ĐÚNG",
+        "quick_result": "ĐÚNG"
       },
       "3": {
         "label": "3 ngày tới",
         "target_date": "2026-07-13",
         "actual_price": 4004.1175,
         "change_pct": -2.62,
-        "result": "ĐÚNG"
+        "result": "ĐÚNG",
+        "quick_result": "ĐÚNG"
       },
       "7": {
         "label": "1 tuần tới",
@@ -3143,14 +3205,16 @@
         "target_date": "2026-07-11",
         "actual_price": 61.19,
         "change_pct": -3.32,
-        "result": "ĐÚNG"
+        "result": "ĐÚNG",
+        "quick_result": "ĐÚNG"
       },
       "3": {
         "label": "3 ngày tới",
         "target_date": "2026-07-13",
         "actual_price": 61.19,
         "change_pct": -3.32,
-        "result": "ĐÚNG"
+        "result": "ĐÚNG",
+        "quick_result": "ĐÚNG"
       },
       "7": {
         "label": "1 tuần tới",
@@ -3242,16 +3306,18 @@
       "1": {
         "label": "Ngày mai",
         "target_date": "2026-07-11",
-        "actual_price": 6.2555,
-        "change_pct": 0.35,
-        "result": "ĐÚNG"
+        "actual_price": 6.233,
+        "change_pct": -0.01,
+        "result": "ĐÚNG",
+        "quick_result": "ĐÚNG"
       },
       "3": {
         "label": "3 ngày tới",
         "target_date": "2026-07-13",
-        "actual_price": 6.2555,
-        "change_pct": 0.35,
-        "result": "ĐÚNG"
+        "actual_price": 6.233,
+        "change_pct": -0.01,
+        "result": "ĐÚNG",
+        "quick_result": "ĐÚNG"
       },
       "7": {
         "label": "1 tuần tới",
@@ -3343,16 +3409,18 @@
       "1": {
         "label": "Ngày mai",
         "target_date": "2026-07-11",
-        "actual_price": 73.36,
-        "change_pct": 2.73,
-        "result": "SAI"
+        "actual_price": 78.14,
+        "change_pct": 9.42,
+        "result": "SAI",
+        "quick_result": "SAI"
       },
       "3": {
         "label": "3 ngày tới",
         "target_date": "2026-07-13",
-        "actual_price": 73.36,
-        "change_pct": 2.73,
-        "result": "SAI"
+        "actual_price": 78.14,
+        "change_pct": 9.42,
+        "result": "SAI",
+        "quick_result": "SAI"
       },
       "7": {
         "label": "1 tuần tới",
@@ -3444,16 +3512,18 @@
       "1": {
         "label": "Ngày mai",
         "target_date": "2026-07-11",
-        "actual_price": 26260.0,
+        "actual_price": 26261.0,
         "change_pct": -0.11,
-        "result": "ĐÚNG"
+        "result": "ĐÚNG",
+        "quick_result": "ĐÚNG"
       },
       "3": {
         "label": "3 ngày tới",
         "target_date": "2026-07-13",
-        "actual_price": 26260.0,
-        "change_pct": -0.11,
-        "result": "ĐÚNG"
+        "actual_price": 26252.0,
+        "change_pct": -0.14,
+        "result": "ĐÚNG",
+        "quick_result": "ĐÚNG"
       },
       "7": {
         "label": "1 tuần tới",
@@ -3547,14 +3617,16 @@
         "target_date": "2026-07-11",
         "actual_price": 63802.0273,
         "change_pct": -0.51,
-        "result": "SAI"
+        "result": "SAI",
+        "quick_result": "SAI"
       },
       "3": {
         "label": "3 ngày tới",
         "target_date": "2026-07-13",
-        "actual_price": 63995.7383,
-        "change_pct": -0.2,
-        "result": "ĐÚNG"
+        "actual_price": 62239.1211,
+        "change_pct": -2.94,
+        "result": "SAI",
+        "quick_result": "SAI"
       },
       "7": {
         "label": "1 tuần tới",
@@ -3648,7 +3720,8 @@
         "target_date": "2026-07-12",
         "actual_price": 4004.1175,
         "change_pct": -2.62,
-        "result": "ĐÚNG"
+        "result": "ĐÚNG",
+        "quick_result": "ĐÚNG"
       },
       "3": {
         "label": "3 ngày tới",
@@ -3749,7 +3822,8 @@
         "target_date": "2026-07-12",
         "actual_price": 61.19,
         "change_pct": -3.32,
-        "result": "ĐÚNG"
+        "result": "ĐÚNG",
+        "quick_result": "ĐÚNG"
       },
       "3": {
         "label": "3 ngày tới",
@@ -3848,16 +3922,18 @@
       "1": {
         "label": "Ngày mai",
         "target_date": "2026-07-12",
-        "actual_price": 6.2555,
-        "change_pct": 0.35,
-        "result": "ĐÚNG"
+        "actual_price": 6.233,
+        "change_pct": -0.01,
+        "result": "ĐÚNG",
+        "quick_result": "ĐÚNG"
       },
       "3": {
         "label": "3 ngày tới",
         "target_date": "2026-07-14",
-        "actual_price": 6.348,
-        "change_pct": 1.84,
-        "result": "SAI"
+        "actual_price": 6.377,
+        "change_pct": 2.3,
+        "result": "SAI",
+        "quick_result": "SAI"
       },
       "7": {
         "label": "1 tuần tới",
@@ -3949,16 +4025,18 @@
       "1": {
         "label": "Ngày mai",
         "target_date": "2026-07-12",
-        "actual_price": 73.36,
-        "change_pct": 2.73,
-        "result": "SAI"
+        "actual_price": 78.14,
+        "change_pct": 9.42,
+        "result": "SAI",
+        "quick_result": "SAI"
       },
       "3": {
         "label": "3 ngày tới",
         "target_date": "2026-07-14",
-        "actual_price": 79.55,
-        "change_pct": 11.4,
-        "result": "SAI"
+        "actual_price": 80.61,
+        "change_pct": 12.88,
+        "result": "SAI",
+        "quick_result": "SAI"
       },
       "7": {
         "label": "1 tuần tới",
@@ -4050,16 +4128,18 @@
       "1": {
         "label": "Ngày mai",
         "target_date": "2026-07-12",
-        "actual_price": 26260.0,
+        "actual_price": 26261.0,
         "change_pct": -0.11,
-        "result": "ĐÚNG"
+        "result": "ĐÚNG",
+        "quick_result": "ĐÚNG"
       },
       "3": {
         "label": "3 ngày tới",
         "target_date": "2026-07-14",
         "actual_price": 26252.0,
         "change_pct": -0.14,
-        "result": "ĐÚNG"
+        "result": "ĐÚNG",
+        "quick_result": "ĐÚNG"
       },
       "7": {
         "label": "1 tuần tới",
@@ -4153,7 +4233,8 @@
         "target_date": "2026-07-12",
         "actual_price": 63758.2188,
         "change_pct": -0.07,
-        "result": "ĐÚNG"
+        "result": "ĐÚNG",
+        "quick_result": "ĐÚNG"
       },
       "3": {
         "label": "3 ngày tới",
@@ -4254,7 +4335,8 @@
         "target_date": "2026-07-13",
         "actual_price": 4004.1175,
         "change_pct": -2.62,
-        "result": "ĐÚNG"
+        "result": "ĐÚNG",
+        "quick_result": "ĐÚNG"
       },
       "3": {
         "label": "3 ngày tới",
@@ -4355,7 +4437,8 @@
         "target_date": "2026-07-13",
         "actual_price": 61.19,
         "change_pct": -3.32,
-        "result": "ĐÚNG"
+        "result": "ĐÚNG",
+        "quick_result": "ĐÚNG"
       },
       "3": {
         "label": "3 ngày tới",
@@ -4454,9 +4537,10 @@
       "1": {
         "label": "Ngày mai",
         "target_date": "2026-07-13",
-        "actual_price": 6.2555,
-        "change_pct": 0.35,
-        "result": "ĐÚNG"
+        "actual_price": 6.233,
+        "change_pct": -0.01,
+        "result": "ĐÚNG",
+        "quick_result": "ĐÚNG"
       },
       "3": {
         "label": "3 ngày tới",
@@ -4555,9 +4639,10 @@
       "1": {
         "label": "Ngày mai",
         "target_date": "2026-07-13",
-        "actual_price": 73.36,
-        "change_pct": 2.73,
-        "result": "SAI"
+        "actual_price": 78.14,
+        "change_pct": 9.42,
+        "result": "SAI",
+        "quick_result": "SAI"
       },
       "3": {
         "label": "3 ngày tới",
@@ -4656,9 +4741,10 @@
       "1": {
         "label": "Ngày mai",
         "target_date": "2026-07-13",
-        "actual_price": 26260.0,
-        "change_pct": -0.11,
-        "result": "ĐÚNG"
+        "actual_price": 26252.0,
+        "change_pct": -0.14,
+        "result": "ĐÚNG",
+        "quick_result": "ĐÚNG"
       },
       "3": {
         "label": "3 ngày tới",
@@ -4757,9 +4843,10 @@
       "1": {
         "label": "Ngày mai",
         "target_date": "2026-07-13",
-        "actual_price": 63995.7383,
-        "change_pct": 0.37,
-        "result": "ĐÚNG"
+        "actual_price": 62239.1211,
+        "change_pct": -2.38,
+        "result": "SAI",
+        "quick_result": "SAI"
       },
       "3": {
         "label": "3 ngày tới",
