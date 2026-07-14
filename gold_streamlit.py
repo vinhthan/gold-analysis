@@ -6353,8 +6353,8 @@ def render_expert_tab(macro: dict, fred_data: dict):
             _lbl   = PERIOD_LABELS.get(_d, f"{_d}d")
             _up    = _chg > 0.3
             _dn    = _chg < -0.3
-            _arrow = ("🟢 TĂNG" if _up else "🔴 GIẢM" if _dn else "⚪ SIDEWAYS")
-            _tclr  = ("#3fb950" if _up else "#f85149" if _dn else "#8b949e")
+            _arrow = ("📈 TĂNG" if _up else "📉 GIẢM" if _dn else "➡️ ĐI NGANG")
+            _tclr  = ("#3fb950" if _up else "#f85149" if _dn else "#f9a825")
             _chg_s = f"{_chg:+.2f}%"
             _spread_pct = (_hi - _lo) / _cur * 100
             # Độ tin cậy: ngắn hạn cao, dài hạn thấp
