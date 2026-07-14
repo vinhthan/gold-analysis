@@ -6834,6 +6834,24 @@ def render_expert_tab(macro: dict, fred_data: dict):
     # BTC: Tài sản rủi ro — hawkish FED = bearish (rút thanh khoản)
     _btc_exp = max(-8, min(8, round(-_fed_es * 0.8 - _mn_s * 0.3)))
 
+    # ── Lưu expert signals vào session_state để _collect_snapshot() đọc lại ─
+    st.session_state["_expert_signals"] = {
+        "date":            datetime.now().strftime("%Y-%m-%d"),
+        "XAU":             total_expert_score,
+        "XAG":             _xag_exp,
+        "HG":              _hg_exp,
+        "CL":              _cl_exp,
+        "BTC":             _btc_exp,
+        "DXY":             0,
+        "fed_score":       _fed_es,
+        "hawk_composite":  int(_hk_val),
+        "macro_news_score": _mn_s,
+        "cot_xau":         int(cot_xau.get("score", 0)) if cot_xau.get("ok") else 0,
+        "cot_xag":         _cot_xag_s,
+        "cot_hg":          _cot_hg_s,
+        "cot_cl":          _cot_cl_s,
+    }
+
     MULTI_ASSETS = [
         ("XAG", "🥈 Bạc (Silver/SI=F)",      "SI=F",    _xag_exp, _hk_val,
          "Bạc = Kim loại tiền tệ (đồng hành vàng 70%) + công nghiệp. FED, COT bạc và macro news làm tín hiệu chính."),
@@ -7200,20 +7218,33 @@ def _collect_snapshot(asset_key: str, macro: dict) -> dict:
                 "result":       "PENDING",
             }
 
+        # Đọc expert signals từ session_state (nếu tab Chuyên Gia đã chạy hôm nay)
+        _ex      = st.session_state.get("_expert_signals", {})
+        _has_ex  = _ex.get("date") == today_str
+        _expert_score = _ex.get(asset_key, 0) if _has_ex else 0
+        _method       = "expert" if _has_ex else "technical"
+
         return {
-            "id":            f"{asset_key}_{today_str}",
-            "asset":         asset_key,
-            "asset_name":    ASSETS[asset_key]["name"],
-            "asset_color":   ASSETS[asset_key]["color"],
-            "recorded_date": today_str,
-            "signal":        sig_vi,
-            "signal_en":     sig_en,
-            "score":         score,
-            "ml_prob_up":    round(ml_prob, 3),
-            "ml_confidence": round(ml_conf, 3),
-            "macro_score":   macro_score,
-            "price_now":     round(cur, 4),
-            "periods":       periods_data,
+            "id":              f"{asset_key}_{today_str}",
+            "asset":           asset_key,
+            "asset_name":      ASSETS[asset_key]["name"],
+            "asset_color":     ASSETS[asset_key]["color"],
+            "recorded_date":   today_str,
+            "signal":          sig_vi,
+            "signal_en":       sig_en,
+            "score":           score,
+            "ml_prob_up":      round(ml_prob, 3),
+            "ml_confidence":   round(ml_conf, 3),
+            "macro_score":     macro_score,
+            "price_now":       round(cur, 4),
+            "periods":         periods_data,
+            # ── Expert fields ─────────────────────────────────────────────
+            "method":          _method,
+            "expert_score":    _expert_score,
+            "fed_score":       _ex.get("fed_score", 0)        if _has_ex else 0,
+            "hawk_composite":  _ex.get("hawk_composite", 0)   if _has_ex else 0,
+            "macro_news_score": _ex.get("macro_news_score", 0) if _has_ex else 0,
+            "cot_score":       _ex.get(f"cot_{asset_key.lower()}", 0) if _has_ex else 0,
         }
     except Exception:
         return {}
@@ -7517,6 +7548,11 @@ def render_history_tab():
                 "Giá thực tế":    pdata.get("actual_price"),
                 "Thay đổi %":     pdata.get("change_pct"),
                 "Kết quả":        pdata.get("result", "PENDING"),
+                "method":         rec.get("method", "technical"),
+                "expert_score":   rec.get("expert_score", 0),
+                "fed_score":      rec.get("fed_score", 0),
+                "hawk_composite": rec.get("hawk_composite", 0),
+                "macro_news_score": rec.get("macro_news_score", 0),
             })
 
     if not rows:
@@ -7570,6 +7606,52 @@ def render_history_tab():
     cm5.metric("🎯 Độ chính xác", f"{accuracy:.1f}%",
                delta="Chỉ tính đã đáo hạn", delta_color="off")
     st.markdown("---")
+
+    # ── Expert vs Technical Comparison ───────────────────────────────
+    if "method" in df_all.columns and df_all["method"].nunique() > 1:
+        st.markdown("#### 🧪 Expert vs Kỹ Thuật — So Sánh Độ Chính Xác")
+        _df_ex  = df_done[df_done["method"] == "expert"]
+        _df_tc  = df_done[df_done["method"] == "technical"]
+        _acc_ex = (_df_ex["Kết quả"] == "ĐÚNG").sum() / max(len(_df_ex), 1) * 100
+        _acc_tc = (_df_tc["Kết quả"] == "ĐÚNG").sum() / max(len(_df_tc), 1) * 100
+        _ec1, _ec2, _ec3, _ec4 = st.columns(4)
+        _ec1.metric("🧠 Expert — Đúng",  f"{(_df_ex['Kết quả']=='ĐÚNG').sum()}/{len(_df_ex)}",
+                    f"{_acc_ex:.1f}%")
+        _ec2.metric("📐 Kỹ thuật — Đúng", f"{(_df_tc['Kết quả']=='ĐÚNG').sum()}/{len(_df_tc)}",
+                    f"{_acc_tc:.1f}%")
+        _delta_acc = _acc_ex - _acc_tc
+        _ec3.metric("📊 Expert hơn KT", f"{_delta_acc:+.1f}%",
+                    "Expert tốt hơn" if _delta_acc > 0 else "KT tốt hơn" if _delta_acc < 0 else "Tương đương")
+        _ec4.metric("📅 Records Expert", len(_df_ex), f"vs {len(_df_tc)} KT")
+
+        # Bar chart so sánh theo kỳ hạn
+        if len(_df_ex) >= 3 and len(_df_tc) >= 3:
+            _cmp_rows = []
+            for _dd in sorted(df_done["period_days"].unique()):
+                _se = _df_ex[_df_ex["period_days"] == _dd]
+                _st = _df_tc[_df_tc["period_days"] == _dd]
+                if len(_se) > 0:
+                    _cmp_rows.append({"kỳ": PERIOD_LABELS.get(_dd, str(_dd)),
+                                      "loại": "Expert", "acc": (_se["Kết quả"]=="ĐÚNG").sum()/len(_se)*100, "n": len(_se)})
+                if len(_st) > 0:
+                    _cmp_rows.append({"kỳ": PERIOD_LABELS.get(_dd, str(_dd)),
+                                      "loại": "Kỹ thuật", "acc": (_st["Kết quả"]=="ĐÚNG").sum()/len(_st)*100, "n": len(_st)})
+            if _cmp_rows:
+                import plotly.express as _px
+                _df_cmp = pd.DataFrame(_cmp_rows)
+                _fig_cmp = _px.bar(_df_cmp, x="kỳ", y="acc", color="loại", barmode="group",
+                                   color_discrete_map={"Expert": "#FFD700", "Kỹ thuật": "#8b949e"},
+                                   text="acc", labels={"acc": "% Đúng", "kỳ": "Kỳ hạn"})
+                _fig_cmp.add_hline(y=50, line_dash="dash", line_color="#f85149",
+                                   annotation_text="50% ngẫu nhiên")
+                _fig_cmp.update_traces(texttemplate="%{text:.0f}%", textposition="outside")
+                _fig_cmp.update_layout(
+                    template="plotly_dark", plot_bgcolor="#0d1117", paper_bgcolor="#0d1117",
+                    height=340, yaxis=dict(range=[0, 120]), margin=dict(t=30, b=20, l=40, r=20),
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02),
+                )
+                st.plotly_chart(_fig_cmp, use_container_width=True)
+        st.markdown("---")
 
     # ── Charts ────────────────────────────────────────────────────────
     if len(df_done) >= 3:
