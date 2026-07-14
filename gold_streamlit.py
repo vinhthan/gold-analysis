@@ -2277,10 +2277,24 @@ def forecast(_price_values: np.ndarray, last_date_str: str,
     except Exception:
         pass
 
-    # ── Model B: ARIMA(1,1,1) (cấu trúc chuỗi thời gian) ────────────────
+    # ── Model B: ARIMA auto-order bằng AIC grid search ───────────────────
+    # Grid p∈[0,1,2], q∈[0,1,2], d=1; chọn order có AIC thấp nhất
     arima_vals = None
     try:
-        fit = ARIMA(train, order=(1, 1, 1)).fit()
+        _best_aic   = float("inf")
+        _best_order = (1, 1, 1)
+        for _p in range(3):
+            for _q in range(3):
+                if _p + _q == 0:
+                    continue   # Bỏ qua pure random walk (0,1,0)
+                try:
+                    _fit = ARIMA(train, order=(_p, 1, _q)).fit()
+                    if _fit.aic < _best_aic:
+                        _best_aic   = _fit.aic
+                        _best_order = (_p, 1, _q)
+                except Exception:
+                    continue
+        fit = ARIMA(train, order=_best_order).fit()
         arima_vals = fit.forecast(steps=days).values
     except Exception:
         pass
@@ -3029,6 +3043,24 @@ def whale_regime(whale_data: dict, asset_key: str) -> dict:
             score -= 1
             cot_signal = (f"📣 XÁC NHẬN KÉP: ETF giảm {etf['aum_chg']:.1f}% "
                           f"+ volume {vol['ratio']:.1f}× → cá mập đang phân phối {a_name}")
+
+    # ── OI Delta — theo dõi thay đổi vị thế giữa các lần xem ───────────────
+    _oi_info = whale_data.get("oi", {})
+    _oi_val  = _oi_info.get("value", 0)
+    if _oi_val > 0:
+        _oi_key   = f"_oi_prev_{asset_key}"
+        _oi_prev  = st.session_state.get(_oi_key, _oi_val)
+        _oi_delta = _oi_val - _oi_prev
+        _oi_dpct  = _oi_delta / max(_oi_prev, 1) * 100
+        st.session_state[_oi_key] = _oi_val   # cập nhật cho lần sau
+        if _oi_dpct > 5:
+            score += 1
+            signals.append(("📈", f"OI Build-up: +{_oi_delta:,} hợp đồng ({_oi_dpct:+.1f}%) → vị thế đang tích lũy, xu hướng xác nhận", "green"))
+        elif _oi_dpct < -5:
+            score -= 1
+            signals.append(("📉", f"OI Unwind: {_oi_delta:,} hợp đồng ({_oi_dpct:+.1f}%) → vị thế thanh lý, nguy cơ đảo chiều", "orange"))
+        elif _oi_prev != _oi_val:   # chỉ hiện nếu có prev data thực
+            signals.append(("📊", f"OI Ổn định: {_oi_val:,} ({_oi_dpct:+.1f}% vs lần trước)", "gray"))
 
     score = max(-5, min(5, score))
 
@@ -6309,6 +6341,18 @@ def render_expert_tab(macro: dict, fred_data: dict):
         else:
             st.info("Không tải được COT data từ CFTC.")
 
+        # ── COT Extreme Alert ────────────────────────────────────────────
+        if cot_xau.get("ok"):
+            _cot_pct = cot_xau.get("pct_rank", cot_xau.get("net_pct", 50))
+            if _cot_pct >= 90:
+                st.warning(
+                    f"⚠️ COT CỰC ĐOAN: Managed Money đang net long ở **{_cot_pct:.0f}th percentile** "
+                    f"— rủi ro unwind cao, theo dõi dấu hiệu reversal!")
+            elif _cot_pct <= 10:
+                st.info(
+                    f"💡 COT OVERSOLD: Managed Money đang net short ở **{_cot_pct:.0f}th percentile** "
+                    f"— tiềm năng short squeeze và tích lũy tổ chức")
+
         st.markdown("---")
         # Module 13: Gold vs JPY
         st.markdown("### 🇯🇵 Module 13: Gold vs JPY Safe Haven")
@@ -7184,7 +7228,16 @@ def _collect_snapshot(asset_key: str, macro: dict) -> dict:
     Reuse @st.cache_data đã có — không tạo request mới nếu đã cached.
     """
     try:
-        price, _ = fetch_price(asset_key)
+        try:
+            price, _ = fetch_price(asset_key)
+            if price is not None and len(price) >= 60:
+                # Lưu vào fallback cache (dùng khi API lỗi lần sau)
+                st.session_state.setdefault("_price_cache", {})[asset_key] = price
+            else:
+                price = st.session_state.get("_price_cache", {}).get(asset_key)
+        except Exception:
+            price = st.session_state.get("_price_cache", {}).get(asset_key)
+
         if price is None or len(price) < 60:
             return {}
 
@@ -7842,6 +7895,57 @@ def render_history_tab():
     elif len(df_done) > 0:
         st.info(f"ℹ️ Cần ít nhất 3 kết quả đã đáo hạn để vẽ biểu đồ. Hiện có: **{len(df_done)}**.")
 
+    # ── Walk-forward ML accuracy ───────────────────────────────────────
+    _df_wf = df_all[df_all["Kết quả"].isin(["ĐÚNG", "SAI"])].copy()
+    if len(_df_wf) >= 10:
+        st.markdown("---")
+        st.markdown("#### 🤖 Hiệu Suất ML Walk-Forward — Phân Tích Cuộn Theo Tháng")
+        st.caption(
+            "🔵 Tổng thể = accuracy toàn bộ tín hiệu đã đáo hạn (không lọc). "
+            "🟡 ML Tự tin = chỉ khi ML prob ≥ 60% hoặc ≤ 40% — tín hiệu rõ ràng nhất."
+        )
+        _df_wf["_month"] = pd.to_datetime(_df_wf["Ngày ghi"], errors="coerce").dt.to_period("M").astype(str)
+        _wf_rows = []
+        for _mo, _grp in _df_wf.groupby("_month"):
+            _acc_all = (_grp["Kết quả"] == "ĐÚNG").sum() / len(_grp) * 100
+            _ml_up   = _grp[_grp["ML Prob %"] >= 60]
+            _ml_dn   = _grp[_grp["ML Prob %"] <= 40]
+            _ml_ok   = (_ml_up["Kết quả"] == "ĐÚNG").sum() + (_ml_dn["Kết quả"] == "ĐÚNG").sum()
+            _ml_n    = len(_ml_up) + len(_ml_dn)
+            _acc_ml  = _ml_ok / max(_ml_n, 1) * 100
+            _wf_rows.append({
+                "Tháng": _mo,
+                "Tổng thể (%)":  round(_acc_all, 1),
+                "ML Tự tin (%)": round(_acc_ml,  1),
+                "n tổng":        len(_grp),
+                "n ML tự tin":   _ml_n,
+            })
+        if len(_wf_rows) >= 2:
+            _df_wf2 = pd.DataFrame(_wf_rows)
+            _fig_wf = go.Figure()
+            _fig_wf.add_trace(go.Scatter(
+                x=_df_wf2["Tháng"], y=_df_wf2["Tổng thể (%)"],
+                name="Tổng thể", mode="lines+markers",
+                line=dict(color="#8b949e", width=2), marker=dict(size=7),
+            ))
+            _fig_wf.add_trace(go.Scatter(
+                x=_df_wf2["Tháng"], y=_df_wf2["ML Tự tin (%)"],
+                name="ML Tự tin (prob≥60/≤40)", mode="lines+markers",
+                line=dict(color="#FFD700", width=2), marker=dict(size=7),
+            ))
+            _fig_wf.add_hline(y=50, line_dash="dash", line_color="#f85149",
+                              annotation_text="50% ngẫu nhiên",
+                              annotation_position="bottom right")
+            _fig_wf.update_layout(
+                template="plotly_dark", plot_bgcolor="#0d1117",
+                paper_bgcolor="#0d1117", height=300,
+                yaxis=dict(range=[0, 110], title="Tỷ lệ đúng (%)"),
+                margin=dict(t=15, b=15, l=40, r=20),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02),
+            )
+            st.plotly_chart(_fig_wf, use_container_width=True)
+            st.dataframe(_df_wf2, use_container_width=True, hide_index=True)
+
     # ── Detail Table ──────────────────────────────────────────────────
     st.markdown("---")
     st.markdown("#### 📝 Bảng chi tiết dự báo")
@@ -7956,6 +8060,26 @@ def check_auto_reboot(interval_hours: float = 3.0):
 
 def main():
     check_auto_reboot(interval_hours=3.0)
+
+    # ── Sidebar Alert System ───────────────────────────────────────────────────
+    _today_al = datetime.now().strftime("%Y-%m-%d")
+    _ex_al    = st.session_state.get("_expert_signals", {})
+    if _ex_al.get("date") == _today_al:
+        _hk_al = _ex_al.get("hawk_composite", 0)
+        _sc_al = _ex_al.get("XAU", 0)
+        _mn_al = _ex_al.get("macro_news_score", 0)
+        if _hk_al <= -3:
+            st.sidebar.error("🦅 FED CỰC HAWKISH — Bearish vàng mạnh!")
+        elif _hk_al <= -1:
+            st.sidebar.warning("⚠️ FED Hawkish — Theo dõi sát")
+        if _mn_al >= 2:
+            st.sidebar.info("🌐 Địa chính trị nóng — Hỗ trợ vàng")
+        elif _mn_al <= -2:
+            st.sidebar.info("🕊️ Tin hòa giải — Giảm áp lực vàng")
+        if _sc_al >= 4:
+            st.sidebar.success(f"✅ Expert XAU: {_sc_al:+d}/8 — TĂNG MẠNH")
+        elif _sc_al <= -4:
+            st.sidebar.error(f"🔴 Expert XAU: {_sc_al:+d}/8 — GIẢM MẠNH")
 
     # ── Header ────────────────────────────────────────────────────────────────
     st.markdown("""
