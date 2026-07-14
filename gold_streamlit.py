@@ -5496,7 +5496,8 @@ def generate_expert_narrative(
     try:
         import google.generativeai as genai
         genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
-        model = genai.GenerativeModel("gemini-1.5-flash")
+        _model_names = ["gemini-2.0-flash-lite", "gemini-2.0-flash",
+                        "gemini-1.5-flash-latest", "gemini-1.5-flash-8b"]
 
         news_str  = "\n".join(f"  • {t}" for t in news_titles[:6]) or "  • Không có tin tức mới"
         hawk_str  = "\n".join(f"  • {p}" for p in hawk_phrases[:5]) or "  • Không phát hiện"
@@ -5557,11 +5558,15 @@ Viết theo cấu trúc sau, DÙNG số liệu thực tế ở trên, KHÔNG vi�
 
 Phong cách: Briefing sáng hedge fund — sắc bén, số liệu thực, không sáo rỗng."""
 
-        resp = model.generate_content(
-            prompt,
-            generation_config={"temperature": 0.65, "max_output_tokens": 1200},
-        )
-        return resp.text
+        _gen_cfg = {"temperature": 0.65, "max_output_tokens": 1200}
+        for _mn in _model_names:
+            try:
+                _m = genai.GenerativeModel(_mn)
+                resp = _m.generate_content(prompt, generation_config=_gen_cfg)
+                return resp.text
+            except Exception:
+                continue
+        return "⚠️ Không có model Gemini khả dụng. Vui lòng kiểm tra GOOGLE_API_KEY."
     except Exception as e:
         return f"⚠️ Không thể tạo phân tích AI: {e}"
 
