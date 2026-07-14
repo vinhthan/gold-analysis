@@ -5488,6 +5488,9 @@ def generate_expert_narrative(
     walcl_chg: float,
     yield2y_val: float,
     yield2y_chg: float,
+    price_1w_chg: float,
+    price_1m_chg: float,
+    price_3m_chg: float,
 ) -> str:
     """Gọi Gemini AI để tổng hợp phân tích chuyên gia từ toàn bộ tín hiệu."""
     try:
@@ -5496,66 +5499,67 @@ def generate_expert_narrative(
         model = genai.GenerativeModel("gemini-1.5-flash")
 
         news_str  = "\n".join(f"  • {t}" for t in news_titles[:6]) or "  • Không có tin tức mới"
-        hawk_str  = "\n".join(f"  • [{p}]" for p in hawk_phrases[:5]) or "  • Không phát hiện"
-        dove_str  = "\n".join(f"  • [{p}]" for p in dove_phrases[:5]) or "  • Không phát hiện"
+        hawk_str  = "\n".join(f"  • {p}" for p in hawk_phrases[:5]) or "  • Không phát hiện"
+        dove_str  = "\n".join(f"  • {p}" for p in dove_phrases[:5]) or "  • Không phát hiện"
 
-        hawk_dir  = ("DIỀU HÂU mạnh 🦅🦅" if fedspeak_score <= -2 else
-                     "Hơi diều hâu 🦅"     if fedspeak_score < 0  else
-                     "BỒ CÂU mạnh 🕊️🕊️"   if fedspeak_score >= 2 else
-                     "Hơi bồ câu 🕊️"       if fedspeak_score > 0  else "Trung lập ↔️")
-        exp_dir   = ("TÍCH CỰC — BULLISH 🟢" if total_expert_score >= 2 else
-                     "TIÊU CỰC — BEARISH 🔴" if total_expert_score <= -2 else
-                     "TRUNG TÍNH ⚪")
-        walcl_note = ("→ QT đang thu hẹp bảng cân đối, rút thanh khoản"
-                      if walcl_chg < -3 else
-                      "→ QE / bơm thanh khoản" if walcl_chg > 3 else "→ ổn định")
-        cot_note   = "cá mập đang MUA vào" if cot_chg_1w > 0 else "cá mập đang BÁN ra"
+        hawk_dir = ("DIỀU HÂU mạnh 🦅🦅" if fedspeak_score <= -2 else
+                    "Hơi diều hâu 🦅"     if fedspeak_score < 0  else
+                    "BỒ CÂU mạnh 🕊️🕊️"   if fedspeak_score >= 2 else
+                    "Hơi bồ câu 🕊️"       if fedspeak_score > 0  else "Trung lập ↔️")
+        exp_dir  = ("TÍCH CỰC — BULLISH 🟢" if total_expert_score >= 2 else
+                    "TIÊU CỰC — BEARISH 🔴" if total_expert_score <= -2 else "TRUNG TÍNH ⚪")
+        walcl_note = ("QT đang thu hẹp bảng cân đối — rút thanh khoản" if walcl_chg < -3 else
+                      "QE / bơm thanh khoản"                             if walcl_chg > 3  else
+                      "Ổn định")
+        cot_trend = "cá mập đang MUA" if cot_chg_1w > 0 else "cá mập đang BÁN"
 
-        prompt = f"""Bạn là chuyên gia phân tích vàng cấp độ hedge fund với 20 năm kinh nghiệm giao dịch XAU/USD. Hãy viết phân tích tổng hợp SẮC BÉN, THỰC CHIẾN bằng tiếng Việt dựa trên dữ liệu thực tế sau:
+        prompt = f"""Bạn là chuyên gia phân tích vàng XAU/USD cấp độ hedge fund, 20 năm kinh nghiệm thực chiến. Nhiệm vụ: đọc toàn bộ dữ liệu bên dưới và đưa ra PHÂN TÍCH TỔNG HỢP quyết đoán bằng tiếng Việt.
 
-═══ DỮ LIỆU FED & CHÍNH SÁCH TIỀN TỆ ═══
+══════ GIÁ & MOMENTUM LỊCH SỬ ══════
+Giá XAU hiện tại: ${xau_price:,.2f}
+Thay đổi: 1 tuần {price_1w_chg:+.2f}% | 1 tháng {price_1m_chg:+.2f}% | 3 tháng {price_3m_chg:+.2f}%
+
+══════ FED & CHÍNH SÁCH TIỀN TỆ ══════
 Tin FED mới nhất:
 {news_str}
-
-Fedspeak tone: {hawk_dir} (score: {fedspeak_score:+d}/3)
-Phrases HAWKISH phát hiện:
-{hawk_str}
-Phrases DOVISH phát hiện:
-{dove_str}
-
-Hawk-o-meter: {hawkish_count}/5 tín hiệu hawkish (composite: {hawk_composite:+d}/5)
+Fedspeak tone: {hawk_dir} (score {fedspeak_score:+d}/3)
+Phrases HAWKISH phát hiện: {hawk_str}
+Phrases DOVISH phát hiện: {dove_str}
+Hawk-o-meter: {hawkish_count}/5 tín hiệu hawkish (composite {hawk_composite:+d}/5)
+WALCL Fed Balance Sheet: {walcl_chg:+.1f}% YoY — {walcl_note}
+Yield 2Y: {yield2y_val:.2f}% (thay đổi 20d: {yield2y_chg:+.2f}%)
 Fed Funds Futures: score {futures_score:+d}
-WALCL (Fed Balance Sheet): {walcl_chg:+.1f}% YoY {walcl_note}
-Yield 2Y: {yield2y_val:.2f}%, thay đổi 20 ngày gần nhất: {yield2y_chg:+.2f}%
 
-═══ ĐỊNH VỊ CÁ MẬP (Smart Money / CFTC COT) ═══
-COT Net Position XAU: {cot_net:,} hợp đồng
-Percentile 52 tuần: {cot_rank}% (>80% = cá mập đang ở vị thế rất lớn)
-Thay đổi 1 tuần: {cot_chg_1w:+,} hợp đồng → {cot_note}
+══════ ĐỊNH VỊ CÁ MẬP (CFTC COT) ══════
+Net position XAU: {cot_net:,} hợp đồng | Percentile 52W: {cot_rank}%
+Thay đổi 1 tuần: {cot_chg_1w:+,} hợp đồng → {cot_trend}
 
-═══ KẾT LUẬN TỔNG HỢP ═══
+══════ TỔNG HỢP HỆ THỐNG ══════
 Expert Score: {total_expert_score:+d}/8 → {exp_dir}
-Giá vàng XAU/USD hiện tại: ${xau_price:,.2f}
 
-Hãy viết phân tích gồm đúng 4 phần, mỗi phần 2-3 câu ngắn gọn, dùng số liệu cụ thể từ dữ liệu trên:
+══════ YÊU CẦU ══════
+Viết theo cấu trúc sau, DÙNG số liệu thực tế ở trên, KHÔNG viết chung chung:
 
-**1. 🏦 FED ĐANG LÀM GÌ?**
-(Diễn giải ngôn ngữ FED và tác động thực tế đến vàng — không sao chép lại số liệu, hãy suy luận ý nghĩa)
+## 🎯 VERDICT
+[Một câu dứt khoát: TĂNG / GIẢM / ĐI NGANG trong ngắn hạn (1-2 tuần) và trung hạn (1-3 tháng). Lý do chính trong một câu.]
 
-**2. 🐋 CÁ MẬP ĐANG NGHĨ GÌ?**
-(Luận điểm chính từ COT + ETF flow — smart money đang build hay reduce, tại sao)
+## 🏦 FED ĐANG LÀM GÌ
+[Giải mã ngôn ngữ FED từ tin tức thực tế trên — họ đang thực sự muốn gì, tác động đến vàng ra sao. 2-3 câu.]
 
-**3. ⚠️ RỦI RO LỚN NHẤT?**
-(1 rủi ro TĂNG ngoài dự kiến + 1 rủi ro GIẢM ngoài dự kiến — phải cụ thể, không chung chung)
+## 🐋 CÁ MẬP ĐANG ĐẶT CỬA THẾ NÀO
+[Phân tích COT: vị thế hiện tại nói lên điều gì, {cot_rank}% percentile có ý nghĩa gì, xu hướng đang thay đổi ra sao. 2-3 câu.]
 
-**4. 🎯 KẾT LUẬN HÀNH ĐỘNG (1-2 tuần tới)**
-(Nên làm gì, entry/exit zone tham khảo nếu có thể ước tính, stop loss logic — viết như đang tư vấn cho trader thực)
+## ⚡ TÍN HIỆU MÂU THUẪN HAY ĐỒNG THUẬN
+[FED và cá mập đang cùng chiều hay ngược chiều? Điều đó quan trọng như thế nào? 2 câu.]
 
-Lưu ý: Viết như chuyên gia thật đang họp briefing sáng, KHÔNG sáo rỗng, KHÔNG lặp lại số liệu một cách máy móc."""
+## 🎯 HÀNH ĐỘNG CỤ THỂ
+[Vùng giá tham khảo để vào lệnh, mức stop loss logic, cỡ vị thế. Thực chiến, cụ thể. 2-3 câu.]
+
+Phong cách: Briefing sáng hedge fund — sắc bén, số liệu thực, không sáo rỗng."""
 
         resp = model.generate_content(
             prompt,
-            generation_config={"temperature": 0.7, "max_output_tokens": 1024},
+            generation_config={"temperature": 0.65, "max_output_tokens": 1200},
         )
         return resp.text
     except Exception as e:
@@ -5589,6 +5593,95 @@ def render_expert_tab(macro: dict, fred_data: dict):
         gold_jpy     = fetch_gold_jpy_signal()
         max_pain     = calc_expert_max_pain()
         cot_xau      = fetch_cot_data("XAU")
+
+    # ── Tính sơ bộ Expert Score + Hawk metrics (dùng cho AI narrative ở đầu) ─
+    _ai_fed_es  = fedspeak.get("score", 0)
+    _ai_fut_es  = futures_data.get("score", 0) if futures_data.get("ok") else 0
+    _ai_cot_es  = cot_xau.get("score", 0)      if cot_xau.get("ok")      else 0
+    _ai_jpy_es  = gold_jpy.get("score", 0)     if gold_jpy.get("ok")     else 0
+    _ai_prelim  = max(-8, min(8, _ai_fed_es + _ai_fut_es + _ai_cot_es + _ai_jpy_es))
+
+    _ai_hk_fed    = -1 if _ai_fut_es < -1 else (1 if _ai_fut_es > 1 else 0)
+    _ai_hk_speech = fedspeak.get("score", 0)
+    _ai_walcl_ok  = "fed_balance" in fred_data and len(fred_data["fed_balance"]) >= 52
+    _ai_wb_chg    = ((float(fred_data["fed_balance"].iloc[-1]) /
+                      float(fred_data["fed_balance"].iloc[-52]) - 1) * 100
+                     if _ai_walcl_ok else 0.0)
+    _ai_hk_walcl  = -1 if _ai_wb_chg < -5 else 0
+    _ai_y2y_s     = fred_data["yield2y"].dropna() if "yield2y" in fred_data else None
+    _ai_y2y_val   = float(_ai_y2y_s.iloc[-1]) if _ai_y2y_s is not None and len(_ai_y2y_s) >= 1 else 0.0
+    _ai_y2y_rise  = (float(_ai_y2y_s.iloc[-1]) - float(_ai_y2y_s.iloc[-20])
+                     if _ai_y2y_s is not None and len(_ai_y2y_s) >= 20 else 0.0)
+    _ai_hk_yield  = -1 if _ai_y2y_rise > 0.15 else 0
+    _ai_cot_rank  = int(cot_xau.get("pct_rank", 50)) if cot_xau.get("ok") else 50
+    _ai_cot_chg1w = int(cot_xau.get("chg_1w",   0))  if cot_xau.get("ok") else 0
+    _ai_hk_cot    = (-1 if _ai_cot_rank > 80 and _ai_cot_chg1w < 0
+                     else (1 if _ai_cot_rank < 20 and _ai_cot_chg1w > 0 else 0))
+    _ai_hawk_comp = max(-5, min(5, _ai_hk_fed + _ai_hk_speech + _ai_hk_walcl
+                                   + _ai_hk_yield + _ai_hk_cot))
+    _ai_hawk_cnt  = sum(1 if s < 0 else 0
+                        for s in [_ai_hk_fed, _ai_hk_speech, _ai_hk_walcl,
+                                  _ai_hk_yield, _ai_hk_cot])
+
+    # Giá XAU + momentum lịch sử
+    try:
+        _ai_px, _ = fetch_gold()
+        _ai_cur   = float(_ai_px.iloc[-1])
+        _ai_p1w   = ((_ai_cur / float(_ai_px.iloc[-5])  - 1) * 100) if len(_ai_px) >= 5  else 0.0
+        _ai_p1m   = ((_ai_cur / float(_ai_px.iloc[-20]) - 1) * 100) if len(_ai_px) >= 20 else 0.0
+        _ai_p3m   = ((_ai_cur / float(_ai_px.iloc[-60]) - 1) * 100) if len(_ai_px) >= 60 else 0.0
+    except Exception:
+        _ai_cur = _ai_p1w = _ai_p1m = _ai_p3m = 0.0
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # AI EXPERT NARRATIVE — Hero section đầu trang
+    # ══════════════════════════════════════════════════════════════════════════
+    st.markdown("## 🧠 Phân Tích Chuyên Gia AI")
+    st.markdown(
+        "<p style='color:#8b949e;font-size:0.84rem;'>"
+        "Gemini AI tổng hợp tin FED, định vị cá mập, diều hâu/bồ câu và momentum — "
+        "<b style='color:#FFD700;'>đưa ra verdict TĂNG/GIẢM/ĐI NGANG như hedge fund analyst</b>. "
+        "Cache 30 phút.</p>",
+        unsafe_allow_html=True,
+    )
+    with st.spinner("🧠 Gemini AI đang phân tích toàn bộ tín hiệu..."):
+        _ai_text = generate_expert_narrative(
+            news_titles        = tuple(item.get("title", "") for item in fed_news[:6]),
+            hawk_phrases       = tuple(d["phrase"] for d in fedspeak.get("detected", [])
+                                       if d.get("type") == "hawk"),
+            dove_phrases       = tuple(d["phrase"] for d in fedspeak.get("detected", [])
+                                       if d.get("type") == "dove"),
+            fedspeak_score     = int(_ai_fed_es),
+            fedspeak_label     = fedspeak.get("label", ""),
+            cot_net            = int(cot_xau.get("net", 0)) if cot_xau.get("ok") else 0,
+            cot_rank           = _ai_cot_rank,
+            cot_chg_1w         = _ai_cot_chg1w,
+            futures_score      = int(_ai_fut_es),
+            hawk_composite     = int(_ai_hawk_comp),
+            hawkish_count      = int(_ai_hawk_cnt),
+            total_expert_score = int(_ai_prelim),
+            xau_price          = round(_ai_cur, 2),
+            walcl_chg          = round(_ai_wb_chg, 2),
+            yield2y_val        = round(_ai_y2y_val, 3),
+            yield2y_chg        = round(_ai_y2y_rise, 3),
+            price_1w_chg       = round(_ai_p1w, 2),
+            price_1m_chg       = round(_ai_p1m, 2),
+            price_3m_chg       = round(_ai_p3m, 2),
+        )
+    st.markdown(
+        f"<div style='background:#0d1117;border:1px solid #30363d;border-radius:12px;"
+        f"padding:22px 26px;line-height:1.9;font-size:0.88rem;color:#e6edf3;'>"
+        f"{_ai_text.replace(chr(10), '<br>')}"
+        f"</div>",
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        "<p style='color:#8b949e;font-size:0.73rem;margin-top:4px;'>"
+        "⚠️ Phân tích AI mang tính tham khảo — không phải khuyến nghị đầu tư. "
+        "Powered by Google Gemini 1.5 Flash.</p>",
+        unsafe_allow_html=True,
+    )
+    st.markdown("---")
 
     # ══════════════════════════════════════════════════════════════════════════
     # BLOCK 1: FED INTELLIGENCE
@@ -6389,74 +6482,6 @@ def render_expert_tab(macro: dict, fred_data: dict):
             "Quản lý rủi ro là ưu tiên số 1.</p></div>",
             unsafe_allow_html=True,
         )
-
-    st.markdown("---")
-
-    # ══════════════════════════════════════════════════════════════════════════
-    # AI EXPERT NARRATIVE — Gemini tổng hợp tin tức + số liệu
-    # ══════════════════════════════════════════════════════════════════════════
-    st.markdown("## 🧠 Phân Tích Chuyên Gia AI")
-    st.markdown(
-        "<p style='color:#8b949e;font-size:0.84rem;'>"
-        "Gemini AI đọc tin FED, định vị cá mập và tất cả tín hiệu vĩ mô — "
-        "<b style='color:#FFD700;'>tổng hợp thành luận điểm như chuyên gia hedge fund</b>. "
-        "Cập nhật mỗi 30 phút.</p>",
-        unsafe_allow_html=True,
-    )
-
-    with st.spinner("🧠 Gemini AI đang phân tích..."):
-        try:
-            _ai_px, _ = fetch_gold()
-            _ai_cur   = float(_ai_px.iloc[-1])
-        except Exception:
-            _ai_cur   = 0.0
-
-        # Chuẩn bị data hashable để truyền vào cached function
-        _news_titles  = tuple(item.get("title", "") for item in fed_news[:6])
-        _hawk_phrases = tuple(
-            d["phrase"] for d in fedspeak.get("detected", []) if d.get("type") == "hawk"
-        )
-        _dove_phrases = tuple(
-            d["phrase"] for d in fedspeak.get("detected", []) if d.get("type") == "dove"
-        )
-        _fut_score    = futures_data.get("score", 0) if futures_data.get("ok") else 0
-        _cot_net      = int(cot_xau.get("net",      0)) if cot_xau.get("ok") else 0
-        _cot_rank     = int(cot_xau.get("pct_rank", 50)) if cot_xau.get("ok") else 50
-        _cot_chg1w    = int(cot_xau.get("chg_1w",   0)) if cot_xau.get("ok") else 0
-        _y2y_val      = float(fred_data["yield2y"].dropna().iloc[-1]) if "yield2y" in fred_data and len(fred_data["yield2y"]) >= 1 else 0.0
-
-        _ai_text = generate_expert_narrative(
-            news_titles       = _news_titles,
-            hawk_phrases      = _hawk_phrases,
-            dove_phrases      = _dove_phrases,
-            fedspeak_score    = int(fedspeak.get("score", 0)),
-            fedspeak_label    = fedspeak.get("label", ""),
-            cot_net           = _cot_net,
-            cot_rank          = _cot_rank,
-            cot_chg_1w        = _cot_chg1w,
-            futures_score     = int(_fut_score),
-            hawk_composite    = int(hawk_composite),
-            hawkish_count     = int(hawkish_signals_count),
-            total_expert_score= int(total_expert_score),
-            xau_price         = round(_ai_cur, 2),
-            walcl_chg         = round(_wb_chg, 2),
-            yield2y_val       = round(_y2y_val, 3),
-            yield2y_chg       = round(_y2y_rise, 3),
-        )
-
-    st.markdown(
-        f"<div style='background:#0d1117;border:1px solid #30363d;border-radius:12px;"
-        f"padding:20px 24px;line-height:1.85;font-size:0.88rem;color:#e6edf3;'>"
-        f"{_ai_text.replace(chr(10), '<br>')}"
-        f"</div>",
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        "<p style='color:#8b949e;font-size:0.74rem;margin-top:4px;'>"
-        "⚠️ Phân tích AI mang tính tham khảo, không phải khuyến nghị đầu tư. "
-        "Powered by Google Gemini 1.5 Flash.</p>",
-        unsafe_allow_html=True,
-    )
 
     st.markdown("---")
 
