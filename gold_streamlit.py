@@ -5563,29 +5563,36 @@ Phong cách: Briefing sáng hedge fund — sắc bén, số liệu thực, khôn
         "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": {"temperature": 0.65, "maxOutputTokens": 1200},
     }
-    _model_names = [
-        "gemini-2.0-flash-lite",
-        "gemini-2.0-flash",
-        "gemini-1.5-flash-latest",
-        "gemini-1.5-flash-8b",
+    # (api_version, model_name) — thử nhiều endpoint + tên model
+    _models_to_try = [
+        ("v1beta", "gemini-2.0-flash"),
+        ("v1beta", "gemini-2.0-flash-lite"),
+        ("v1beta", "gemini-1.5-flash"),
+        ("v1",     "gemini-1.5-flash-001"),
+        ("v1",     "gemini-1.5-flash-002"),
+        ("v1beta", "gemini-1.5-pro"),
     ]
-    _last_err = ""
-    for _mn in _model_names:
+    _all_errs = []
+    for _api_ver, _mn in _models_to_try:
         try:
             _url = (
-                f"https://generativelanguage.googleapis.com/v1beta/models/"
+                f"https://generativelanguage.googleapis.com/{_api_ver}/models/"
                 f"{_mn}:generateContent?key={_api_key}"
             )
             _r = _req.post(_url, json=_payload, timeout=30)
             if _r.status_code == 200:
                 _data = _r.json()
-                return _data["candidates"][0]["content"]["parts"][0]["text"]
+                _candidates = _data.get("candidates", [])
+                if _candidates:
+                    return _candidates[0]["content"]["parts"][0]["text"]
+                else:
+                    _all_errs.append(f"{_mn}: response OK nhưng không có candidates (bị block?)")
             else:
-                _last_err = f"HTTP {_r.status_code} [{_mn}]: {_r.text[:400]}"
+                _all_errs.append(f"{_mn} ({_api_ver}): HTTP {_r.status_code} — {_r.text[:200]}")
         except Exception as _e:
-            _last_err = f"{_mn}: {_e}"
+            _all_errs.append(f"{_mn}: {_e}")
             continue
-    return f"⚠️ Lỗi Gemini API (tất cả models thất bại):\n{_last_err}"
+    return "⚠️ Lỗi Gemini API — tất cả models thất bại:\n" + "\n".join(f"  • {e}" for e in _all_errs)
 
 
 def render_expert_tab(macro: dict, fred_data: dict):
