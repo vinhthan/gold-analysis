@@ -1438,13 +1438,18 @@ def fetch_cot_data(asset_key: str) -> dict:
         records = []
         for row in data:
             try:
-                date_str = str(row.get("report_date_as_mm_dd_yyyy", ""))[:10]
-                mm_long  = float(row.get("m_money_positions_long_all",  0) or 0)
-                mm_short = float(row.get("m_money_positions_short_all", 0) or 0)
+                date_str  = str(row.get("report_date_as_mm_dd_yyyy", ""))[:10]
+                mm_long   = float(row.get("m_money_positions_long_all",  0) or 0)
+                mm_short  = float(row.get("m_money_positions_short_all", 0) or 0)
+                # W1: Commercials (producers/hedgers) positions
+                cm_long   = float(row.get("comm_positions_long_all",  0) or 0)
+                cm_short  = float(row.get("comm_positions_short_all", 0) or 0)
                 if mm_long == 0 and mm_short == 0:
                     continue
                 records.append({"date": date_str, "long": mm_long, "short": mm_short,
-                                 "net": mm_long - mm_short})
+                                 "net": mm_long - mm_short,
+                                 "cm_long": cm_long, "cm_short": cm_short,
+                                 "cm_net": cm_long - cm_short})
             except Exception:
                 continue
 
@@ -1467,6 +1472,13 @@ def fetch_cot_data(asset_key: str) -> dict:
         # Percentile so với toàn bộ 52 tuần (1 chu kỳ đầy đủ)
         all_nets = [r["net"] for r in records]
         pct_rank = sum(1 for n in all_nets if n <= net_now) / len(all_nets) * 100
+
+        # W1: Commercials (producers/hedgers) — contrarian indicator
+        cm_now  = latest.get("cm_net", 0)
+        all_cm  = [r.get("cm_net", 0) for r in records if r.get("cm_net", 0) != 0]
+        cm_pct  = (sum(1 for n in all_cm if n <= cm_now) / len(all_cm) * 100
+                   if all_cm else 50.0)
+        cm_chg1w = cm_now - records[1].get("cm_net", cm_now) if len(records) > 1 else 0
 
         # Scoring
         score = 0
@@ -1502,6 +1514,23 @@ def fetch_cot_data(asset_key: str) -> dict:
             score += 1
             signals.append(f"✅ Vị thế cực đoan SHORT ({pct_rank:.0f}/100 percentile-52W) và đang đảo chiều → Short squeeze tiềm năng")
 
+        # W1: Commercials contrarian signal
+        # Commercials (producers/miners) HEDGE bằng cách bán khống → cm_net thường âm.
+        # Khi cm_pct ≤ 10 (ít bán nhất trong 1 năm) → họ ít hedge → BULLISH cho giá.
+        # Khi cm_pct ≥ 90 (bán nhiều nhất trong 1 năm) → hedge mạnh → BEARISH tiềm năng.
+        if all_cm:
+            if cm_pct <= 10:
+                score += 1
+                signals.append(
+                    f"✅ Commercials ít hedge nhất ({cm_pct:.0f}th pct-52W): nhà sản xuất tin tưởng giá tăng → Bullish contrarian")
+            elif cm_pct >= 90:
+                score -= 1
+                signals.append(
+                    f"⚠️ Commercials hedge mạnh nhất ({cm_pct:.0f}th pct-52W): nhà sản xuất chốt giá nhiều → Bearish cảnh báo")
+            elif cm_pct <= 25 and cm_chg1w > 5000:
+                signals.append(
+                    f"📊 Commercials đang giảm hedge ({cm_pct:.0f}th pct, +{cm_chg1w:,.0f} 1W) → dấu hiệu nhà sản xuất kỳ vọng giá tăng")
+
         score = max(-3, min(3, score))
 
         return {
@@ -1517,6 +1546,9 @@ def fetch_cot_data(asset_key: str) -> dict:
             "pct_rank": round(pct_rank, 1),
             "score":    score,
             "signals":  signals,
+            # W1: Commercials data
+            "cm_net":   cm_now,
+            "cm_pct":   round(cm_pct, 1),
         }
 
     except Exception as e:
@@ -3015,6 +3047,56 @@ def fetch_whale_data(asset_key: str) -> dict:
         except Exception:
             pass
 
+    # ── W2: Gold/Silver ratio + GDX/GLD (XAU only) ──────────────────────────
+    if asset_key == "XAU":
+        try:
+            _raw_gs = yf.download(["GLD", "SLV", "GDX"], period="6mo", interval="1d",
+                                  progress=False, auto_adjust=True)
+            if not _raw_gs.empty:
+                if isinstance(_raw_gs.columns, pd.MultiIndex):
+                    _cl = _raw_gs["Close"]
+                else:
+                    _cl = _raw_gs[["Close"]]
+                _gld = _cl["GLD"].dropna() if "GLD" in _cl else pd.Series(dtype=float)
+                _slv = _cl["SLV"].dropna() if "SLV" in _cl else pd.Series(dtype=float)
+                _gdx = _cl["GDX"].dropna() if "GDX" in _cl else pd.Series(dtype=float)
+
+                # Gold/Silver ratio (historical: >85 = extreme, <65 = silver beats)
+                if len(_gld) >= 10 and len(_slv) >= 10:
+                    _aligned = pd.concat([_gld.rename("g"), _slv.rename("s")], axis=1).dropna()
+                    if len(_aligned) >= 10:
+                        _gs_now  = float(_aligned["g"].iloc[-1] / _aligned["s"].iloc[-1])
+                        _gs_hist = (_aligned["g"] / _aligned["s"])
+                        _gs_pct  = sum(1 for v in _gs_hist if v <= _gs_now) / len(_gs_hist) * 100
+                        result["gs_ratio"] = {"value": round(_gs_now, 1), "pct": round(_gs_pct, 1)}
+                        if _gs_now > 85:
+                            score -= 1
+                            signals.append(("⚠️", f"Gold/Silver Ratio = {_gs_now:.1f} (cực cao, pct={_gs_pct:.0f}) → vàng overpriced so với bạc, rủi ro điều chỉnh", "orange"))
+                        elif _gs_now < 65:
+                            score += 1
+                            signals.append(("✅", f"Gold/Silver Ratio = {_gs_now:.1f} (thấp) → bạc đang bứt phá, tích cực cho kim loại quý", "green"))
+                        else:
+                            signals.append(("📊", f"Gold/Silver Ratio = {_gs_now:.1f} (bình thường, pct={_gs_pct:.0f})", "gray"))
+
+                # GDX/GLD ratio — miners vs gold price
+                if len(_gdx) >= 10 and len(_gld) >= 10:
+                    _aligned2 = pd.concat([_gdx.rename("m"), _gld.rename("g")], axis=1).dropna()
+                    if len(_aligned2) >= 10:
+                        _mg_now  = float(_aligned2["m"].iloc[-1] / _aligned2["g"].iloc[-1])
+                        _mg_hist = (_aligned2["m"] / _aligned2["g"])
+                        _mg_prev = float(_mg_hist.iloc[-20]) if len(_mg_hist) >= 20 else float(_mg_hist.iloc[0])
+                        _mg_chg  = (_mg_now - _mg_prev) / max(abs(_mg_prev), 1e-9) * 100
+                        if _mg_chg > 5:
+                            score += 1
+                            signals.append(("🏗️", f"GDX/GLD Ratio tăng {_mg_chg:+.1f}% — miners đang outperform gold → xác nhận đà tăng", "green"))
+                        elif _mg_chg < -5:
+                            score -= 1
+                            signals.append(("⚠️", f"GDX/GLD Ratio giảm {_mg_chg:+.1f}% — miners underperform gold → cảnh báo suy yếu", "orange"))
+                        else:
+                            signals.append(("📊", f"GDX/GLD Ratio ổn định ({_mg_chg:+.1f}%)", "gray"))
+        except Exception:
+            pass
+
     result["score"]   = max(-5, min(5, score))
     result["signals"] = signals
     return result
@@ -3622,6 +3704,30 @@ def ml_directional_signal(_price_values: np.ndarray, days: int) -> dict:
     kal    = pd.Series(kalman_smooth(prices.values), index=prices.index)
     k_slope = kal.pct_change(5)
 
+    # S1: DXY + 2Y yield features (highest short-term gold correlators)
+    # Fetch externally with try/except — gracefully degrade if fails
+    _dxy_mom5  = pd.Series(0.0, index=prices.index)
+    _yld_chg5  = pd.Series(0.0, index=prices.index)
+    try:
+        _aux = yf.download(["DX-Y.NYB", "^IRX"], period="2y", interval="1d",
+                            progress=False, auto_adjust=True)
+        if not _aux.empty and isinstance(_aux.columns, pd.MultiIndex):
+            _aux_cl = _aux["Close"]
+            # DXY 5-day momentum (negative correlation: DXY↑ → Gold↓)
+            if "DX-Y.NYB" in _aux_cl.columns:
+                _dxy_s = _aux_cl["DX-Y.NYB"].dropna()
+                if len(_dxy_s) >= 10:
+                    _dxy_mom = _dxy_s.pct_change(5).reindex(prices.index, method="nearest")
+                    _dxy_mom5 = _dxy_mom.fillna(0.0)
+            # 13-week T-bill yield 5-day change (negative correlation: rate↑ → Gold↓)
+            if "^IRX" in _aux_cl.columns:
+                _irx_s = _aux_cl["^IRX"].dropna()
+                if len(_irx_s) >= 10:
+                    _yld_chg = _irx_s.diff(5).reindex(prices.index, method="nearest")
+                    _yld_chg5 = _yld_chg.fillna(0.0)
+    except Exception:
+        pass
+
     feat = pd.DataFrame({
         "rsi14":     rsi14,
         "rsi5":      rsi5,
@@ -3636,6 +3742,8 @@ def ml_directional_signal(_price_values: np.ndarray, days: int) -> dict:
         "vol10":     prices.pct_change().rolling(10).std(),
         "vol20":     prices.pct_change().rolling(20).std(),
         "k_slope":   k_slope,
+        "dxy_mom5":  _dxy_mom5,   # S1: DXY 5d momentum
+        "yld_chg5":  _yld_chg5,   # S1: 13W yield 5d change
     }, index=prices.index)
 
     # Target: giá sau `days` ngày cao hơn hiện tại?
@@ -3742,6 +3850,39 @@ def short_term_signals(price: pd.Series, asset_key: str,
     bb_width = bb_up_v - bb_lo_v
     bb_pos   = (cur - bb_lo_v) / bb_width if bb_width > 0 else 0.5
 
+    # S2a: Bollinger Band squeeze (BB width so với 50d historical)
+    bb_width_hist = None
+    bb_squeeze    = False
+    try:
+        _bb_widths = (price.rolling(20).mean() + 2 * price.rolling(20).std()
+                      - (price.rolling(20).mean() - 2 * price.rolling(20).std()))
+        if len(_bb_widths.dropna()) >= 50:
+            _bw_med = float(_bb_widths.dropna().tail(50).median())
+            _bw_now = float(_bb_widths.iloc[-1])
+            bb_width_hist = round(_bw_med, 2)
+            if _bw_now < _bw_med * 0.70:
+                bb_squeeze = True   # Narrow band → imminent breakout
+    except Exception:
+        pass
+
+    # S2b: VWAP (cần OHLCV.Volume)
+    vwap_val  = None
+    vwap_bias = "neutral"
+    try:
+        if ohlcv is not None and not ohlcv.empty and "Volume" in ohlcv.columns and "Close" in ohlcv.columns:
+            _ovlv = ohlcv.tail(20)
+            _vols = _ovlv["Volume"].astype(float)
+            _cls  = _ovlv["Close"].astype(float)
+            _total_vol = float(_vols.sum())
+            if _total_vol > 0:
+                vwap_val = float((_cls * _vols).sum() / _total_vol)
+                if cur > vwap_val * 1.002:
+                    vwap_bias = "bullish"
+                elif cur < vwap_val * 0.998:
+                    vwap_bias = "bearish"
+    except Exception:
+        pass
+
     # ── Support / Resistance (swing high/low 20 ngày) ─────────────────────
     recent20   = price.tail(20)
     support    = float(recent20.min())
@@ -3819,6 +3960,21 @@ def short_term_signals(price: pd.Series, asset_key: str,
         signals.append(("🔴", f"Giá gần BB trên ({bb_pos*100:.0f}%) — Cẩn thận áp lực bán", "red"))
     else:
         signals.append(("➡️", f"Giá giữa BB ({bb_pos*100:.0f}%) — Trung tính", "gray"))
+
+    # S2a: BB Squeeze — volatility nén → sắp bùng nổ
+    if bb_squeeze:
+        signals.append(("💥", f"BB SQUEEZE: dải Bollinger rất hẹp (dưới 70% median 50 ngày) → Sắp bùng phát theo hướng tín hiệu chính", "orange"))
+
+    # S2b: VWAP bias — tổ chức mua hay bán?
+    if vwap_val is not None:
+        if vwap_bias == "bullish":
+            score += 1
+            signals.append(("✅", f"VWAP = {vwap_val:,.0f} — Giá TRÊN VWAP → tổ chức đang mua, bias tích cực", "green"))
+        elif vwap_bias == "bearish":
+            score -= 1
+            signals.append(("🔴", f"VWAP = {vwap_val:,.0f} — Giá DƯỚI VWAP → áp lực bán từ tổ chức", "red"))
+        else:
+            signals.append(("➡️", f"VWAP = {vwap_val:,.0f} — Giá quanh VWAP, trung tính", "gray"))
 
     # Price vs S/R 20 ngày
     if cur <= support + atr * 0.2:
@@ -3964,6 +4120,8 @@ def short_term_signals(price: pd.Series, asset_key: str,
         "mom3":         mom3,
         "adx":          adx_data,
         "stoch":        stoch_data,
+        "bb_squeeze":   bb_squeeze,
+        "vwap":         vwap_val,
         "signals":      signals,
     }
 
@@ -5666,81 +5824,161 @@ Phong cách: Briefing sáng hedge fund — sắc bén, số liệu thực, khôn
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def fetch_macro_news():
-    """Fetch macro/geopolitical/presidential news from RSS — tariff, trade war, White House, conflict."""
+    """Fetch macro/geopolitical/presidential news from RSS — tariff, trade war, White House, conflict.
+    N1: Bigram/context-window scoring prevents false positives ("tariff deal" ≠ "tariff").
+    N2: Additional RSS feeds + exponential news aging decay (recent news weighted more).
+    N3: Central bank buying keywords added as high-weight bullish signals.
+    """
     import requests as _req
     import xml.etree.ElementTree as ET
+    import math as _math
+    from email.utils import parsedate as _parsedate
+    import calendar as _cal
 
     FEEDS = [
         "https://feeds.reuters.com/reuters/businessNews",
         "https://feeds.reuters.com/reuters/worldNews",
         "https://www.marketwatch.com/rss/realtimeheadlines",
+        # N2: Additional feeds
+        "https://feeds.finance.yahoo.com/rss/2.0/headline?s=GC%3DF&region=US&lang=en-US",
+        "https://www.ft.com/?format=rss",
+        "https://apnews.com/rss/apf-business",
     ]
 
-    # Từ khóa bullish cho vàng (tạo bất ổn → safe haven)
+    # ── N1: Bigram / context phrases (checked first — highest priority) ──────
+    # Sorted longest→shortest so "central bank buying" beats "central bank"
+    CONTEXT_PHRASES = sorted([
+        # Bearish phrases — resolve false-positive from single keywords
+        ("central bank buying gold",    +4), ("central bank gold purchase",  +4),
+        ("world gold council",          +3), ("cb gold buying",              +3),
+        ("gold reserves increase",      +3), ("added to gold reserves",      +3),
+        ("tariff deal signed",          -3), ("tariff deal reached",         -3),
+        ("tariff deal",                 -3), ("tariff agreement",            -2),
+        ("tariff truce",                -2), ("no tariff",                   -2),
+        ("lifted tariffs",              -2), ("suspend tariff",              -2),
+        ("trade deal signed",           -3), ("trade deal",                  -3),
+        ("trade agreement",             -2), ("deal signed",                 -2),
+        ("ceasefire deal",              -3), ("peace deal",                  -3),
+        ("peace agreement",             -2), ("ceasefire",                   -3),
+        ("de-escalat",                  -2), ("avoid war",                   -1),
+        ("prevented war",               -2), ("end to the war",              -2),
+        ("no war",                      -1), ("no conflict",                 -1),
+        ("dollar strengthens",          -2), ("dollar rallies",              -2),
+        ("dollar surges",               -2), ("strong dollar",               -2),
+        ("risk-on",                     -1), ("stocks surge",                -1),
+        ("stocks rally",                -1), ("truce",                       -2),
+        ("resolution",                  -1),
+        # Bullish phrases
+        ("safe haven demand",           +3), ("gold demand surges",          +3),
+        ("gold record high",            +3), ("gold hits record",            +3),
+        ("gold rally",                  +2), ("gold demand",                 +2),
+        ("trade war escalat",           +3), ("trade war",                   +3),
+        ("trade dispute",               +2), ("trade tension",               +2),
+        ("debt ceiling",                +2), ("dollar weak",                 +2),
+        ("dollar fall",                 +2), ("inflation surge",             +2),
+        # N3: Central bank buying (very bullish gold)
+        ("central bank",                +2), ("gold reserves",               +2),
+        ("wgc",                         +2), ("reserve gold",                +2),
+        ("gold purchase",               +2), ("cb buying",                   +2),
+    ], key=lambda x: -len(x[0]))   # longest phrase first
+
+    # Single-keyword fallback (only if no context phrase consumed the keyword)
     BULL_KW = {
-        "tariff": 2, "tariffs": 2, "trade war": 2, "trade dispute": 1,
-        "sanction": 2, "sanctions": 2, "embargo": 2,
+        "tariff": 2, "sanction": 2, "embargo": 2,
         "war": 2, "conflict": 1, "tension": 1, "geopolit": 1,
-        "trump": 1, "white house": 1, "executive order": 1,
-        "recession": 2, "crisis": 1, "default": 2, "debt ceiling": 1,
-        "inflation surge": 1, "dollar fall": 1, "dollar weak": 1,
-        "safe haven": 2, "gold demand": 2, "gold rally": 2,
+        "trump": 1, "recession": 2, "crisis": 1, "default": 2,
         "uncertainty": 1, "escalat": 1, "attack": 1,
+        "inflation": 1, "safe haven": 2,
     }
-    # Từ khóa bearish cho vàng (giảm bất ổn → risk-on)
     BEAR_KW = {
-        "trade deal": -2, "trade agreement": -2, "deal signed": -1,
-        "ceasefire": -2, "peace deal": -2, "de-escalat": -1,
-        "dollar surges": -1, "dollar strengthens": -1, "dollar rallies": -1,
-        "risk-on": -1, "stocks surge": -1, "stocks rally": -1,
-        "truce": -1, "resolution": -1,
+        "dollar strength": -2,
     }
+
+    _now = datetime.now()
+
+    def _pub_age_days(pub_date_str: str) -> float:
+        """Parse RSS pub_date and return age in days; 0.0 on parse error."""
+        try:
+            t = _parsedate(pub_date_str)   # returns time.struct_time or None
+            if t is None:
+                return 0.0
+            ts = _cal.timegm(t)            # UTC timestamp
+            return max(0.0, (_now.timestamp() - ts) / 86400.0)
+        except Exception:
+            return 0.0
 
     items = []
     for url in FEEDS:
         try:
-            r = _req.get(url, timeout=10, headers={"User-Agent": "Mozilla/5.0"})
+            r = _req.get(url, timeout=9, headers={"User-Agent": "Mozilla/5.0"})
             if r.status_code != 200:
                 continue
             root = ET.fromstring(r.content)
             for item in root.iter("item"):
-                title = (item.findtext("title") or "").strip()
-                desc  = (item.findtext("description") or "").strip()
-                text  = (title + " " + desc).lower()
+                title    = (item.findtext("title") or "").strip()
+                desc     = (item.findtext("description") or "").strip()
+                pub_date = (item.findtext("pubDate") or "").strip()
+                text     = (title + " " + desc).lower()
 
-                score, kws = 0, []
+                # N2: News aging decay — e^(-0.3 × days): fresh=1.0, 1d≈0.74, 3d≈0.41
+                age_days = _pub_age_days(pub_date)
+                decay    = _math.exp(-0.3 * age_days)
+
+                # N1: Context phrase scoring (longest match first)
+                score      = 0.0
+                kws        = []
+                used_kw    = set()   # keywords consumed by context phrases
+
+                for phrase, val in CONTEXT_PHRASES:
+                    if phrase in text:
+                        score += val
+                        kws.append(phrase)
+                        # Mark all single-words inside this phrase as consumed
+                        for word in phrase.split():
+                            used_kw.add(word)
+
+                # Single-keyword fallback (skip if phrase already covered it)
                 for kw, val in BULL_KW.items():
-                    if kw in text:
+                    if kw in text and kw not in used_kw:
                         score += val
                         kws.append(kw)
                 for kw, val in BEAR_KW.items():
-                    if kw in text:
+                    if kw in text and kw not in used_kw:
                         score += val
                         kws.append(kw)
 
                 if kws and title:
                     items.append({
-                        "title": title,
-                        "score": score,
-                        "keywords": kws[:3],
-                        "pub_date": (item.findtext("pubDate") or ""),
+                        "title":     title,
+                        "score":     score * decay,
+                        "raw_score": score,
+                        "keywords":  kws[:4],
+                        "pub_date":  pub_date,
+                        "age_days":  round(age_days, 1),
                     })
         except Exception:
             continue
 
-    # Sắp xếp theo độ tác động (abs score cao nhất trước)
-    items.sort(key=lambda x: -abs(x["score"]))
-    items = items[:10]
+    # De-duplicate titles across feeds
+    seen, unique = set(), []
+    for it in items:
+        key = it["title"][:60].lower()
+        if key not in seen:
+            seen.add(key)
+            unique.append(it)
 
-    agg  = sum(x["score"] for x in items[:6])
+    unique.sort(key=lambda x: -abs(x["score"]))
+    unique = unique[:10]
+
+    agg       = sum(x["score"] for x in unique[:6])
     agg_score = max(-3, min(3, round(agg / 4)))  # clamp -3..+3
 
     return {
-        "ok": bool(items),
-        "items": items,
-        "score": agg_score,
-        "bullish": sum(1 for x in items if x["score"] > 0),
-        "bearish": sum(1 for x in items if x["score"] < 0),
+        "ok":      bool(unique),
+        "items":   unique,
+        "score":   agg_score,
+        "bullish": sum(1 for x in unique if x["score"] > 0),
+        "bearish": sum(1 for x in unique if x["score"] < 0),
     }
 
 
