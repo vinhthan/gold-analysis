@@ -2011,6 +2011,120 @@ def calc_obv(df: pd.DataFrame) -> dict:
     }
 
 
+@st.cache_data(ttl=3600, show_spinner=False)
+def _fetch_dfii10_series() -> pd.Series:
+    """DFII10 (10Y TIPS Real Yield) từ FRED — cache 1 giờ, fallback rỗng nếu lỗi."""
+    try:
+        import pandas_datareader.data as _web
+        from datetime import date as _d
+        _s = _web.DataReader("DFII10", "fred", start=_d(2020, 1, 1))
+        return _s["DFII10"].dropna()
+    except Exception:
+        return pd.Series(dtype=float)
+
+
+def calc_ichimoku(df: pd.DataFrame,
+                  n1: int = 9, n2: int = 26, n3: int = 52) -> dict:
+    """
+    Ichimoku Kinko Hyo — hệ thống chỉ báo xu hướng toàn diện, phổ biến với
+    trader vàng châu Á (Nhật, Trung Quốc, Hàn Quốc).
+    Components:
+      Tenkan-sen (9)  = (High_9  + Low_9 ) / 2  — đường tín hiệu nhanh
+      Kijun-sen  (26) = (High_26 + Low_26) / 2  — đường xu hướng chậm
+      Senkou A   = (Tenkan + Kijun) / 2, shift +26 → Kumo trước (Span A)
+      Senkou B   = (High_52 + Low_52) / 2, shift +26 → Kumo sau (Span B)
+      Chikou Span = Close shift -26 — xác nhận trễ
+    Score range: -4 (rất bearish) → +4 (rất bullish).
+    """
+    if df.empty or "High" not in df.columns or "Low" not in df.columns:
+        return {"ok": False, "score": 0, "signals": []}
+
+    hi = df["High"].astype(float)
+    lo = df["Low"].astype(float)
+    cl = df["Close"].astype(float)
+
+    if len(cl) < n3 + n2 + 5:
+        return {"ok": False, "score": 0, "signals": []}
+
+    def _mid(h, l, p):
+        return (h.rolling(p).max() + l.rolling(p).min()) / 2
+
+    tenkan = _mid(hi, lo, n1)
+    kijun  = _mid(hi, lo, n2)
+    senA   = ((tenkan + kijun) / 2).shift(n2)
+    senB   = _mid(hi, lo, n3).shift(n2)
+
+    cur      = float(cl.iloc[-1])
+    tenkan_v = float(tenkan.iloc[-1])
+    kijun_v  = float(kijun.iloc[-1])
+    senA_v   = float(senA.iloc[-1]) if not pd.isna(senA.iloc[-1]) else cur
+    senB_v   = float(senB.iloc[-1]) if not pd.isna(senB.iloc[-1]) else cur
+    cloud_top = max(senA_v, senB_v)
+    cloud_bot = min(senA_v, senB_v)
+
+    # Future cloud color (at current time, the cloud is the Span A/B ahead)
+    idx = len(cl) - 1
+    senA_fut_v = float(senA.iloc[idx - n2]) if idx >= n2 and not pd.isna(senA.iloc[idx - n2]) else senA_v
+    senB_fut_v = float(senB.iloc[idx - n2]) if idx >= n2 and not pd.isna(senB.iloc[idx - n2]) else senB_v
+
+    score   = 0
+    signals = []
+
+    # 1. Price vs Kumo (cloud) — trọng số cao nhất (±2)
+    if cur > cloud_top:
+        score += 2
+        signals.append(("✅", f"Giá TRÊN Kumo [{cloud_bot:,.0f}–{cloud_top:,.0f}] → Ichimoku Bull zone mạnh", "green"))
+    elif cur < cloud_bot:
+        score -= 2
+        signals.append(("🔴", f"Giá DƯỚI Kumo [{cloud_bot:,.0f}–{cloud_top:,.0f}] → Ichimoku Bear zone mạnh", "red"))
+    else:
+        signals.append(("⚠️", f"Giá TRONG Kumo [{cloud_bot:,.0f}–{cloud_top:,.0f}] → Vùng không rõ ràng, chờ breakout", "orange"))
+
+    # 2. Tenkan vs Kijun (±1)
+    if not (pd.isna(tenkan_v) or pd.isna(kijun_v)):
+        prev_t = float(tenkan.iloc[-2]) if len(tenkan) > 1 else tenkan_v
+        prev_k = float(kijun.iloc[-2])  if len(kijun)  > 1 else kijun_v
+        if tenkan_v > kijun_v:
+            score += 1
+            tag = "vừa cắt lên (Golden Cross Ichimoku)" if prev_t <= prev_k else "đang duy trì trên"
+            signals.append(("✅", f"Tenkan {tag} Kijun: {tenkan_v:,.0f} > {kijun_v:,.0f} → Bullish momentum", "green"))
+        else:
+            score -= 1
+            tag = "vừa cắt xuống (Dead Cross Ichimoku)" if prev_t >= prev_k else "đang duy trì dưới"
+            signals.append(("🔴", f"Tenkan {tag} Kijun: {tenkan_v:,.0f} < {kijun_v:,.0f} → Bearish momentum", "red"))
+
+    # 3. Chikou span: Close hiện tại vs giá 26 phiên trước (±1)
+    if len(cl) > n2 + 1:
+        price_26ago = float(cl.iloc[-n2 - 1])
+        if cur > price_26ago:
+            score += 1
+            signals.append(("✅", f"Chikou > giá 26 phiên trước ({price_26ago:,.0f}) → Xác nhận xu hướng tăng", "green"))
+        elif cur < price_26ago:
+            score -= 1
+            signals.append(("🔴", f"Chikou < giá 26 phiên trước ({price_26ago:,.0f}) → Xác nhận xu hướng giảm", "red"))
+
+    # 4. Future cloud color (±1)
+    if senA_fut_v > senB_fut_v:
+        score += 1
+        signals.append(("✅", "Kumo tương lai: Span A > Span B → Cloud XANH — nền bullish", "green"))
+    else:
+        score -= 1
+        signals.append(("🔴", "Kumo tương lai: Span A < Span B → Cloud ĐỎ — nền bearish", "red"))
+
+    return {
+        "ok":        True,
+        "score":     max(-4, min(4, score)),
+        "signals":   signals,
+        "tenkan":    tenkan,
+        "kijun":     kijun,
+        "senA":      senA,
+        "senB":      senB,
+        "cloud_top": cloud_top,
+        "cloud_bot": cloud_bot,
+        "cur":       cur,
+    }
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 #  MACRO REGIME ANALYSIS
 # ══════════════════════════════════════════════════════════════════════════════
@@ -3688,6 +3802,11 @@ def ml_directional_signal(_price_values: np.ndarray, days: int) -> dict:
     if n < max(180, days * 4):
         return {"prob_up": 0.5, "signal": "neutral", "confidence": 0.0, "ok": False}
 
+    # Approximate DatetimeIndex for the price series (daily data ending today)
+    # Used for seasonality encoding and DFII10 alignment
+    _ml_today    = datetime.now()
+    _approx_dates = pd.date_range(end=_ml_today, periods=len(prices), freq="D")
+
     # ── Feature engineering ───────────────────────────────────────────────
     rsi14    = calc_rsi(prices, 14)
     rsi5     = calc_rsi(prices, 5)
@@ -3728,22 +3847,41 @@ def ml_directional_signal(_price_values: np.ndarray, days: int) -> dict:
     except Exception:
         pass
 
+    # Seasonality (sin/cos encoding) — learns monthly seasonal patterns
+    _month_arr = _approx_dates.month.astype(float)
+    _month_sin = pd.Series(np.sin(2 * np.pi * _month_arr / 12), index=prices.index)
+    _month_cos = pd.Series(np.cos(2 * np.pi * _month_arr / 12), index=prices.index)
+
+    # DFII10 — 10Y TIPS Real Yield (driver số 1 của vàng, tương quan -0.90)
+    _dfii10_chg5 = pd.Series(0.0, index=prices.index)
+    try:
+        _dfii_raw = _fetch_dfii10_series()   # cached 1 giờ
+        if len(_dfii_raw) >= 10:
+            _dfii_chg = _dfii_raw.diff(5)
+            _dfii_ri  = _dfii_chg.reindex(_approx_dates, method="nearest")
+            _dfii10_chg5 = pd.Series(_dfii_ri.values, index=prices.index).fillna(0.0)
+    except Exception:
+        pass
+
     feat = pd.DataFrame({
-        "rsi14":     rsi14,
-        "rsi5":      rsi5,
-        "macd_hist": mh,
-        "bb_pct":    bb_pct.clip(0, 1),
-        "mom3":      prices.pct_change(3),
-        "mom5":      prices.pct_change(5),
-        "mom10":     prices.pct_change(10),
-        "mom20":     prices.pct_change(20),
-        "ma20_dev":  prices / (ma20 + 1e-9) - 1,
-        "ma50_dev":  prices / (ma50 + 1e-9) - 1,
-        "vol10":     prices.pct_change().rolling(10).std(),
-        "vol20":     prices.pct_change().rolling(20).std(),
-        "k_slope":   k_slope,
-        "dxy_mom5":  _dxy_mom5,   # S1: DXY 5d momentum
-        "yld_chg5":  _yld_chg5,   # S1: 13W yield 5d change
+        "rsi14":      rsi14,
+        "rsi5":       rsi5,
+        "macd_hist":  mh,
+        "bb_pct":     bb_pct.clip(0, 1),
+        "mom3":       prices.pct_change(3),
+        "mom5":       prices.pct_change(5),
+        "mom10":      prices.pct_change(10),
+        "mom20":      prices.pct_change(20),
+        "ma20_dev":   prices / (ma20 + 1e-9) - 1,
+        "ma50_dev":   prices / (ma50 + 1e-9) - 1,
+        "vol10":      prices.pct_change().rolling(10).std(),
+        "vol20":      prices.pct_change().rolling(20).std(),
+        "k_slope":    k_slope,
+        "dxy_mom5":   _dxy_mom5,    # S1: DXY 5d momentum
+        "yld_chg5":   _yld_chg5,    # S1: 13W yield 5d change
+        "month_sin":  _month_sin,   # Seasonality sin encoding
+        "month_cos":  _month_cos,   # Seasonality cos encoding
+        "dfii10_chg": _dfii10_chg5, # DFII10 real yield 5d change
     }, index=prices.index)
 
     # Target: giá sau `days` ngày cao hơn hiện tại?
@@ -4053,6 +4191,14 @@ def short_term_signals(price: pd.Series, asset_key: str,
         elif cv < -200: score += 1; signals.append(("✅", f"CCI = {cv:.0f} — Cực kỳ quá bán → Cơ hội tăng", "green"))
         elif cv < -100: signals.append(("✅", f"CCI = {cv:.0f} — Quá bán → Xem xét mua", "green"))
         else:           signals.append(("➡️", f"CCI = {cv:.0f} — Trung tính", "gray"))
+
+    # ── Ichimoku Cloud — hệ thống xu hướng châu Á ─────────────────────────
+    ichi_data = calc_ichimoku(ohlcv)
+    if ichi_data.get("ok"):
+        # Đóng góp tối đa ±2 vào score (không át các chỉ báo khác)
+        score += max(-2, min(2, round(ichi_data["score"] / 2)))
+        for _sig in ichi_data["signals"]:
+            signals.append(_sig)
 
     # ── ML Directional Signal (3-model Ensemble) ──────────────────────────
     if ml_result and ml_result.get("ok"):
@@ -5014,6 +5160,41 @@ def render_asset_tab(asset_key: str, macro: dict, forecast_days: int):
     fig = build_chart(price, ma20, ma50, ma200, bb_up, bb_lo, hi52, lo52,
                       fc_mean, fc_lo_s, fc_hi_s, rsi, sig_color, forecast_days,
                       asset_key)
+
+    # ── Ichimoku Cloud overlay ─────────────────────────────────────────────
+    _ichi_chart = calc_ichimoku(ohlcv)
+    if _ichi_chart.get("ok"):
+        _IH = min(max(150, forecast_days * 2), 500)
+        _tk = _ichi_chart["tenkan"].tail(_IH).dropna()
+        _kj = _ichi_chart["kijun"].tail(_IH).dropna()
+        _sA = _ichi_chart["senA"].tail(_IH).dropna()
+        _sB = _ichi_chart["senB"].tail(_IH).dropna()
+        # Tenkan-sen (đường tín hiệu nhanh — đỏ)
+        fig.add_trace(go.Scatter(
+            x=_tk.index, y=_tk, name="Tenkan (9)",
+            line=dict(color="rgba(255,107,107,0.85)", width=1.0, dash="dot"),
+        ), row=1, col=1)
+        # Kijun-sen (đường xu hướng chậm — xanh dương)
+        fig.add_trace(go.Scatter(
+            x=_kj.index, y=_kj, name="Kijun (26)",
+            line=dict(color="rgba(77,182,228,0.85)", width=1.3),
+        ), row=1, col=1)
+        # Kumo (cloud) — Span A và B tô màu
+        _kumo_idx = _sA.index.intersection(_sB.index)
+        if len(_kumo_idx) >= 5:
+            _sA_k = _sA.reindex(_kumo_idx)
+            _sB_k = _sB.reindex(_kumo_idx)
+            fig.add_trace(go.Scatter(
+                x=_sA_k.index, y=_sA_k, name="Kumo (Cloud)",
+                line=dict(width=0), showlegend=False, hoverinfo="skip",
+            ), row=1, col=1)
+            fig.add_trace(go.Scatter(
+                x=_sB_k.index, y=_sB_k, name="Kumo (Cloud)",
+                line=dict(width=0), fill="tonexty",
+                fillcolor="rgba(255,200,0,0.07)",
+                hovertemplate="Kumo: %{y:,.0f}<extra></extra>",
+            ), row=1, col=1)
+
     st.plotly_chart(fig, use_container_width=True,
                     config={"scrollZoom": True, "responsive": True,
                             "displayModeBar": True,
