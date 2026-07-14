@@ -6785,6 +6785,7 @@ def render_expert_tab(macro: dict, fred_data: dict):
     # ── 🥇 DỰ BÁO VÀNG (XAU) ────────────────────────────────────────────────
     _summary_all = calc_summary_forecast()
     _hk_val      = hawk_composite if isinstance(hawk_composite, (int, float)) else 0
+    _expert_dirs: dict = {}   # {asset_key: {str(days): "UP"/"DOWN"/"NEUTRAL"}}
 
     with st.spinner("🔮 Dự báo Vàng (XAU)..."):
         try:
@@ -6795,6 +6796,10 @@ def render_expert_tab(macro: dict, fred_data: dict):
             _xau_rows, _xau_cur = [], 0.0
 
     if _xau_rows:
+        _expert_dirs["XAU"] = {
+            str(_r[0]): ("UP" if _r[4] > 0.3 else "DOWN" if _r[4] < -0.3 else "NEUTRAL")
+            for _r in _xau_rows
+        }
         _render_forecast_table(_xau_rows, _xau_cur, "XAU", total_expert_score, _hk_val)
     else:
         st.info("⚠️ Không lấy được giá XAU để chạy dự báo.")
@@ -6883,11 +6888,19 @@ def render_expert_tab(macro: dict, fred_data: dict):
                     _acur, _arows = _compute_asset_forecast(
                         _ak, _apx, _aexp, _ahk, _summary_all)
                     if _arows:
+                        _expert_dirs[_ak] = {
+                            str(_r[0]): ("UP" if _r[4] > 0.3 else "DOWN" if _r[4] < -0.3 else "NEUTRAL")
+                            for _r in _arows
+                        }
                         _render_forecast_table(_arows, _acur, _ak, _aexp, _ahk)
                     else:
                         st.warning(f"Không chạy được dự báo cho {_aname}.")
                 except Exception as _ae:
                     st.warning(f"Lỗi dự báo {_aname}: {_ae}")
+
+    # Cập nhật expert directions vào session_state để _collect_snapshot() đọc
+    if _expert_dirs and "_expert_signals" in st.session_state:
+        st.session_state["_expert_signals"]["directions"] = _expert_dirs
 
     st.markdown("---")
 
@@ -7208,21 +7221,46 @@ def _collect_snapshot(asset_key: str, macro: dict) -> dict:
         else:             sig_vi, sig_en = "ĐI NGANG / TRUNG TÍNH",  "NEUTRAL"
 
         today_str    = datetime.now().strftime("%Y-%m-%d")
-        periods_data = {}
-        for d in PERIOD_LABELS:
-            periods_data[str(d)] = {
-                "label":        PERIOD_LABELS[d],
-                "target_date":  (datetime.now() + timedelta(days=d)).strftime("%Y-%m-%d"),
-                "actual_price": None,
-                "change_pct":   None,
-                "result":       "PENDING",
-            }
 
         # Đọc expert signals từ session_state (nếu tab Chuyên Gia đã chạy hôm nay)
         _ex      = st.session_state.get("_expert_signals", {})
         _has_ex  = _ex.get("date") == today_str
         _expert_score = _ex.get(asset_key, 0) if _has_ex else 0
         _method       = "expert" if _has_ex else "technical"
+        _ex_dirs      = _ex.get("directions", {}).get(asset_key, {}) if _has_ex else {}
+
+        # Quick signals từ calc_summary_forecast() — per-period technical score
+        try:
+            _q_summary = calc_summary_forecast()
+            _q_asset   = _q_summary.get(asset_key, {})
+        except Exception:
+            _q_asset = {}
+
+        def _dir_en(dir_str: str) -> str:
+            if not dir_str or dir_str == "N/A":
+                return "NEUTRAL"
+            if "Tăng" in dir_str:
+                return "UP"
+            if "Giảm" in dir_str:
+                return "DOWN"
+            return "NEUTRAL"
+
+        periods_data = {}
+        for d in PERIOD_LABELS:
+            _qs     = _q_asset.get(d, {}).get("dir", "")
+            _q_sig  = _dir_en(_qs)
+            _ex_sig = _ex_dirs.get(str(d), "N/A")
+            periods_data[str(d)] = {
+                "label":         PERIOD_LABELS[d],
+                "target_date":   (datetime.now() + timedelta(days=d)).strftime("%Y-%m-%d"),
+                "actual_price":  None,
+                "change_pct":    None,
+                "result":        "PENDING",          # backward compat = quick_result
+                "quick_signal":  _q_sig,
+                "quick_result":  "PENDING",
+                "expert_signal": _ex_sig,
+                "expert_result": "PENDING" if _ex_sig != "N/A" else "N/A",
+            }
 
         return {
             "id":              f"{asset_key}_{today_str}",
@@ -7274,7 +7312,10 @@ def _verify_predictions(predictions: list) -> tuple:
             continue
 
         for d_str, pdata in rec.get("periods", {}).items():
-            if pdata.get("result") != "PENDING":
+            _needs_legacy = pdata.get("result",        "PENDING") == "PENDING"
+            _needs_quick  = pdata.get("quick_result",  "PENDING") == "PENDING"
+            _needs_expert = pdata.get("expert_result", "N/A")     == "PENDING"
+            if not (_needs_legacy or _needs_quick or _needs_expert):
                 continue
             tgt_str = pdata.get("target_date", "")
             try:
@@ -7291,13 +7332,25 @@ def _verify_predictions(predictions: list) -> tuple:
                 actual = float(price_s[mask].iloc[0])
                 chg    = (actual - price_now) / price_now * 100
 
-                if   sig_en == "UP":   result = "ĐÚNG" if chg > 0            else "SAI"
-                elif sig_en == "DOWN": result = "ĐÚNG" if chg < 0            else "SAI"
-                else:                  result = "ĐÚNG" if abs(chg) <= NEUTRAL_BAND else "SAI"
+                def _eval_sig(s):
+                    if s == "UP":     return "ĐÚNG" if chg > 0             else "SAI"
+                    elif s == "DOWN": return "ĐÚNG" if chg < 0             else "SAI"
+                    elif s == "N/A":  return "N/A"
+                    else:             return "ĐÚNG" if abs(chg) <= NEUTRAL_BAND else "SAI"
 
                 pdata["actual_price"] = round(actual, 4)
                 pdata["change_pct"]   = round(chg, 2)
-                pdata["result"]       = result
+
+                if _needs_quick or _needs_legacy:
+                    _q_sig = pdata.get("quick_signal", sig_en)
+                    _q_res = _eval_sig(_q_sig)
+                    pdata["quick_result"] = _q_res
+                    pdata["result"]       = _q_res   # backward compat
+
+                if _needs_expert:
+                    _ex_sig = pdata.get("expert_signal", "N/A")
+                    pdata["expert_result"] = _eval_sig(_ex_sig)
+
                 changed = True
             except Exception:
                 continue
@@ -7553,6 +7606,11 @@ def render_history_tab():
                 "fed_score":      rec.get("fed_score", 0),
                 "hawk_composite": rec.get("hawk_composite", 0),
                 "macro_news_score": rec.get("macro_news_score", 0),
+                # Per-period dual signals
+                "quick_signal":   pdata.get("quick_signal",  rec.get("signal_en", "NEUTRAL")),
+                "expert_signal":  pdata.get("expert_signal", "N/A"),
+                "quick_result":   pdata.get("quick_result",  pdata.get("result", "PENDING")),
+                "expert_result":  pdata.get("expert_result", "N/A"),
             })
 
     if not rows:
@@ -7607,51 +7665,75 @@ def render_history_tab():
                delta="Chỉ tính đã đáo hạn", delta_color="off")
     st.markdown("---")
 
-    # ── Expert vs Technical Comparison ───────────────────────────────
-    if "method" in df_all.columns and df_all["method"].nunique() > 1:
-        st.markdown("#### 🧪 Expert vs Kỹ Thuật — So Sánh Độ Chính Xác")
-        _df_ex  = df_done[df_done["method"] == "expert"]
-        _df_tc  = df_done[df_done["method"] == "technical"]
-        _acc_ex = (_df_ex["Kết quả"] == "ĐÚNG").sum() / max(len(_df_ex), 1) * 100
-        _acc_tc = (_df_tc["Kết quả"] == "ĐÚNG").sum() / max(len(_df_tc), 1) * 100
-        _ec1, _ec2, _ec3, _ec4 = st.columns(4)
-        _ec1.metric("🧠 Expert — Đúng",  f"{(_df_ex['Kết quả']=='ĐÚNG').sum()}/{len(_df_ex)}",
-                    f"{_acc_ex:.1f}%")
-        _ec2.metric("📐 Kỹ thuật — Đúng", f"{(_df_tc['Kết quả']=='ĐÚNG').sum()}/{len(_df_tc)}",
-                    f"{_acc_tc:.1f}%")
-        _delta_acc = _acc_ex - _acc_tc
-        _ec3.metric("📊 Expert hơn KT", f"{_delta_acc:+.1f}%",
-                    "Expert tốt hơn" if _delta_acc > 0 else "KT tốt hơn" if _delta_acc < 0 else "Tương đương")
-        _ec4.metric("📅 Records Expert", len(_df_ex), f"vs {len(_df_tc)} KT")
+    # ── Kết Luận Nhanh vs Dự Báo Chuyên Gia — So sánh độ chính xác ──────
+    if "quick_result" in df_all.columns and "expert_result" in df_all.columns:
+        _df_q_done  = df[df["quick_result"].isin(["ĐÚNG", "SAI"])]
+        _df_ex_done = df[df["expert_result"].isin(["ĐÚNG", "SAI"])]
 
-        # Bar chart so sánh theo kỳ hạn
-        if len(_df_ex) >= 3 and len(_df_tc) >= 3:
-            _cmp_rows = []
-            for _dd in sorted(df_done["period_days"].unique()):
-                _se = _df_ex[_df_ex["period_days"] == _dd]
-                _st = _df_tc[_df_tc["period_days"] == _dd]
-                if len(_se) > 0:
-                    _cmp_rows.append({"kỳ": PERIOD_LABELS.get(_dd, str(_dd)),
-                                      "loại": "Expert", "acc": (_se["Kết quả"]=="ĐÚNG").sum()/len(_se)*100, "n": len(_se)})
-                if len(_st) > 0:
-                    _cmp_rows.append({"kỳ": PERIOD_LABELS.get(_dd, str(_dd)),
-                                      "loại": "Kỹ thuật", "acc": (_st["Kết quả"]=="ĐÚNG").sum()/len(_st)*100, "n": len(_st)})
-            if _cmp_rows:
-                import plotly.express as _px
-                _df_cmp = pd.DataFrame(_cmp_rows)
-                _fig_cmp = _px.bar(_df_cmp, x="kỳ", y="acc", color="loại", barmode="group",
-                                   color_discrete_map={"Expert": "#FFD700", "Kỹ thuật": "#8b949e"},
-                                   text="acc", labels={"acc": "% Đúng", "kỳ": "Kỳ hạn"})
-                _fig_cmp.add_hline(y=50, line_dash="dash", line_color="#f85149",
-                                   annotation_text="50% ngẫu nhiên")
-                _fig_cmp.update_traces(texttemplate="%{text:.0f}%", textposition="outside")
-                _fig_cmp.update_layout(
-                    template="plotly_dark", plot_bgcolor="#0d1117", paper_bgcolor="#0d1117",
-                    height=340, yaxis=dict(range=[0, 120]), margin=dict(t=30, b=20, l=40, r=20),
-                    legend=dict(orientation="h", yanchor="bottom", y=1.02),
-                )
-                st.plotly_chart(_fig_cmp, use_container_width=True)
-        st.markdown("---")
+        if len(_df_q_done) > 0 or len(_df_ex_done) > 0:
+            st.markdown("#### 🧪 Kết Luận Nhanh ⚡ vs Dự Báo Chuyên Gia 🧠 — Độ Chính Xác")
+            st.caption(
+                "⚡ Kết luận nhanh: tín hiệu kỹ thuật per-period (RSI · MA · Momentum · ML). "
+                "🧠 Expert forecast: dự báo từ tab Chuyên Gia (FED · COT · Whale · Macro News · Hawk-o-meter)."
+            )
+
+            _acc_q  = (_df_q_done["quick_result"]  == "ĐÚNG").sum() / max(len(_df_q_done),  1) * 100
+            _acc_ex = (_df_ex_done["expert_result"] == "ĐÚNG").sum() / max(len(_df_ex_done), 1) * 100
+            _delta  = _acc_ex - _acc_q
+
+            _qc1, _qc2, _qc3, _qc4 = st.columns(4)
+            _qc1.metric("⚡ Kết Luận Nhanh — Đúng",
+                        f"{(_df_q_done['quick_result']=='ĐÚNG').sum()}/{len(_df_q_done)}",
+                        f"{_acc_q:.1f}%")
+            _qc2.metric("🧠 Expert Forecast — Đúng",
+                        f"{(_df_ex_done['expert_result']=='ĐÚNG').sum()}/{len(_df_ex_done)}",
+                        f"{_acc_ex:.1f}%")
+            _qc3.metric("📊 Expert hơn Nhanh", f"{_delta:+.1f}%",
+                        "Expert tốt hơn" if _delta > 0 else "Nhanh tốt hơn" if _delta < 0 else "Tương đương")
+            _qc4.metric("📅 Records Expert", len(_df_ex_done), f"vs {len(_df_q_done)} Nhanh")
+
+            # Bar chart so sánh theo kỳ hạn
+            if len(_df_q_done) >= 3 or len(_df_ex_done) >= 3:
+                _cmp_rows = []
+                for _dd in sorted(df["period_days"].unique()):
+                    _sq = _df_q_done[_df_q_done["period_days"]  == _dd]
+                    _se = _df_ex_done[_df_ex_done["period_days"] == _dd]
+                    if len(_sq) > 0:
+                        _cmp_rows.append({
+                            "kỳ": PERIOD_LABELS.get(_dd, str(_dd)),
+                            "loại": "⚡ Kết luận nhanh",
+                            "acc": (_sq["quick_result"] == "ĐÚNG").sum() / len(_sq) * 100,
+                            "n": len(_sq),
+                        })
+                    if len(_se) > 0:
+                        _cmp_rows.append({
+                            "kỳ": PERIOD_LABELS.get(_dd, str(_dd)),
+                            "loại": "🧠 Expert forecast",
+                            "acc": (_se["expert_result"] == "ĐÚNG").sum() / len(_se) * 100,
+                            "n": len(_se),
+                        })
+                if _cmp_rows:
+                    import plotly.express as _px
+                    _df_cmp = pd.DataFrame(_cmp_rows)
+                    _fig_cmp = _px.bar(
+                        _df_cmp, x="kỳ", y="acc", color="loại", barmode="group",
+                        color_discrete_map={
+                            "⚡ Kết luận nhanh": "#8b949e",
+                            "🧠 Expert forecast": "#FFD700",
+                        },
+                        text="acc", labels={"acc": "% Đúng", "kỳ": "Kỳ hạn"},
+                    )
+                    _fig_cmp.add_hline(y=50, line_dash="dash", line_color="#f85149",
+                                       annotation_text="50% ngẫu nhiên")
+                    _fig_cmp.update_traces(texttemplate="%{text:.0f}%", textposition="outside")
+                    _fig_cmp.update_layout(
+                        template="plotly_dark", plot_bgcolor="#0d1117", paper_bgcolor="#0d1117",
+                        height=340, yaxis=dict(range=[0, 120]),
+                        margin=dict(t=30, b=20, l=40, r=20),
+                        legend=dict(orientation="h", yanchor="bottom", y=1.02),
+                    )
+                    st.plotly_chart(_fig_cmp, use_container_width=True)
+            st.markdown("---")
 
     # ── Charts ────────────────────────────────────────────────────────
     if len(df_done) >= 3:
