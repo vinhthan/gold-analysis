@@ -216,9 +216,9 @@
       "1": {
         "label": "Ngày mai",
         "target_date": "2026-07-14",
-        "actual_price": null,
-        "change_pct": null,
-        "result": "PENDING"
+        "actual_price": 6.348,
+        "change_pct": 1.48,
+        "result": "SAI"
       },
       "3": {
         "label": "3 ngày tới",
@@ -316,9 +316,9 @@
       "1": {
         "label": "Ngày mai",
         "target_date": "2026-07-14",
-        "actual_price": null,
-        "change_pct": null,
-        "result": "PENDING"
+        "actual_price": 79.55,
+        "change_pct": 8.44,
+        "result": "SAI"
       },
       "3": {
         "label": "3 ngày tới",
@@ -1438,9 +1438,9 @@
       "7": {
         "label": "1 tuần tới",
         "target_date": "2026-07-14",
-        "actual_price": null,
-        "change_pct": null,
-        "result": "PENDING"
+        "actual_price": 6.348,
+        "change_pct": 2.86,
+        "result": "SAI"
       },
       "14": {
         "label": "2 tuần tới",
@@ -1539,9 +1539,9 @@
       "7": {
         "label": "1 tuần tới",
         "target_date": "2026-07-14",
-        "actual_price": null,
-        "change_pct": null,
-        "result": "PENDING"
+        "actual_price": 79.55,
+        "change_pct": 12.93,
+        "result": "SAI"
       },
       "14": {
         "label": "2 tuần tới",
@@ -3855,9 +3855,9 @@
       "3": {
         "label": "3 ngày tới",
         "target_date": "2026-07-14",
-        "actual_price": null,
-        "change_pct": null,
-        "result": "PENDING"
+        "actual_price": 6.348,
+        "change_pct": 1.84,
+        "result": "SAI"
       },
       "7": {
         "label": "1 tuần tới",
@@ -3956,9 +3956,9 @@
       "3": {
         "label": "3 ngày tới",
         "target_date": "2026-07-14",
-        "actual_price": null,
-        "change_pct": null,
-        "result": "PENDING"
+        "actual_price": 79.55,
+        "change_pct": 11.4,
+        "result": "SAI"
       },
       "7": {
         "label": "1 tuần tới",
