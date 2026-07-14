@@ -5353,7 +5353,7 @@ def calc_summary_forecast() -> dict:
         "USDVND": "USDVND=X",
         "BTC":    "BTC-USD",
     }
-    PERIODS = [1, 3, 7, 14, 21, 30, 90, 180, 365, 730, 1095, 1825]
+    PERIODS = [1, 3, 7, 14, 21, 30, 90, 180, 270, 365, 730, 1095, 1825]
 
     result = {}
 
