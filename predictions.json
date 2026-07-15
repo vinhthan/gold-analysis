@@ -2090,9 +2090,10 @@
       "7": {
         "label": "1 tuần tới",
         "target_date": "2026-07-15",
-        "actual_price": null,
-        "change_pct": null,
-        "result": "PENDING"
+        "actual_price": 6.372,
+        "change_pct": 5.24,
+        "result": "SAI",
+        "quick_result": "SAI"
       },
       "14": {
         "label": "2 tuần tới",
@@ -2193,9 +2194,10 @@
       "7": {
         "label": "1 tuần tới",
         "target_date": "2026-07-15",
-        "actual_price": null,
-        "change_pct": null,
-        "result": "PENDING"
+        "actual_price": 79.73,
+        "change_pct": 8.45,
+        "result": "SAI",
+        "quick_result": "SAI"
       },
       "14": {
         "label": "2 tuần tới",
@@ -4552,9 +4554,10 @@
       "3": {
         "label": "3 ngày tới",
         "target_date": "2026-07-15",
-        "actual_price": null,
-        "change_pct": null,
-        "result": "PENDING"
+        "actual_price": 6.372,
+        "change_pct": 2.22,
+        "result": "SAI",
+        "quick_result": "SAI"
       },
       "7": {
         "label": "1 tuần tới",
@@ -4654,9 +4657,10 @@
       "3": {
         "label": "3 ngày tới",
         "target_date": "2026-07-15",
-        "actual_price": null,
-        "change_pct": null,
-        "result": "PENDING"
+        "actual_price": 79.73,
+        "change_pct": 11.65,
+        "result": "SAI",
+        "quick_result": "SAI"
       },
       "7": {
         "label": "1 tuần tới",
@@ -5167,9 +5171,10 @@
       "1": {
         "label": "Ngày mai",
         "target_date": "2026-07-15",
-        "actual_price": null,
-        "change_pct": null,
-        "result": "PENDING"
+        "actual_price": 6.372,
+        "change_pct": 1.09,
+        "result": "ĐÚNG",
+        "quick_result": "ĐÚNG"
       },
       "3": {
         "label": "3 ngày tới",
@@ -5274,9 +5279,10 @@
       "1": {
         "label": "Ngày mai",
         "target_date": "2026-07-15",
-        "actual_price": null,
-        "change_pct": null,
-        "result": "PENDING"
+        "actual_price": 79.73,
+        "change_pct": -0.01,
+        "result": "SAI",
+        "quick_result": "SAI"
       },
       "3": {
         "label": "3 ngày tới",
