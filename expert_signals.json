@@ -42,10 +42,10 @@
     },
     "HG": {
       "1": "DOWN",
-      "3": "NEUTRAL",
-      "7": "NEUTRAL",
-      "14": "UP",
-      "21": "NEUTRAL",
+      "3": "DOWN",
+      "7": "DOWN",
+      "14": "NEUTRAL",
+      "21": "DOWN",
       "30": "NEUTRAL",
       "60": "DOWN",
       "90": "DOWN",
@@ -54,7 +54,7 @@
       "365": "DOWN"
     },
     "CL": {
-      "1": "UP",
+      "1": "NEUTRAL",
       "3": "UP",
       "7": "UP",
       "14": "UP",
