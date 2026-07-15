@@ -16,9 +16,10 @@
       "1": {
         "label": "Ngày mai",
         "target_date": "2026-07-14",
-        "actual_price": null,
-        "change_pct": null,
-        "result": "PENDING"
+        "actual_price": 4058.9127,
+        "change_pct": -1.29,
+        "result": "ĐÚNG",
+        "quick_result": "ĐÚNG"
       },
       "3": {
         "label": "3 ngày tới",
@@ -519,9 +520,10 @@
       "1": {
         "label": "Ngày mai",
         "target_date": "2026-07-14",
-        "actual_price": null,
-        "change_pct": null,
-        "result": "PENDING"
+        "actual_price": 64737.5781,
+        "change_pct": 1.54,
+        "result": "SAI",
+        "quick_result": "SAI"
       },
       "3": {
         "label": "3 ngày tới",
@@ -1259,9 +1261,10 @@
       "7": {
         "label": "1 tuần tới",
         "target_date": "2026-07-14",
-        "actual_price": null,
-        "change_pct": null,
-        "result": "PENDING"
+        "actual_price": 4058.9127,
+        "change_pct": -1.41,
+        "result": "ĐÚNG",
+        "quick_result": "ĐÚNG"
       },
       "14": {
         "label": "2 tuần tới",
@@ -1777,9 +1780,10 @@
       "7": {
         "label": "1 tuần tới",
         "target_date": "2026-07-14",
-        "actual_price": null,
-        "change_pct": null,
-        "result": "PENDING"
+        "actual_price": 64737.5781,
+        "change_pct": 2.28,
+        "result": "SAI",
+        "quick_result": "SAI"
       },
       "14": {
         "label": "2 tuần tới",
@@ -2395,9 +2399,10 @@
       "7": {
         "label": "1 tuần tới",
         "target_date": "2026-07-15",
-        "actual_price": null,
-        "change_pct": null,
-        "result": "PENDING"
+        "actual_price": 64737.5781,
+        "change_pct": 3.98,
+        "result": "SAI",
+        "quick_result": "SAI"
       },
       "14": {
         "label": "2 tuần tới",
@@ -3726,9 +3731,10 @@
       "3": {
         "label": "3 ngày tới",
         "target_date": "2026-07-14",
-        "actual_price": null,
-        "change_pct": null,
-        "result": "PENDING"
+        "actual_price": 4058.9127,
+        "change_pct": -1.29,
+        "result": "ĐÚNG",
+        "quick_result": "ĐÚNG"
       },
       "7": {
         "label": "1 tuần tới",
@@ -4239,9 +4245,10 @@
       "3": {
         "label": "3 ngày tới",
         "target_date": "2026-07-14",
-        "actual_price": null,
-        "change_pct": null,
-        "result": "PENDING"
+        "actual_price": 64737.5781,
+        "change_pct": 1.47,
+        "result": "SAI",
+        "quick_result": "SAI"
       },
       "7": {
         "label": "1 tuần tới",
@@ -4851,9 +4858,10 @@
       "3": {
         "label": "3 ngày tới",
         "target_date": "2026-07-15",
-        "actual_price": null,
-        "change_pct": null,
-        "result": "PENDING"
+        "actual_price": 64737.5781,
+        "change_pct": 1.54,
+        "result": "SAI",
+        "quick_result": "SAI"
       },
       "7": {
         "label": "1 tuần tới",
@@ -5480,9 +5488,10 @@
       "1": {
         "label": "Ngày mai",
         "target_date": "2026-07-15",
-        "actual_price": null,
-        "change_pct": null,
-        "result": "PENDING"
+        "actual_price": 64737.5781,
+        "change_pct": 1.54,
+        "result": "SAI",
+        "quick_result": "SAI"
       },
       "3": {
         "label": "3 ngày tới",
@@ -5569,5 +5578,1061 @@
         "result": "PENDING"
       }
     }
+  },
+  {
+    "id": "XAU_2026-07-15",
+    "asset": "XAU",
+    "asset_name": "Vàng (XAU/USD)",
+    "asset_color": "#FFD700",
+    "recorded_date": "2026-07-15",
+    "signal": "CÓ XU HƯỚNG GIẢM",
+    "signal_en": "DOWN",
+    "score": -2,
+    "ml_prob_up": 0.383,
+    "ml_confidence": 0.235,
+    "macro_score": -3,
+    "price_now": 4058.9127,
+    "periods": {
+      "1": {
+        "label": "Ngày mai",
+        "target_date": "2026-07-16",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "NEUTRAL",
+        "quick_result": "PENDING",
+        "expert_signal": "NEUTRAL",
+        "expert_result": "PENDING"
+      },
+      "3": {
+        "label": "3 ngày tới",
+        "target_date": "2026-07-18",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "NEUTRAL",
+        "quick_result": "PENDING",
+        "expert_signal": "NEUTRAL",
+        "expert_result": "PENDING"
+      },
+      "7": {
+        "label": "1 tuần tới",
+        "target_date": "2026-07-22",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "NEUTRAL",
+        "quick_result": "PENDING",
+        "expert_signal": "NEUTRAL",
+        "expert_result": "PENDING"
+      },
+      "14": {
+        "label": "2 tuần tới",
+        "target_date": "2026-07-29",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "NEUTRAL",
+        "quick_result": "PENDING",
+        "expert_signal": "NEUTRAL",
+        "expert_result": "PENDING"
+      },
+      "21": {
+        "label": "3 tuần tới",
+        "target_date": "2026-08-05",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "NEUTRAL",
+        "quick_result": "PENDING",
+        "expert_signal": "DOWN",
+        "expert_result": "PENDING"
+      },
+      "30": {
+        "label": "1 tháng tới",
+        "target_date": "2026-08-14",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "NEUTRAL",
+        "quick_result": "PENDING",
+        "expert_signal": "DOWN",
+        "expert_result": "PENDING"
+      },
+      "60": {
+        "label": "2 tháng tới",
+        "target_date": "2026-09-13",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "NEUTRAL",
+        "quick_result": "PENDING",
+        "expert_signal": "DOWN",
+        "expert_result": "PENDING"
+      },
+      "90": {
+        "label": "3 tháng tới",
+        "target_date": "2026-10-13",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "NEUTRAL",
+        "quick_result": "PENDING",
+        "expert_signal": "DOWN",
+        "expert_result": "PENDING"
+      },
+      "180": {
+        "label": "6 tháng tới",
+        "target_date": "2027-01-11",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "UP",
+        "quick_result": "PENDING",
+        "expert_signal": "DOWN",
+        "expert_result": "PENDING"
+      },
+      "270": {
+        "label": "9 tháng tới",
+        "target_date": "2027-04-11",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "UP",
+        "quick_result": "PENDING",
+        "expert_signal": "DOWN",
+        "expert_result": "PENDING"
+      },
+      "365": {
+        "label": "1 năm tới",
+        "target_date": "2027-07-15",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "UP",
+        "quick_result": "PENDING",
+        "expert_signal": "DOWN",
+        "expert_result": "PENDING"
+      },
+      "730": {
+        "label": "2 năm tới",
+        "target_date": "2028-07-14",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "UP",
+        "quick_result": "PENDING",
+        "expert_signal": "N/A",
+        "expert_result": "N/A"
+      },
+      "1095": {
+        "label": "3 năm tới",
+        "target_date": "2029-07-14",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "UP",
+        "quick_result": "PENDING",
+        "expert_signal": "N/A",
+        "expert_result": "N/A"
+      },
+      "1825": {
+        "label": "5 năm tới",
+        "target_date": "2031-07-14",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "UP",
+        "quick_result": "PENDING",
+        "expert_signal": "N/A",
+        "expert_result": "N/A"
+      }
+    },
+    "method": "expert",
+    "expert_score": 2,
+    "fed_score": 0,
+    "hawk_composite": 0,
+    "macro_news_score": 3,
+    "cot_score": 0
+  },
+  {
+    "id": "XAG_2026-07-15",
+    "asset": "XAG",
+    "asset_name": "Bạc (XAG/USD)",
+    "asset_color": "#A8B8C8",
+    "recorded_date": "2026-07-15",
+    "signal": "CÓ XU HƯỚNG GIẢM",
+    "signal_en": "DOWN",
+    "score": -3,
+    "ml_prob_up": 0.383,
+    "ml_confidence": 0.235,
+    "macro_score": -5,
+    "price_now": 61.1909,
+    "periods": {
+      "1": {
+        "label": "Ngày mai",
+        "target_date": "2026-07-16",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "NEUTRAL",
+        "quick_result": "PENDING",
+        "expert_signal": "DOWN",
+        "expert_result": "PENDING"
+      },
+      "3": {
+        "label": "3 ngày tới",
+        "target_date": "2026-07-18",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "NEUTRAL",
+        "quick_result": "PENDING",
+        "expert_signal": "DOWN",
+        "expert_result": "PENDING"
+      },
+      "7": {
+        "label": "1 tuần tới",
+        "target_date": "2026-07-22",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "NEUTRAL",
+        "quick_result": "PENDING",
+        "expert_signal": "DOWN",
+        "expert_result": "PENDING"
+      },
+      "14": {
+        "label": "2 tuần tới",
+        "target_date": "2026-07-29",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "NEUTRAL",
+        "quick_result": "PENDING",
+        "expert_signal": "DOWN",
+        "expert_result": "PENDING"
+      },
+      "21": {
+        "label": "3 tuần tới",
+        "target_date": "2026-08-05",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "NEUTRAL",
+        "quick_result": "PENDING",
+        "expert_signal": "DOWN",
+        "expert_result": "PENDING"
+      },
+      "30": {
+        "label": "1 tháng tới",
+        "target_date": "2026-08-14",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "NEUTRAL",
+        "quick_result": "PENDING",
+        "expert_signal": "DOWN",
+        "expert_result": "PENDING"
+      },
+      "60": {
+        "label": "2 tháng tới",
+        "target_date": "2026-09-13",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "NEUTRAL",
+        "quick_result": "PENDING",
+        "expert_signal": "DOWN",
+        "expert_result": "PENDING"
+      },
+      "90": {
+        "label": "3 tháng tới",
+        "target_date": "2026-10-13",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "NEUTRAL",
+        "quick_result": "PENDING",
+        "expert_signal": "DOWN",
+        "expert_result": "PENDING"
+      },
+      "180": {
+        "label": "6 tháng tới",
+        "target_date": "2027-01-11",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "NEUTRAL",
+        "quick_result": "PENDING",
+        "expert_signal": "DOWN",
+        "expert_result": "PENDING"
+      },
+      "270": {
+        "label": "9 tháng tới",
+        "target_date": "2027-04-11",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "NEUTRAL",
+        "quick_result": "PENDING",
+        "expert_signal": "DOWN",
+        "expert_result": "PENDING"
+      },
+      "365": {
+        "label": "1 năm tới",
+        "target_date": "2027-07-15",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "NEUTRAL",
+        "quick_result": "PENDING",
+        "expert_signal": "DOWN",
+        "expert_result": "PENDING"
+      },
+      "730": {
+        "label": "2 năm tới",
+        "target_date": "2028-07-14",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "NEUTRAL",
+        "quick_result": "PENDING",
+        "expert_signal": "N/A",
+        "expert_result": "N/A"
+      },
+      "1095": {
+        "label": "3 năm tới",
+        "target_date": "2029-07-14",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "NEUTRAL",
+        "quick_result": "PENDING",
+        "expert_signal": "N/A",
+        "expert_result": "N/A"
+      },
+      "1825": {
+        "label": "5 năm tới",
+        "target_date": "2031-07-14",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "NEUTRAL",
+        "quick_result": "PENDING",
+        "expert_signal": "N/A",
+        "expert_result": "N/A"
+      }
+    },
+    "method": "expert",
+    "expert_score": 1,
+    "fed_score": 0,
+    "hawk_composite": 0,
+    "macro_news_score": 3,
+    "cot_score": 0
+  },
+  {
+    "id": "HG_2026-07-15",
+    "asset": "HG",
+    "asset_name": "Đồng (HG/USD)",
+    "asset_color": "#B87333",
+    "recorded_date": "2026-07-15",
+    "signal": "CÓ XU HƯỚNG TĂNG",
+    "signal_en": "UP",
+    "score": 3,
+    "ml_prob_up": 0.383,
+    "ml_confidence": 0.235,
+    "macro_score": 0,
+    "price_now": 6.33,
+    "periods": {
+      "1": {
+        "label": "Ngày mai",
+        "target_date": "2026-07-16",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "UP",
+        "quick_result": "PENDING",
+        "expert_signal": "DOWN",
+        "expert_result": "PENDING"
+      },
+      "3": {
+        "label": "3 ngày tới",
+        "target_date": "2026-07-18",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "UP",
+        "quick_result": "PENDING",
+        "expert_signal": "NEUTRAL",
+        "expert_result": "PENDING"
+      },
+      "7": {
+        "label": "1 tuần tới",
+        "target_date": "2026-07-22",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "UP",
+        "quick_result": "PENDING",
+        "expert_signal": "NEUTRAL",
+        "expert_result": "PENDING"
+      },
+      "14": {
+        "label": "2 tuần tới",
+        "target_date": "2026-07-29",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "UP",
+        "quick_result": "PENDING",
+        "expert_signal": "UP",
+        "expert_result": "PENDING"
+      },
+      "21": {
+        "label": "3 tuần tới",
+        "target_date": "2026-08-05",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "UP",
+        "quick_result": "PENDING",
+        "expert_signal": "NEUTRAL",
+        "expert_result": "PENDING"
+      },
+      "30": {
+        "label": "1 tháng tới",
+        "target_date": "2026-08-14",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "UP",
+        "quick_result": "PENDING",
+        "expert_signal": "UP",
+        "expert_result": "PENDING"
+      },
+      "60": {
+        "label": "2 tháng tới",
+        "target_date": "2026-09-13",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "UP",
+        "quick_result": "PENDING",
+        "expert_signal": "DOWN",
+        "expert_result": "PENDING"
+      },
+      "90": {
+        "label": "3 tháng tới",
+        "target_date": "2026-10-13",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "UP",
+        "quick_result": "PENDING",
+        "expert_signal": "DOWN",
+        "expert_result": "PENDING"
+      },
+      "180": {
+        "label": "6 tháng tới",
+        "target_date": "2027-01-11",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "UP",
+        "quick_result": "PENDING",
+        "expert_signal": "DOWN",
+        "expert_result": "PENDING"
+      },
+      "270": {
+        "label": "9 tháng tới",
+        "target_date": "2027-04-11",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "UP",
+        "quick_result": "PENDING",
+        "expert_signal": "DOWN",
+        "expert_result": "PENDING"
+      },
+      "365": {
+        "label": "1 năm tới",
+        "target_date": "2027-07-15",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "UP",
+        "quick_result": "PENDING",
+        "expert_signal": "DOWN",
+        "expert_result": "PENDING"
+      },
+      "730": {
+        "label": "2 năm tới",
+        "target_date": "2028-07-14",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "UP",
+        "quick_result": "PENDING",
+        "expert_signal": "N/A",
+        "expert_result": "N/A"
+      },
+      "1095": {
+        "label": "3 năm tới",
+        "target_date": "2029-07-14",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "UP",
+        "quick_result": "PENDING",
+        "expert_signal": "N/A",
+        "expert_result": "N/A"
+      },
+      "1825": {
+        "label": "5 năm tới",
+        "target_date": "2031-07-14",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "UP",
+        "quick_result": "PENDING",
+        "expert_signal": "N/A",
+        "expert_result": "N/A"
+      }
+    },
+    "method": "expert",
+    "expert_score": -4,
+    "fed_score": 0,
+    "hawk_composite": 0,
+    "macro_news_score": 3,
+    "cot_score": 0
+  },
+  {
+    "id": "CL_2026-07-15",
+    "asset": "CL",
+    "asset_name": "Dầu WTI (USD/bbl)",
+    "asset_color": "#4a90d9",
+    "recorded_date": "2026-07-15",
+    "signal": "ĐI NGANG / TRUNG TÍNH",
+    "signal_en": "NEUTRAL",
+    "score": 2,
+    "ml_prob_up": 0.383,
+    "ml_confidence": 0.235,
+    "macro_score": 0,
+    "price_now": 79.34,
+    "periods": {
+      "1": {
+        "label": "Ngày mai",
+        "target_date": "2026-07-16",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "UP",
+        "quick_result": "PENDING",
+        "expert_signal": "UP",
+        "expert_result": "PENDING"
+      },
+      "3": {
+        "label": "3 ngày tới",
+        "target_date": "2026-07-18",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "UP",
+        "quick_result": "PENDING",
+        "expert_signal": "UP",
+        "expert_result": "PENDING"
+      },
+      "7": {
+        "label": "1 tuần tới",
+        "target_date": "2026-07-22",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "UP",
+        "quick_result": "PENDING",
+        "expert_signal": "UP",
+        "expert_result": "PENDING"
+      },
+      "14": {
+        "label": "2 tuần tới",
+        "target_date": "2026-07-29",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "UP",
+        "quick_result": "PENDING",
+        "expert_signal": "UP",
+        "expert_result": "PENDING"
+      },
+      "21": {
+        "label": "3 tuần tới",
+        "target_date": "2026-08-05",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "UP",
+        "quick_result": "PENDING",
+        "expert_signal": "DOWN",
+        "expert_result": "PENDING"
+      },
+      "30": {
+        "label": "1 tháng tới",
+        "target_date": "2026-08-14",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "UP",
+        "quick_result": "PENDING",
+        "expert_signal": "DOWN",
+        "expert_result": "PENDING"
+      },
+      "60": {
+        "label": "2 tháng tới",
+        "target_date": "2026-09-13",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "NEUTRAL",
+        "quick_result": "PENDING",
+        "expert_signal": "DOWN",
+        "expert_result": "PENDING"
+      },
+      "90": {
+        "label": "3 tháng tới",
+        "target_date": "2026-10-13",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "NEUTRAL",
+        "quick_result": "PENDING",
+        "expert_signal": "DOWN",
+        "expert_result": "PENDING"
+      },
+      "180": {
+        "label": "6 tháng tới",
+        "target_date": "2027-01-11",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "UP",
+        "quick_result": "PENDING",
+        "expert_signal": "DOWN",
+        "expert_result": "PENDING"
+      },
+      "270": {
+        "label": "9 tháng tới",
+        "target_date": "2027-04-11",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "UP",
+        "quick_result": "PENDING",
+        "expert_signal": "DOWN",
+        "expert_result": "PENDING"
+      },
+      "365": {
+        "label": "1 năm tới",
+        "target_date": "2027-07-15",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "UP",
+        "quick_result": "PENDING",
+        "expert_signal": "DOWN",
+        "expert_result": "PENDING"
+      },
+      "730": {
+        "label": "2 năm tới",
+        "target_date": "2028-07-14",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "NEUTRAL",
+        "quick_result": "PENDING",
+        "expert_signal": "N/A",
+        "expert_result": "N/A"
+      },
+      "1095": {
+        "label": "3 năm tới",
+        "target_date": "2029-07-14",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "NEUTRAL",
+        "quick_result": "PENDING",
+        "expert_signal": "N/A",
+        "expert_result": "N/A"
+      },
+      "1825": {
+        "label": "5 năm tới",
+        "target_date": "2031-07-14",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "NEUTRAL",
+        "quick_result": "PENDING",
+        "expert_signal": "N/A",
+        "expert_result": "N/A"
+      }
+    },
+    "method": "expert",
+    "expert_score": 3,
+    "fed_score": 0,
+    "hawk_composite": 0,
+    "macro_news_score": 3,
+    "cot_score": 0
+  },
+  {
+    "id": "USDVND_2026-07-15",
+    "asset": "USDVND",
+    "asset_name": "USD/VND",
+    "asset_color": "#2ecc71",
+    "recorded_date": "2026-07-15",
+    "signal": "ĐI NGANG / TRUNG TÍNH",
+    "signal_en": "NEUTRAL",
+    "score": -1,
+    "ml_prob_up": 0.383,
+    "ml_confidence": 0.235,
+    "macro_score": -1,
+    "price_now": 26250.0,
+    "periods": {
+      "1": {
+        "label": "Ngày mai",
+        "target_date": "2026-07-16",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "NEUTRAL",
+        "quick_result": "PENDING",
+        "expert_signal": "N/A",
+        "expert_result": "N/A"
+      },
+      "3": {
+        "label": "3 ngày tới",
+        "target_date": "2026-07-18",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "NEUTRAL",
+        "quick_result": "PENDING",
+        "expert_signal": "N/A",
+        "expert_result": "N/A"
+      },
+      "7": {
+        "label": "1 tuần tới",
+        "target_date": "2026-07-22",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "NEUTRAL",
+        "quick_result": "PENDING",
+        "expert_signal": "N/A",
+        "expert_result": "N/A"
+      },
+      "14": {
+        "label": "2 tuần tới",
+        "target_date": "2026-07-29",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "NEUTRAL",
+        "quick_result": "PENDING",
+        "expert_signal": "N/A",
+        "expert_result": "N/A"
+      },
+      "21": {
+        "label": "3 tuần tới",
+        "target_date": "2026-08-05",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "NEUTRAL",
+        "quick_result": "PENDING",
+        "expert_signal": "N/A",
+        "expert_result": "N/A"
+      },
+      "30": {
+        "label": "1 tháng tới",
+        "target_date": "2026-08-14",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "NEUTRAL",
+        "quick_result": "PENDING",
+        "expert_signal": "N/A",
+        "expert_result": "N/A"
+      },
+      "60": {
+        "label": "2 tháng tới",
+        "target_date": "2026-09-13",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "NEUTRAL",
+        "quick_result": "PENDING",
+        "expert_signal": "N/A",
+        "expert_result": "N/A"
+      },
+      "90": {
+        "label": "3 tháng tới",
+        "target_date": "2026-10-13",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "NEUTRAL",
+        "quick_result": "PENDING",
+        "expert_signal": "N/A",
+        "expert_result": "N/A"
+      },
+      "180": {
+        "label": "6 tháng tới",
+        "target_date": "2027-01-11",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "NEUTRAL",
+        "quick_result": "PENDING",
+        "expert_signal": "N/A",
+        "expert_result": "N/A"
+      },
+      "270": {
+        "label": "9 tháng tới",
+        "target_date": "2027-04-11",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "NEUTRAL",
+        "quick_result": "PENDING",
+        "expert_signal": "N/A",
+        "expert_result": "N/A"
+      },
+      "365": {
+        "label": "1 năm tới",
+        "target_date": "2027-07-15",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "NEUTRAL",
+        "quick_result": "PENDING",
+        "expert_signal": "N/A",
+        "expert_result": "N/A"
+      },
+      "730": {
+        "label": "2 năm tới",
+        "target_date": "2028-07-14",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "NEUTRAL",
+        "quick_result": "PENDING",
+        "expert_signal": "N/A",
+        "expert_result": "N/A"
+      },
+      "1095": {
+        "label": "3 năm tới",
+        "target_date": "2029-07-14",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "NEUTRAL",
+        "quick_result": "PENDING",
+        "expert_signal": "N/A",
+        "expert_result": "N/A"
+      },
+      "1825": {
+        "label": "5 năm tới",
+        "target_date": "2031-07-14",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "NEUTRAL",
+        "quick_result": "PENDING",
+        "expert_signal": "N/A",
+        "expert_result": "N/A"
+      }
+    },
+    "method": "expert",
+    "expert_score": 0,
+    "fed_score": 0,
+    "hawk_composite": 0,
+    "macro_news_score": 3,
+    "cot_score": 0
+  },
+  {
+    "id": "BTC_2026-07-15",
+    "asset": "BTC",
+    "asset_name": "Bitcoin (BTC/USD)",
+    "asset_color": "#F7931A",
+    "recorded_date": "2026-07-15",
+    "signal": "ĐI NGANG / TRUNG TÍNH",
+    "signal_en": "NEUTRAL",
+    "score": 1,
+    "ml_prob_up": 0.383,
+    "ml_confidence": 0.235,
+    "macro_score": -3,
+    "price_now": 64737.5781,
+    "periods": {
+      "1": {
+        "label": "Ngày mai",
+        "target_date": "2026-07-16",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "NEUTRAL",
+        "quick_result": "PENDING",
+        "expert_signal": "UP",
+        "expert_result": "PENDING"
+      },
+      "3": {
+        "label": "3 ngày tới",
+        "target_date": "2026-07-18",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "NEUTRAL",
+        "quick_result": "PENDING",
+        "expert_signal": "UP",
+        "expert_result": "PENDING"
+      },
+      "7": {
+        "label": "1 tuần tới",
+        "target_date": "2026-07-22",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "NEUTRAL",
+        "quick_result": "PENDING",
+        "expert_signal": "UP",
+        "expert_result": "PENDING"
+      },
+      "14": {
+        "label": "2 tuần tới",
+        "target_date": "2026-07-29",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "UP",
+        "quick_result": "PENDING",
+        "expert_signal": "UP",
+        "expert_result": "PENDING"
+      },
+      "21": {
+        "label": "3 tuần tới",
+        "target_date": "2026-08-05",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "UP",
+        "quick_result": "PENDING",
+        "expert_signal": "DOWN",
+        "expert_result": "PENDING"
+      },
+      "30": {
+        "label": "1 tháng tới",
+        "target_date": "2026-08-14",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "UP",
+        "quick_result": "PENDING",
+        "expert_signal": "DOWN",
+        "expert_result": "PENDING"
+      },
+      "60": {
+        "label": "2 tháng tới",
+        "target_date": "2026-09-13",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "NEUTRAL",
+        "quick_result": "PENDING",
+        "expert_signal": "DOWN",
+        "expert_result": "PENDING"
+      },
+      "90": {
+        "label": "3 tháng tới",
+        "target_date": "2026-10-13",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "UP",
+        "quick_result": "PENDING",
+        "expert_signal": "DOWN",
+        "expert_result": "PENDING"
+      },
+      "180": {
+        "label": "6 tháng tới",
+        "target_date": "2027-01-11",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "UP",
+        "quick_result": "PENDING",
+        "expert_signal": "DOWN",
+        "expert_result": "PENDING"
+      },
+      "270": {
+        "label": "9 tháng tới",
+        "target_date": "2027-04-11",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "UP",
+        "quick_result": "PENDING",
+        "expert_signal": "DOWN",
+        "expert_result": "PENDING"
+      },
+      "365": {
+        "label": "1 năm tới",
+        "target_date": "2027-07-15",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "UP",
+        "quick_result": "PENDING",
+        "expert_signal": "DOWN",
+        "expert_result": "PENDING"
+      },
+      "730": {
+        "label": "2 năm tới",
+        "target_date": "2028-07-14",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "UP",
+        "quick_result": "PENDING",
+        "expert_signal": "N/A",
+        "expert_result": "N/A"
+      },
+      "1095": {
+        "label": "3 năm tới",
+        "target_date": "2029-07-14",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "UP",
+        "quick_result": "PENDING",
+        "expert_signal": "N/A",
+        "expert_result": "N/A"
+      },
+      "1825": {
+        "label": "5 năm tới",
+        "target_date": "2031-07-14",
+        "actual_price": null,
+        "change_pct": null,
+        "result": "PENDING",
+        "quick_signal": "UP",
+        "quick_result": "PENDING",
+        "expert_signal": "N/A",
+        "expert_result": "N/A"
+      }
+    },
+    "method": "expert",
+    "expert_score": -1,
+    "fed_score": 0,
+    "hawk_composite": 0,
+    "macro_news_score": 3,
+    "cot_score": 0
   }
 ]
