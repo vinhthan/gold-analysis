@@ -6003,6 +6003,224 @@ Phong cách: Briefing sáng hedge fund — sắc bén, số liệu thực, khôn
     return "⚠️ Lỗi Gemini API:\n" + "\n".join(f"  • {e}" for e in _all_errs)
 
 
+@st.cache_data(ttl=1800, show_spinner=False)
+def generate_research_note(
+    # Price & momentum
+    xau_price: float,
+    price_1w_chg: float,
+    price_1m_chg: float,
+    price_3m_chg: float,
+    price_1y_chg: float,
+    # Real yield (DFII10) — #1 gold correlation
+    dfii10_val: float,
+    dfii10_chg5d: float,
+    # FED
+    fedspeak_score: int,
+    hawk_composite: int,
+    walcl_chg: float,
+    yield2y_val: float,
+    yield2y_chg: float,
+    futures_score: int,
+    fed_news_titles: tuple,
+    hawk_phrases: tuple,
+    dove_phrases: tuple,
+    # COT / Smart Money
+    cot_net: int,
+    cot_rank: int,
+    cot_chg_1w: int,
+    cot_cm_net: int,
+    cot_cm_pct: int,
+    # Whale / institutional
+    whale_score: int,
+    whale_etf_note: str,
+    # Macro / geopolitics
+    macro_news_titles: tuple,
+    macro_news_score: int,
+    # Expert composite
+    total_expert_score: int,
+) -> str:
+    """
+    Research Note: Gemini AI phân tích như senior gold analyst — conviction, historical analogues,
+    human-like reasoning. Cache 30 phút (khác với expert_narrative cache 30 phút riêng).
+    """
+    import requests as _req
+
+    try:
+        _api_key = st.secrets["GOOGLE_API_KEY"]
+    except Exception:
+        return "⚠️ Chưa cấu hình GOOGLE_API_KEY trong Streamlit Secrets."
+
+    # ── Chuẩn bị context text ──────────────────────────────────────────────
+    from datetime import datetime as _dt
+    _today_str = _dt.now().strftime("%d/%m/%Y")
+
+    _dfii10_interp = (
+        f"THẤP ({dfii10_val:.2f}%) → lợi suất thực âm/thấp, gold có lợi"
+        if dfii10_val < 1.0 else
+        f"CAO ({dfii10_val:.2f}%) → lợi suất thực dương, gold chịu áp lực"
+        if dfii10_val > 2.0 else
+        f"TRUNG BÌNH ({dfii10_val:.2f}%)"
+    )
+    _dfii10_trend = (
+        f"tăng {dfii10_chg5d:+.2f}% (5 ngày) → đang xấu dần cho gold"
+        if dfii10_chg5d > 0.10 else
+        f"giảm {dfii10_chg5d:+.2f}% (5 ngày) → đang tốt dần cho gold"
+        if dfii10_chg5d < -0.10 else
+        f"ổn định ({dfii10_chg5d:+.2f}%)"
+    )
+    _fed_tone = (
+        "CỰC KỲ HAWKISH 🦅🦅" if fedspeak_score <= -2 else
+        "Hơi hawkish 🦅" if fedspeak_score < 0 else
+        "CỰC KỲ DOVISH 🕊️🕊️" if fedspeak_score >= 2 else
+        "Hơi dovish 🕊️" if fedspeak_score > 0 else "Trung lập"
+    )
+    _cot_interp = (
+        f"CỰC KỲ BULLISH — {cot_rank}th pct, speculator đã long quá nhiều, rủi ro unwind"
+        if cot_rank >= 85 else
+        f"BULLISH — {cot_rank}th pct, speculator đang tích lũy"
+        if cot_rank >= 60 else
+        f"BEARISH — {cot_rank}th pct, speculator đang short"
+        if cot_rank <= 30 else
+        f"Trung lập — {cot_rank}th pct"
+    )
+    _whale_interp = (
+        "TÍCH LŨY MẠNH — ETF/tổ chức đang mua" if whale_score >= 3 else
+        "Tích lũy nhẹ" if whale_score > 0 else
+        "Phân phối mạnh — tổ chức đang bán" if whale_score <= -3 else
+        "Phân phối nhẹ" if whale_score < 0 else
+        "Trung lập — dòng tiền cân bằng"
+    )
+    _macro_interp = (
+        f"Địa chính trị nóng/bất ổn → BULLISH vàng safe-haven (score +{macro_news_score})"
+        if macro_news_score >= 2 else
+        f"Hòa dịu/ổn định → giảm safe-haven premium (score {macro_news_score})"
+        if macro_news_score <= -2 else
+        f"Trung lập (score {macro_news_score:+d})"
+    )
+    _walcl_note = (
+        "FED đang QT (thu hẹp bảng cân đối) → rút thanh khoản" if walcl_chg < -3 else
+        "FED đang QE/bơm thanh khoản → hỗ trợ tài sản rủi ro & vàng" if walcl_chg > 3 else
+        "Fed balance sheet ổn định"
+    )
+
+    _fed_news_str = "\n".join(f"  • {t}" for t in fed_news_titles[:5]) or "  • Không có tin mới"
+    _macro_str    = "\n".join(f"  • {t}" for t in macro_news_titles[:4]) or "  • Không có tin vĩ mô đặc biệt"
+    _hawk_str     = ", ".join(hawk_phrases[:4]) or "không phát hiện"
+    _dove_str     = ", ".join(dove_phrases[:4]) or "không phát hiện"
+
+    prompt = f"""Hôm nay là {_today_str}. Bạn là một nhà phân tích vàng kỳ cựu — không phải AI liệt kê dữ liệu, mà là một CON NGƯỜI THỰC SỰ đang ngồi suy nghĩ về thị trường vàng XAU/USD lúc 6h30 sáng, chuẩn bị bản research note nội bộ cho đội ngũ trading.
+
+Bạn từng trải qua: bong bóng dot-com 2000, khủng hoảng 2008, QE vô tận 2009-2015, vàng lên $1,900 năm 2011 rồi lao xuống $1,046 năm 2015, COVID panic 2020, vàng phá đỉnh $2,075 rồi về $1,618 khi Fed tăng lãi 2022, và chu kỳ bull 2023-2025 lên $3,000+.
+
+══════ DỮ LIỆU BẠN CÓ TRONG TAY ══════
+
+📊 GIÁ & MOMENTUM:
+  Giá XAU hiện tại: ${xau_price:,.2f}
+  Thay đổi: 1 tuần {price_1w_chg:+.2f}% | 1 tháng {price_1m_chg:+.2f}% | 3 tháng {price_3m_chg:+.2f}% | 1 năm {price_1y_chg:+.2f}%
+
+🏦 REAL YIELD (DFII10 — tương quan -0.90 với gold):
+  Hiện tại: {_dfii10_interp}
+  Xu hướng gần đây: {_dfii10_trend}
+
+🦅 FED & CHÍNH SÁCH TIỀN TỆ:
+  Fedspeak: {_fed_tone} (score {fedspeak_score:+d}/3)
+  Hawk phrases: {_hawk_str}
+  Dove phrases: {_dove_str}
+  Hawk-o-meter: {hawk_composite:+d}/5
+  Fed Balance Sheet (WALCL): {walcl_chg:+.1f}% YoY — {_walcl_note}
+  2Y Treasury: {yield2y_val:.2f}% (thay đổi 20 ngày: {yield2y_chg:+.2f}%)
+  FF Futures score: {futures_score:+d}
+
+  Tin FED gần nhất:
+{_fed_news_str}
+
+🐋 SMART MONEY — COT CFTC:
+  Net long speculative: {cot_net:,} hợp đồng
+  {_cot_interp}
+  Thay đổi 1 tuần: {cot_chg_1w:+,} hợp đồng
+  Commercials (hedger ngược chiều): net {cot_cm_net:,} | percentile {cot_cm_pct}%
+
+🏦 WHALE / INSTITUTIONAL (ETF + OI):
+  Score: {whale_score:+d} — {_whale_interp}
+  {whale_etf_note}
+
+🌐 VĨ MÔ & ĐỊA CHÍNH TRỊ:
+  {_macro_interp}
+  Tin nóng:
+{_macro_str}
+
+📈 EXPERT COMPOSITE: {total_expert_score:+d}/8
+
+══════ CÁCH VIẾT RESEARCH NOTE ══════
+
+Viết theo PHONG CÁCH CON NGƯỜI — không phải AI, không phải bullet point, không sáo rỗng:
+
+1. **Mở đầu** bằng 1-2 câu thể hiện ĐỘ PHỨC TẠP của tình huống hiện tại — thị trường đang ở giao điểm nào, yếu tố nào đang "fight" nhau
+
+2. **Historical Analogue** — "Setup này nhắc tôi nhớ đến..." → So sánh với một thời điểm lịch sử cụ thể (tháng/năm) mà bạn từng chứng kiến. Giải thích tương đồng và khác biệt.
+
+3. **Luận điểm chính** — "Tôi tin [X]% rằng trong [thời gian] tới gold sẽ [hành động] vì..." → phải dùng DỮ LIỆU CỤ THỂ ở trên để lập luận, không nói chung chung
+
+4. **Điều thị trường đã biết vs chưa biết** — "Thị trường đã price in [điều này]... nhưng tôi nghĩ thị trường đang underestimate [điều kia]..."
+
+5. **Risk chính** — "Điều duy nhất có thể phá vỡ luận điểm của tôi là..." → cụ thể, không hô khẩu hiệu
+
+6. **Trade idea** — Vùng giá tham khảo entry, concept stop loss, concept target. Ngắn gọn, thực chiến.
+
+Độ dài: 350-500 từ tiếng Việt. Dùng ngôi thứ nhất. Thể hiện tư duy, không phải tóm tắt."""
+
+    _payload = {
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {"temperature": 0.75, "maxOutputTokens": 1400},
+    }
+
+    # Model selection — ưu tiên flash nhỏ (ít quota nhất)
+    _available_models = []
+    try:
+        _list_url = f"https://generativelanguage.googleapis.com/v1beta/models?key={_api_key}&pageSize=50"
+        _lr = _req.get(_list_url, timeout=10)
+        if _lr.status_code == 200:
+            for _m in _lr.json().get("models", []):
+                _mname = _m.get("name", "").replace("models/", "")
+                _methods = _m.get("supportedGenerationMethods", [])
+                if "generateContent" in _methods and _mname:
+                    _available_models.append(_mname)
+    except Exception:
+        pass
+
+    def _mprio(name):
+        if "flash-lite" in name or "flash-8b" in name: return 0
+        if "flash" in name and "pro" not in name: return 1
+        if "pro" in name: return 2
+        return 3
+
+    if _available_models:
+        _available_models.sort(key=_mprio)
+    else:
+        _available_models = ["gemini-2.0-flash-lite", "gemini-2.0-flash",
+                             "gemini-1.5-flash-8b", "gemini-1.5-flash"]
+
+    _all_errs = []
+    for _mn in _available_models[:6]:
+        try:
+            _url = (f"https://generativelanguage.googleapis.com/v1beta/models/"
+                    f"{_mn}:generateContent?key={_api_key}")
+            _r = _req.post(_url, json=_payload, timeout=35)
+            if _r.status_code == 200:
+                _data = _r.json()
+                _cands = _data.get("candidates", [])
+                if _cands:
+                    return _cands[0]["content"]["parts"][0]["text"]
+                _all_errs.append(f"{_mn}: OK nhưng không có candidates")
+            elif _r.status_code == 429:
+                _all_errs.append(f"{_mn}: 429 quota")
+            else:
+                _all_errs.append(f"{_mn}: HTTP {_r.status_code}")
+        except Exception as _e:
+            _all_errs.append(f"{_mn}: {_e}")
+    return "⚠️ Lỗi Gemini API:\n" + "\n".join(f"  • {e}" for e in _all_errs)
+
+
 @st.cache_data(ttl=3600, show_spinner=False)
 def fetch_macro_news():
     """Fetch macro/geopolitical/presidential news from RSS — tariff, trade war, White House, conflict.
@@ -6194,6 +6412,7 @@ def render_expert_tab(macro: dict, fred_data: dict):
         cot_xag      = fetch_cot_data("XAG")
         cot_hg       = fetch_cot_data("HG")
         cot_cl       = fetch_cot_data("CL")
+        whale_xau    = fetch_whale_data("XAU")
 
     # ── Tính sơ bộ Expert Score + Hawk metrics (dùng cho AI narrative ở đầu) ─
     _ai_fed_es  = fedspeak.get("score", 0)
@@ -6228,60 +6447,99 @@ def render_expert_tab(macro: dict, fred_data: dict):
     try:
         _ai_px, _ = fetch_gold()
         _ai_cur   = float(_ai_px.iloc[-1])
-        _ai_p1w   = ((_ai_cur / float(_ai_px.iloc[-5])  - 1) * 100) if len(_ai_px) >= 5  else 0.0
-        _ai_p1m   = ((_ai_cur / float(_ai_px.iloc[-20]) - 1) * 100) if len(_ai_px) >= 20 else 0.0
-        _ai_p3m   = ((_ai_cur / float(_ai_px.iloc[-60]) - 1) * 100) if len(_ai_px) >= 60 else 0.0
+        _ai_p1w   = ((_ai_cur / float(_ai_px.iloc[-5])   - 1) * 100) if len(_ai_px) >= 5   else 0.0
+        _ai_p1m   = ((_ai_cur / float(_ai_px.iloc[-20])  - 1) * 100) if len(_ai_px) >= 20  else 0.0
+        _ai_p3m   = ((_ai_cur / float(_ai_px.iloc[-60])  - 1) * 100) if len(_ai_px) >= 60  else 0.0
+        _ai_p1y   = ((_ai_cur / float(_ai_px.iloc[-250]) - 1) * 100) if len(_ai_px) >= 250 else 0.0
     except Exception:
-        _ai_cur = _ai_p1w = _ai_p1m = _ai_p3m = 0.0
+        _ai_cur = _ai_p1w = _ai_p1m = _ai_p3m = _ai_p1y = 0.0
+
+    # DFII10 real yield — tương quan -0.90 với gold
+    try:
+        _dfii_s    = _fetch_dfii10_series()
+        _dfii_val  = float(_dfii_s.iloc[-1])  if len(_dfii_s) >= 1 else 0.0
+        _dfii_chg5 = (float(_dfii_s.iloc[-1]) - float(_dfii_s.iloc[-5])) if len(_dfii_s) >= 5 else 0.0
+    except Exception:
+        _dfii_val = _dfii_chg5 = 0.0
+
+    # Whale data — ETF flow note
+    try:
+        _wh_reg       = whale_regime(whale_xau, "XAU")
+        _wh_score     = int(_wh_reg.get("score", 0))
+        _wh_etf       = whale_xau.get("etf_flow", {})
+        _wh_etf_note  = (
+            f"ETF flow: {_wh_etf.get('label', 'N/A')} — "
+            f"AUM proxy {_wh_etf.get('mom5', 0):+.1f}% vs 5d avg"
+            if isinstance(_wh_etf, dict) else "ETF data N/A"
+        )
+    except Exception:
+        _wh_score, _wh_etf_note = 0, "Whale data N/A"
+
+    # COT Commercials
+    _ai_cot_cm_net = int(cot_xau.get("cm_net", 0)) if cot_xau.get("ok") else 0
+    _ai_cot_cm_pct = int(cot_xau.get("cm_pct_rank", 50)) if cot_xau.get("ok") else 50
 
     # ══════════════════════════════════════════════════════════════════════════
-    # AI EXPERT NARRATIVE — Hero section đầu trang
+    # RESEARCH NOTE — Human-like AI analysis (Gemini)
     # ══════════════════════════════════════════════════════════════════════════
-    st.markdown("## 🧠 Phân Tích Chuyên Gia AI")
+    st.markdown("## 📋 Research Note — Phân Tích Chuyên Gia AI")
     st.markdown(
         "<p style='color:#8b949e;font-size:0.84rem;'>"
-        "Gemini AI tổng hợp tin FED, định vị cá mập, diều hâu/bồ câu và momentum — "
-        "<b style='color:#FFD700;'>đưa ra verdict TĂNG/GIẢM/ĐI NGANG như hedge fund analyst</b>. "
+        "Gemini AI lập luận như <b style='color:#FFD700;'>nhà phân tích kỳ cựu</b> — "
+        "so sánh lịch sử, mức độ tin cậy, điều thị trường đã/chưa price in, rủi ro chính và trade idea. "
         "Cache 30 phút.</p>",
         unsafe_allow_html=True,
     )
-    with st.spinner("🧠 Gemini AI đang phân tích toàn bộ tín hiệu..."):
-        _ai_text = generate_expert_narrative(
-            news_titles        = tuple(item.get("title", "") for item in fed_news[:6]),
-            hawk_phrases       = tuple(d["phrase"] for d in fedspeak.get("detected", [])
-                                       if d.get("type") == "hawk"),
-            dove_phrases       = tuple(d["phrase"] for d in fedspeak.get("detected", [])
-                                       if d.get("type") == "dove"),
-            fedspeak_score     = int(_ai_fed_es),
-            fedspeak_label     = fedspeak.get("label", ""),
-            cot_net            = int(cot_xau.get("net", 0)) if cot_xau.get("ok") else 0,
-            cot_rank           = _ai_cot_rank,
-            cot_chg_1w         = _ai_cot_chg1w,
-            futures_score      = int(_ai_fut_es),
-            hawk_composite     = int(_ai_hawk_comp),
-            hawkish_count      = int(_ai_hawk_cnt),
-            total_expert_score = int(_ai_prelim),
+    with st.spinner("🧠 Gemini AI đang soạn research note..."):
+        _ai_text = generate_research_note(
             xau_price          = round(_ai_cur, 2),
-            walcl_chg          = round(_ai_wb_chg, 2),
-            yield2y_val        = round(_ai_y2y_val, 3),
-            yield2y_chg        = round(_ai_y2y_rise, 3),
             price_1w_chg       = round(_ai_p1w, 2),
             price_1m_chg       = round(_ai_p1m, 2),
             price_3m_chg       = round(_ai_p3m, 2),
-            macro_news_titles  = tuple(x.get("title", "") for x in macro_news.get("items", [])[:5]),
+            price_1y_chg       = round(_ai_p1y, 2),
+            dfii10_val         = round(_dfii_val, 3),
+            dfii10_chg5d       = round(_dfii_chg5, 3),
+            fedspeak_score     = int(_ai_fed_es),
+            hawk_composite     = int(_ai_hawk_comp),
+            walcl_chg          = round(_ai_wb_chg, 2),
+            yield2y_val        = round(_ai_y2y_val, 3),
+            yield2y_chg        = round(_ai_y2y_rise, 3),
+            futures_score      = int(_ai_fut_es),
+            fed_news_titles    = tuple(item.get("title", "") for item in fed_news[:5]),
+            hawk_phrases       = tuple(d["phrase"] for d in fedspeak.get("detected", [])
+                                       if d.get("type") == "hawk")[:4],
+            dove_phrases       = tuple(d["phrase"] for d in fedspeak.get("detected", [])
+                                       if d.get("type") == "dove")[:4],
+            cot_net            = int(cot_xau.get("net", 0)) if cot_xau.get("ok") else 0,
+            cot_rank           = _ai_cot_rank,
+            cot_chg_1w         = _ai_cot_chg1w,
+            cot_cm_net         = _ai_cot_cm_net,
+            cot_cm_pct         = _ai_cot_cm_pct,
+            whale_score        = _wh_score,
+            whale_etf_note     = _wh_etf_note,
+            macro_news_titles  = tuple(x.get("title", "") for x in macro_news.get("items", [])[:4]),
             macro_news_score   = int(macro_news.get("score", 0)),
+            total_expert_score = int(_ai_prelim),
         )
+    # Display — research note style (preserve markdown from Gemini, render as HTML)
+    import re as _re
+    _html_note = _ai_text
+    # Convert markdown bold/headers to HTML for better rendering in st.markdown div
+    _html_note = _re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", _html_note)
+    _html_note = _re.sub(r"^#{1,3}\s+(.+)$", r"<b style='color:#FFD700;font-size:0.95rem;'>\1</b>",
+                         _html_note, flags=_re.MULTILINE)
+    _html_note = _html_note.replace("\n", "<br>")
     st.markdown(
-        f"<div style='background:#0d1117;border:1px solid #30363d;border-radius:12px;"
-        f"padding:22px 26px;line-height:1.9;font-size:0.88rem;color:#e6edf3;'>"
-        f"{_ai_text.replace(chr(10), '<br>')}"
+        f"<div style='background:#0d1117;border:1px solid #30363d;border-left:3px solid #FFD700;"
+        f"border-radius:12px;padding:24px 28px;line-height:2.0;font-size:0.88rem;color:#e6edf3;'>"
+        f"{_html_note}"
         f"</div>",
         unsafe_allow_html=True,
     )
     st.markdown(
-        "<p style='color:#8b949e;font-size:0.73rem;margin-top:4px;'>"
-        "⚠️ Phân tích AI mang tính tham khảo — không phải khuyến nghị đầu tư. "
-        "Powered by Google Gemini 1.5 Flash.</p>",
+        "<p style='color:#8b949e;font-size:0.73rem;margin-top:6px;'>"
+        "⚠️ Research Note do AI tổng hợp — mang tính tham khảo, không phải khuyến nghị đầu tư. "
+        "Powered by Google Gemini. Cache 30 phút.</p>",
         unsafe_allow_html=True,
     )
     st.markdown("---")
