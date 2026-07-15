@@ -6222,6 +6222,155 @@ Viết theo PHONG CÁCH CON NGƯỜI — không phải AI, không phải bullet 
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
+def generate_price_forecasts(
+    xau_price: float,
+    xag_price: float,
+    cl_price: float,
+    fedspeak_score: int,
+    hawk_composite: int,
+    dfii10_val: float,
+    dfii10_chg5d: float,
+    cot_net: int,
+    cot_rank: int,
+    cot_chg_1w: int,
+    whale_score: int,
+    macro_news_score: int,
+    walcl_chg: float,
+    price_1m_chg: float,
+    price_3m_chg: float,
+    price_1y_chg: float,
+) -> dict:
+    """
+    Gọi Gemini để dự báo giá XAU/XAG/CL cho 9 kỳ hạn (1d→5y).
+    Trả về dict {'XAU': {period: price}, 'XAG': {...}, 'CL': {...}} hoặc {} nếu lỗi.
+    Cache 1 giờ.
+    """
+    import requests as _req, json as _json, re as _re
+
+    try:
+        _api_key = st.secrets["GOOGLE_API_KEY"]
+    except Exception:
+        return {}
+
+    from datetime import datetime as _dt
+    _today_str = _dt.now().strftime("%d/%m/%Y")
+
+    _fed_tone = (
+        "CỰC KỲ HAWKISH — FED muốn thắt chặt, áp lực mạnh lên tài sản safe-haven"
+        if fedspeak_score <= -2 else
+        "Hơi hawkish — FED thận trọng" if fedspeak_score < 0 else
+        "DOVISH — FED đang nới lỏng, hỗ trợ vàng và hàng hoá"
+        if fedspeak_score >= 2 else
+        "Hơi dovish" if fedspeak_score > 0 else "Trung lập"
+    )
+    _dfii_note = (
+        f"DFII10 = {dfii10_val:.2f}% (lợi suất thực CAO → áp lực giảm vàng)"
+        if dfii10_val > 2.0 else
+        f"DFII10 = {dfii10_val:.2f}% (lợi suất thực THẤP/ÂM → hỗ trợ vàng)"
+        if dfii10_val < 1.0 else
+        f"DFII10 = {dfii10_val:.2f}% (trung bình)"
+    )
+    _dfii_trend = (
+        f"đang tăng {dfii10_chg5d:+.2f}% trong 5 ngày — xấu dần cho vàng"
+        if dfii10_chg5d > 0.10 else
+        f"đang giảm {dfii10_chg5d:+.2f}% trong 5 ngày — tốt dần cho vàng"
+        if dfii10_chg5d < -0.10 else
+        "ổn định"
+    )
+    _macro_note = (
+        "Địa chính trị nóng / bất ổn → tăng safe-haven demand cho vàng"
+        if macro_news_score >= 2 else
+        "Ổn định / hòa dịu → giảm safe-haven premium"
+        if macro_news_score <= -2 else "Bình thường"
+    )
+    _walcl_note = (
+        "FED đang thu hẹp bảng cân đối (QT) → rút thanh khoản, áp lực tài sản"
+        if walcl_chg < -3 else
+        "FED đang bơm thanh khoản (QE) → hỗ trợ hàng hoá"
+        if walcl_chg > 3 else "Fed balance sheet ổn định"
+    )
+
+    prompt = f"""Hôm nay {_today_str}. Bạn là nhà phân tích thị trường hàng hoá kỳ cựu 25 năm kinh nghiệm.
+Dựa vào toàn bộ dữ liệu thị trường bên dưới, hãy đưa ra DỰ BÁO GIÁ CỤ THỂ cho 3 tài sản với 9 kỳ hạn.
+
+═══ GIÁ HIỆN TẠI ═══
+• Vàng XAU/USD: ${xau_price:,.2f}/oz
+• Bạc XAG/USD:  ${xag_price:.2f}/oz
+• Dầu WTI CL:   ${cl_price:.2f}/barrel
+
+═══ BỐI CẢNH THỊ TRƯỜNG ═══
+FED: {_fed_tone} (hawk composite {hawk_composite:+d}/5)
+Lãi suất thực: {_dfii_note}, {_dfii_trend}
+Fed Balance Sheet: {_walcl_note} (YoY {walcl_chg:+.1f}%)
+COT Vàng: Net long {cot_net:,} hợp đồng, percentile {cot_rank}th, thay đổi tuần {cot_chg_1w:+,}
+Whale/ETF: score {whale_score:+d}/5
+Địa chính trị: {_macro_note} (score {macro_news_score:+d})
+Momentum giá vàng: 1 tháng {price_1m_chg:+.2f}% | 3 tháng {price_3m_chg:+.2f}% | 1 năm {price_1y_chg:+.2f}%
+
+═══ NGUYÊN TẮC DỰ BÁO ═══
+- Ngắn hạn (1d, 3d, 7d): Chủ yếu dựa vào FED tone, COT momentum, tin tức hiện tại
+- Trung hạn (30d, 90d, 180d): Dựa vào DFII10 trajectory, whale positioning, macro cycle
+- Dài hạn (365d, 730d, 1825d): Dựa vào megatrend — nợ quốc gia, de-dollarization, chu kỳ tiền tệ
+- Bạc thường biến động gấp ~1.5x vàng, nhạy cảm hơn với công nghiệp (pin mặt trời, điện tử)
+- Dầu phụ thuộc địa chính trị + OPEC supply + USD strength
+- Phải thực tế — không có tài sản nào tăng 10x trong 5 năm trừ khi có luận điểm rất cụ thể
+
+Output ONLY a valid JSON object, NO explanation, NO markdown, NO code block, just the raw JSON:
+{{"XAU": {{"1d": <number>, "3d": <number>, "7d": <number>, "30d": <number>, "90d": <number>, "180d": <number>, "365d": <number>, "730d": <number>, "1825d": <number>}}, "XAG": {{"1d": <number>, "3d": <number>, "7d": <number>, "30d": <number>, "90d": <number>, "180d": <number>, "365d": <number>, "730d": <number>, "1825d": <number>}}, "CL": {{"1d": <number>, "3d": <number>, "7d": <number>, "30d": <number>, "90d": <number>, "180d": <number>, "365d": <number>, "730d": <number>, "1825d": <number>}}}}"""
+
+    _payload = {
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {"temperature": 0.4, "maxOutputTokens": 600},
+    }
+
+    _available_models = []
+    try:
+        _list_url = f"https://generativelanguage.googleapis.com/v1beta/models?key={_api_key}&pageSize=50"
+        _lr = _req.get(_list_url, timeout=10)
+        if _lr.status_code == 200:
+            for _m in _lr.json().get("models", []):
+                _mname = _m.get("name", "").replace("models/", "")
+                if "generateContent" in _m.get("supportedGenerationMethods", []) and _mname:
+                    _available_models.append(_mname)
+    except Exception:
+        pass
+
+    def _pf_prio(name):
+        if "flash-lite" in name or "flash-8b" in name: return 0
+        if "flash" in name and "pro" not in name: return 1
+        if "pro" in name: return 2
+        return 3
+
+    if _available_models:
+        _available_models.sort(key=_pf_prio)
+    else:
+        _available_models = ["gemini-2.0-flash-lite", "gemini-2.0-flash",
+                             "gemini-1.5-flash-8b", "gemini-1.5-flash"]
+
+    for _mn in _available_models[:6]:
+        try:
+            _url = (f"https://generativelanguage.googleapis.com/v1beta/models/"
+                    f"{_mn}:generateContent?key={_api_key}")
+            _r = _req.post(_url, json=_payload, timeout=30)
+            if _r.status_code == 200:
+                _cands = _r.json().get("candidates", [])
+                if _cands:
+                    _raw = _cands[0]["content"]["parts"][0]["text"]
+                    # Extract JSON — strip markdown code blocks if present
+                    _match = _re.search(r'\{[\s\S]*\}', _raw)
+                    if _match:
+                        _parsed = _json.loads(_match.group())
+                        # Validate structure
+                        if all(k in _parsed for k in ("XAU", "XAG", "CL")):
+                            return _parsed
+            elif _r.status_code != 429:
+                break
+        except Exception:
+            continue
+    return {}
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
 def fetch_macro_news():
     """Fetch macro/geopolitical/presidential news from RSS — tariff, trade war, White House, conflict.
     N1: Bigram/context-window scoring prevents false positives ("tariff deal" ≠ "tariff").
@@ -6542,6 +6691,140 @@ def render_expert_tab(macro: dict, fred_data: dict):
         "Powered by Google Gemini. Cache 30 phút.</p>",
         unsafe_allow_html=True,
     )
+    st.markdown("---")
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # AI PRICE FORECAST TABLE — XAU · XAG · CL
+    # ══════════════════════════════════════════════════════════════════════════
+    st.markdown("### 📊 Dự Báo Giá AI — Vàng · Bạc · Dầu")
+    st.markdown(
+        "<p style='color:#8b949e;font-size:0.84rem;'>"
+        "Gemini AI dự báo giá cụ thể dựa trên: FED hawk/dove · DFII10 real yield · COT positioning · "
+        "Whale flow · Địa chính trị. <b style='color:#FFD700;'>Ngắn hạn theo tín hiệu hiện tại, "
+        "dài hạn theo megatrend.</b> Cache 1 giờ.</p>",
+        unsafe_allow_html=True,
+    )
+
+    # Lấy giá XAG, CL hiện tại
+    try:
+        import yfinance as _yf_pf
+        _pf_raw = _yf_pf.download(["SI=F", "CL=F"], period="5d", interval="1d",
+                                   progress=False, auto_adjust=True)
+        if isinstance(_pf_raw.columns, pd.MultiIndex):
+            _pf_cls = _pf_raw["Close"]
+        else:
+            _pf_cls = _pf_raw[["Close"]]
+        _xag_cur = float(_pf_cls["SI=F"].dropna().iloc[-1]) if "SI=F" in _pf_cls.columns else 0.0
+        _cl_cur  = float(_pf_cls["CL=F"].dropna().iloc[-1]) if "CL=F" in _pf_cls.columns else 0.0
+    except Exception:
+        _xag_cur = _cl_cur = 0.0
+
+    with st.spinner("📈 Gemini AI đang tính giá dự báo..."):
+        _pf_data = generate_price_forecasts(
+            xau_price      = round(_ai_cur, 2),
+            xag_price      = round(_xag_cur, 3),
+            cl_price       = round(_cl_cur, 2),
+            fedspeak_score = int(_ai_fed_es),
+            hawk_composite = int(_ai_hawk_comp),
+            dfii10_val     = round(_dfii_val, 3),
+            dfii10_chg5d   = round(_dfii_chg5, 3),
+            cot_net        = int(cot_xau.get("net", 0)) if cot_xau.get("ok") else 0,
+            cot_rank       = _ai_cot_rank,
+            cot_chg_1w     = _ai_cot_chg1w,
+            whale_score    = _wh_score,
+            macro_news_score = int(macro_news.get("score", 0)),
+            walcl_chg      = round(_ai_wb_chg, 2),
+            price_1m_chg   = round(_ai_p1m, 2),
+            price_3m_chg   = round(_ai_p3m, 2),
+            price_1y_chg   = round(_ai_p1y, 2),
+        )
+
+    if _pf_data:
+        # Build HTML table
+        _PF_PERIODS = [
+            ("1d",    "Ngày mai"),
+            ("3d",    "3 ngày"),
+            ("7d",    "1 tuần"),
+            ("30d",   "1 tháng"),
+            ("90d",   "3 tháng"),
+            ("180d",  "6 tháng"),
+            ("365d",  "1 năm"),
+            ("730d",  "2 năm"),
+            ("1825d", "5 năm"),
+        ]
+        _ASSETS_PF = [
+            ("XAU", "🥇 Vàng (XAU)", _ai_cur,   "${:,.1f}"),
+            ("XAG", "🥈 Bạc (XAG)",  _xag_cur,  "${:.2f}"),
+            ("CL",  "🛢️ Dầu (CL)",   _cl_cur,   "${:.1f}"),
+        ]
+
+        _th_style = ("background:#161b22;color:#8b949e;font-size:0.75rem;"
+                     "padding:6px 10px;text-align:center;font-weight:600;")
+        _td_base  = "padding:7px 10px;text-align:center;font-size:0.82rem;font-weight:500;"
+        _td_name  = ("padding:7px 12px;text-align:left;font-size:0.83rem;"
+                     "font-weight:600;color:#e6edf3;background:#161b22;")
+
+        _html_rows = ""
+        for _ak, _aname, _acur, _afmt in _ASSETS_PF:
+            _row_html = f"<td style='{_td_name}'>{_aname}</td>"
+            _prev_val = _acur   # compare each cell to current price for coloring
+            _ak_fcs   = _pf_data.get(_ak, {})
+            for _pk, _plabel in _PF_PERIODS:
+                _val = _ak_fcs.get(_pk)
+                if _val is None:
+                    _row_html += f"<td style='{_td_base}color:#6e7681;'>—</td>"
+                else:
+                    _val = float(_val)
+                    _color = "#3fb950" if _val > _acur else ("#f85149" if _val < _acur else "#8b949e")
+                    _arrow = "▲" if _val > _acur else ("▼" if _val < _acur else "—")
+                    _txt   = _afmt.format(_val)
+                    _row_html += (f"<td style='{_td_base}color:{_color};'>"
+                                  f"{_arrow} {_txt}</td>")
+                _prev_val = _val if _val is not None else _prev_val
+            _html_rows += f"<tr>{_row_html}</tr>"
+
+        _header_cells = "".join(
+            f"<th style='{_th_style}'>{_pl}</th>" for _, _pl in _PF_PERIODS)
+        _html_table = f"""
+<div style='overflow-x:auto;'>
+<table style='width:100%;border-collapse:collapse;background:#0d1117;border:1px solid #30363d;border-radius:10px;'>
+  <thead>
+    <tr>
+      <th style='{_th_style}text-align:left;'>Tài sản</th>
+      {_header_cells}
+    </tr>
+  </thead>
+  <tbody>{_html_rows}</tbody>
+</table>
+</div>"""
+        st.markdown(_html_table, unsafe_allow_html=True)
+        st.markdown(
+            "<p style='color:#8b949e;font-size:0.72rem;margin-top:4px;'>"
+            "🟢 Cao hơn giá hiện tại &nbsp;|&nbsp; 🔴 Thấp hơn giá hiện tại. "
+            "⚠️ Dự báo AI — không phải khuyến nghị đầu tư.</p>",
+            unsafe_allow_html=True,
+        )
+
+        # Lưu lên GitHub (chỉ 1 lần/ngày — upsert theo date key)
+        _pf_today = datetime.now().strftime("%Y-%m-%d")
+        if st.session_state.get("_pf_saved_date") != _pf_today:
+            _pf_record = {
+                "date":    _pf_today,
+                "xau_cur": round(_ai_cur,   2),
+                "xag_cur": round(_xag_cur,  3),
+                "cl_cur":  round(_cl_cur,   2),
+                "XAU": _pf_data.get("XAU", {}),
+                "XAG": _pf_data.get("XAG", {}),
+                "CL":  _pf_data.get("CL",  {}),
+            }
+            try:
+                if _save_ai_price_forecast_to_github(_pf_record):
+                    st.session_state["_pf_saved_date"] = _pf_today
+            except Exception:
+                pass
+    else:
+        st.warning("⚠️ Không lấy được dự báo giá từ Gemini. Kiểm tra GOOGLE_API_KEY trong Secrets.")
+
     st.markdown("---")
 
     # ══════════════════════════════════════════════════════════════════════════
@@ -7839,9 +8122,10 @@ def render_expert_tab(macro: dict, fred_data: dict):
 #  PREDICTION HISTORY — GitHub JSON Storage
 # ══════════════════════════════════════════════════════════════════════════════
 
-_GH_REPO         = "vinhthan/gold-analysis"
-_GH_PRED_FILE    = "predictions.json"
-_GH_EXPERT_FILE  = "expert_signals.json"   # Persistent expert signals across sessions
+_GH_REPO           = "vinhthan/gold-analysis"
+_GH_PRED_FILE      = "predictions.json"
+_GH_EXPERT_FILE    = "expert_signals.json"     # Persistent expert signals across sessions
+_GH_AI_PRICE_FILE  = "ai_price_forecasts.json" # Daily AI price forecast history
 
 
 def _gh_token() -> str:
@@ -7949,6 +8233,68 @@ def _save_expert_signals_to_github(signals: dict) -> bool:
         r2 = _req.put(url, headers=hdrs, json=payload, timeout=25)
         r2.raise_for_status()
         _load_expert_signals_from_github.clear()   # invalidate cache
+        return True
+    except Exception:
+        return False
+
+
+@st.cache_data(ttl=1800, show_spinner=False)
+def _load_ai_price_forecasts_from_github() -> list:
+    """Tải ai_price_forecasts.json từ GitHub — lịch sử dự báo giá AI theo ngày."""
+    import requests as _req, json as _json, base64 as _b64
+    token = _gh_token()
+    if not token:
+        return []
+    url  = f"https://api.github.com/repos/{_GH_REPO}/contents/{_GH_AI_PRICE_FILE}"
+    hdrs = {"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json"}
+    try:
+        r = _req.get(url, headers=hdrs, timeout=12)
+        if r.status_code == 404:
+            return []
+        r.raise_for_status()
+        raw = _b64.b64decode(r.json()["content"]).decode("utf-8")
+        return _json.loads(raw)
+    except Exception:
+        return []
+
+
+def _save_ai_price_forecast_to_github(record: dict) -> bool:
+    """
+    Thêm record mới vào ai_price_forecasts.json (upsert theo ngày, giữ tối đa 90 records).
+    record = {"date": "YYYY-MM-DD", "xau_cur": ..., "xag_cur": ..., "cl_cur": ...,
+              "XAU": {period: price}, "XAG": {...}, "CL": {...}}
+    """
+    import requests as _req, json as _json, base64 as _b64
+    token = _gh_token()
+    if not token:
+        return False
+    url  = f"https://api.github.com/repos/{_GH_REPO}/contents/{_GH_AI_PRICE_FILE}"
+    hdrs = {"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json"}
+    try:
+        sha       = None
+        existing  = []
+        r = _req.get(url, headers=hdrs, timeout=12)
+        if r.status_code == 200:
+            sha      = r.json().get("sha")
+            existing = _json.loads(_b64.b64decode(r.json()["content"]).decode("utf-8"))
+
+        # Upsert: replace record of same date if exists
+        existing = [x for x in existing if x.get("date") != record.get("date")]
+        existing.append(record)
+        # Keep latest 90 records only
+        existing = sorted(existing, key=lambda x: x.get("date", ""), reverse=True)[:90]
+
+        body    = _json.dumps(existing, ensure_ascii=False, indent=2).encode("utf-8")
+        payload = {
+            "message":   f"auto: ai_price_forecasts {record.get('date', '')}",
+            "content":   _b64.b64encode(body).decode("ascii"),
+            "committer": {"name": "Gold Bot", "email": "bot@gold-analysis.app"},
+        }
+        if sha:
+            payload["sha"] = sha
+        r2 = _req.put(url, headers=hdrs, json=payload, timeout=25)
+        r2.raise_for_status()
+        _load_ai_price_forecasts_from_github.clear()
         return True
     except Exception:
         return False
@@ -8813,6 +9159,66 @@ def render_history_tab():
             mime="text/csv",
             use_container_width=True,
         )
+
+    # ── AI Price Forecast History ──────────────────────────────────────────
+    st.markdown("---")
+    st.markdown("### 🤖 Lịch Sử Dự Báo Giá AI — Vàng · Bạc · Dầu")
+    st.caption(
+        "Mỗi ngày khi mở tab Chuyên Gia, Gemini AI tạo dự báo giá cho 9 kỳ hạn. "
+        "Bảng này lưu lại lịch sử tất cả các lần dự báo."
+    )
+    with st.spinner("📂 Đang tải lịch sử dự báo AI..."):
+        _ai_pf_hist = _load_ai_price_forecasts_from_github()
+
+    if not _ai_pf_hist:
+        st.info("⏳ Chưa có dữ liệu. Hãy mở tab Chuyên Gia để Gemini tạo dự báo đầu tiên.")
+    else:
+        # Build display table — show key periods: 7d, 30d, 90d, 365d, 1825d
+        _HIST_COLS = [
+            ("7d",    "1 tuần"),
+            ("30d",   "1 tháng"),
+            ("90d",   "3 tháng"),
+            ("365d",  "1 năm"),
+            ("730d",  "2 năm"),
+            ("1825d", "5 năm"),
+        ]
+        _pf_rows_hist = []
+        for _rec in sorted(_ai_pf_hist, key=lambda x: x.get("date", ""), reverse=True):
+            _d = _rec.get("date", "—")
+            for _ak, _label, _cur_key in [
+                ("XAU", "🥇 Vàng", "xau_cur"),
+                ("XAG", "🥈 Bạc",  "xag_cur"),
+                ("CL",  "🛢️ Dầu",  "cl_cur"),
+            ]:
+                _fcs  = _rec.get(_ak, {})
+                _acur = _rec.get(_cur_key, 0)
+                if not _fcs:
+                    continue
+                _row = {"Ngày": _d, "Tài sản": _label}
+                if _cur_key == "xau_cur":
+                    _row["Giá lúc dự báo"] = f"${_acur:,.1f}"
+                elif _cur_key == "xag_cur":
+                    _row["Giá lúc dự báo"] = f"${_acur:.2f}"
+                else:
+                    _row["Giá lúc dự báo"] = f"${_acur:.1f}"
+                for _pk, _pl in _HIST_COLS:
+                    _v = _fcs.get(_pk)
+                    if _v is not None:
+                        if _cur_key == "xau_cur":
+                            _row[_pl] = f"${float(_v):,.1f}"
+                        elif _cur_key == "xag_cur":
+                            _row[_pl] = f"${float(_v):.2f}"
+                        else:
+                            _row[_pl] = f"${float(_v):.1f}"
+                    else:
+                        _row[_pl] = "—"
+                _pf_rows_hist.append(_row)
+
+        if _pf_rows_hist:
+            _df_pf_hist = pd.DataFrame(_pf_rows_hist)
+            st.dataframe(_df_pf_hist, use_container_width=True, hide_index=True)
+        else:
+            st.info("⏳ Chưa có dữ liệu dự báo hợp lệ.")
 
     # ── Backfill section ──────────────────────────────────────────────
     with st.expander("🕐 Tái tạo dữ liệu lịch sử (backfill)"):
