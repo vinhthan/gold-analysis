@@ -8103,6 +8103,55 @@ def render_history_tab():
         "Khi đến ngày đáo hạn, giá thực tế được đối chiếu tự động để tính đúng/sai."
     )
 
+    # ── Patch button: gán expert signal hôm nay cho các record N/A ───────────
+    _today_hs = datetime.now().strftime("%Y-%m-%d")
+    with st.expander("🔧 Công cụ — Cập nhật Expert Signal", expanded=False):
+        st.caption(
+            "Dùng khi History hiện Expert Forecast 0/0. "
+            "Bước 1: Mở tab Chuyên Gia (để lưu signals hôm nay). "
+            "Bước 2: Quay lại đây bấm nút bên dưới."
+        )
+        if st.button("🔄 Cập nhật Expert Signal hôm nay", type="primary"):
+            with st.spinner("Đang đọc expert_signals.json từ GitHub..."):
+                _ex_gh = _load_expert_signals_from_github()
+            if not _ex_gh:
+                st.error("❌ Không tìm thấy expert_signals.json. Hãy mở tab Chuyên Gia trước rồi thử lại.")
+            elif _ex_gh.get("date") != _today_hs:
+                st.warning(
+                    f"⚠️ Expert signals trên GitHub là ngày **{_ex_gh.get('date')}**, "
+                    f"không phải hôm nay ({_today_hs}). "
+                    "Hãy mở tab Chuyên Gia để cập nhật, rồi bấm lại."
+                )
+            else:
+                with st.spinner("Đang patch predictions.json..."):
+                    _all_preds = load_predictions_from_github()
+                    _ex_dirs   = _ex_gh.get("directions", {})
+                    _changed   = 0
+                    for _rec in _all_preds:
+                        if _rec.get("recorded_date") != _today_hs:
+                            continue
+                        _ak      = _rec.get("asset", "")
+                        _ak_dirs = _ex_dirs.get(_ak, {})
+                        if not _ak_dirs:
+                            continue
+                        for _d_str, _pdata in _rec.get("periods", {}).items():
+                            if _pdata.get("expert_signal", "N/A") == "N/A":
+                                _pdata["expert_signal"] = _ak_dirs.get(_d_str, "NEUTRAL")
+                                _pdata["expert_result"] = "PENDING"
+                                _changed += 1
+
+                if _changed == 0:
+                    st.info("ℹ️ Không có record nào cần cập nhật cho hôm nay (đã có expert signal).")
+                elif _save_predictions_to_github(_all_preds):
+                    load_predictions_from_github.clear()
+                    st.success(
+                        f"✅ Đã patch **{_changed}** kỳ hạn với expert signal hôm nay! "
+                        "Kết quả sẽ được verify khi đến ngày đáo hạn."
+                    )
+                    st.rerun()
+                else:
+                    st.error("❌ Lỗi khi lưu lên GitHub. Kiểm tra GITHUB_TOKEN trong secrets.")
+
     with st.spinner("📂 Đang tải lịch sử từ GitHub..."):
         predictions = load_predictions_from_github()
 
