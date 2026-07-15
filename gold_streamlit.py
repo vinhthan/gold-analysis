@@ -7364,6 +7364,11 @@ def render_expert_tab(macro: dict, fred_data: dict):
     # Cập nhật expert directions vào session_state để _collect_snapshot() đọc
     if _expert_dirs and "_expert_signals" in st.session_state:
         st.session_state["_expert_signals"]["directions"] = _expert_dirs
+        # Persist lên GitHub để không mất khi Streamlit reboot
+        try:
+            _save_expert_signals_to_github(st.session_state["_expert_signals"])
+        except Exception:
+            pass
 
     st.markdown("---")
 
@@ -7576,8 +7581,9 @@ def render_expert_tab(macro: dict, fred_data: dict):
 #  PREDICTION HISTORY — GitHub JSON Storage
 # ══════════════════════════════════════════════════════════════════════════════
 
-_GH_REPO      = "vinhthan/gold-analysis"
-_GH_PRED_FILE = "predictions.json"
+_GH_REPO         = "vinhthan/gold-analysis"
+_GH_PRED_FILE    = "predictions.json"
+_GH_EXPERT_FILE  = "expert_signals.json"   # Persistent expert signals across sessions
 
 
 def _gh_token() -> str:
@@ -7639,6 +7645,57 @@ def _save_predictions_to_github(predictions: list) -> bool:
         return False
 
 
+@st.cache_data(ttl=1800, show_spinner=False)
+def _load_expert_signals_from_github() -> dict:
+    """Tải expert_signals.json từ GitHub — fallback khi session_state rỗng (sau reboot)."""
+    import requests as _req, json as _json, base64 as _b64
+    token = _gh_token()
+    if not token:
+        return {}
+    url  = f"https://api.github.com/repos/{_GH_REPO}/contents/{_GH_EXPERT_FILE}"
+    hdrs = {"Authorization": f"token {token}",
+            "Accept": "application/vnd.github.v3+json"}
+    try:
+        r = _req.get(url, headers=hdrs, timeout=12)
+        if r.status_code == 404:
+            return {}
+        r.raise_for_status()
+        raw = _b64.b64decode(r.json()["content"]).decode("utf-8")
+        return _json.loads(raw)
+    except Exception:
+        return {}
+
+
+def _save_expert_signals_to_github(signals: dict) -> bool:
+    """Ghi expert_signals.json lên GitHub để persist qua các session."""
+    import requests as _req, json as _json, base64 as _b64
+    token = _gh_token()
+    if not token:
+        return False
+    url  = f"https://api.github.com/repos/{_GH_REPO}/contents/{_GH_EXPERT_FILE}"
+    hdrs = {"Authorization": f"token {token}",
+            "Accept": "application/vnd.github.v3+json"}
+    try:
+        sha = None
+        r = _req.get(url, headers=hdrs, timeout=12)
+        if r.status_code == 200:
+            sha = r.json().get("sha")
+        body    = _json.dumps(signals, ensure_ascii=False, indent=2).encode("utf-8")
+        payload = {
+            "message":   f"auto: expert_signals {signals.get('date', 'unknown')}",
+            "content":   _b64.b64encode(body).decode("ascii"),
+            "committer": {"name": "Gold Bot", "email": "bot@gold-analysis.app"},
+        }
+        if sha:
+            payload["sha"] = sha
+        r2 = _req.put(url, headers=hdrs, json=payload, timeout=25)
+        r2.raise_for_status()
+        _load_expert_signals_from_github.clear()   # invalidate cache
+        return True
+    except Exception:
+        return False
+
+
 # ── Snapshot collection ────────────────────────────────────────────────────
 
 def _collect_snapshot(asset_key: str, macro: dict) -> dict:
@@ -7694,9 +7751,20 @@ def _collect_snapshot(asset_key: str, macro: dict) -> dict:
 
         today_str    = datetime.now().strftime("%Y-%m-%d")
 
-        # Đọc expert signals từ session_state (nếu tab Chuyên Gia đã chạy hôm nay)
-        _ex      = st.session_state.get("_expert_signals", {})
-        _has_ex  = _ex.get("date") == today_str
+        # Đọc expert signals: session_state trước, GitHub persistent fallback sau
+        _ex     = st.session_state.get("_expert_signals", {})
+        _has_ex = _ex.get("date") == today_str
+        if not _has_ex:
+            # Session bị reset (reboot/refresh) — thử đọc từ GitHub
+            try:
+                _ex_gh = _load_expert_signals_from_github()
+                if _ex_gh.get("date") == today_str:
+                    _ex     = _ex_gh
+                    _has_ex = True
+                    # Phục hồi vào session_state để các lần gọi sau dùng trực tiếp
+                    st.session_state["_expert_signals"] = _ex_gh
+            except Exception:
+                pass
         _expert_score = _ex.get(asset_key, 0) if _has_ex else 0
         _method       = "expert" if _has_ex else "technical"
         _ex_dirs      = _ex.get("directions", {}).get(asset_key, {}) if _has_ex else {}
