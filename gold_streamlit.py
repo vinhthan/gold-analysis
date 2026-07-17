@@ -8468,7 +8468,7 @@ def _verify_predictions(predictions: list) -> tuple:
     """
     today        = datetime.now().date()
     changed      = False
-    NEUTRAL_BAND = 0.5   # % — ngưỡng "trung tính"
+    NEUTRAL_BAND = 1.2   # % — ngưỡng "trung tính" (vàng dao động ~0.9%/ngày ATR)
 
     for rec in predictions:
         asset_key = rec.get("asset", "")
@@ -8927,7 +8927,97 @@ def render_history_tab():
     cm3.metric("❌ Sai",           f"{n_wrong:,}")
     cm4.metric("⏳ Đang chờ",     f"{n_pending:,}")
     cm5.metric("🎯 Độ chính xác", f"{accuracy:.1f}%",
-               delta="Chỉ tính đã đáo hạn", delta_color="off")
+               delta="Tất cả tín hiệu · NEUTRAL_BAND=1.2%", delta_color="off")
+
+    # ── 3 Metric panels nâng cao ────────────────────────────────────────
+    st.markdown("---")
+    st.markdown("#### 🔍 Phân Tích Độ Chính Xác Nâng Cao")
+    _ap1, _ap2, _ap3 = st.columns(3)
+
+    # Panel A: Chỉ UP/DOWN (bỏ NEUTRAL)
+    with _ap1:
+        st.markdown("**⬆️⬇️ Chỉ Tín Hiệu Chiều (UP/DOWN)**")
+        st.caption("Loại bỏ NEUTRAL — đánh giá khi model dám chọn chiều rõ ràng")
+        _df_dir_q  = df_done[df_done["quick_signal"].isin(["UP", "DOWN"])]
+        _df_dir_ex = df[df["expert_signal"].isin(["UP", "DOWN"]) &
+                        df["expert_result"].isin(["ĐÚNG", "SAI"])]
+        _acc_dir_q  = (_df_dir_q["quick_result"]  == "ĐÚNG").sum() / max(len(_df_dir_q),  1) * 100
+        _acc_dir_ex = (_df_dir_ex["expert_result"] == "ĐÚNG").sum() / max(len(_df_dir_ex), 1) * 100
+        _d1c1, _d1c2 = st.columns(2)
+        _d1c1.metric("⚡ Nhanh", f"{_acc_dir_q:.1f}%",
+                     f"{len(_df_dir_q)} tín hiệu")
+        _d1c2.metric("🧠 Expert", f"{_acc_dir_ex:.1f}%",
+                     f"{len(_df_dir_ex)} tín hiệu")
+        if len(_df_dir_q) > 0:
+            _ud_rows = []
+            for _sig, _lbl in [("UP", "⬆️ Mua"), ("DOWN", "⬇️ Bán")]:
+                _sub = _df_dir_q[_df_dir_q["quick_signal"] == _sig]
+                if len(_sub) > 0:
+                    _ud_rows.append({
+                        "Tín hiệu": _lbl,
+                        "Đúng": int((_sub["quick_result"] == "ĐÚNG").sum()),
+                        "Tổng": len(_sub),
+                        "Tỷ lệ": f"{(_sub['quick_result']=='ĐÚNG').sum()/len(_sub)*100:.1f}%",
+                    })
+            if _ud_rows:
+                st.dataframe(pd.DataFrame(_ud_rows), hide_index=True, use_container_width=True)
+
+    # Panel B: Accuracy theo từng kỳ hạn (bảng số)
+    with _ap2:
+        st.markdown("**📅 Accuracy Theo Kỳ Hạn**")
+        st.caption("Ngắn hạn ≈ 50% (noise). Dài hạn phải cao hơn đáng kể.")
+        _period_rows = []
+        _KEY_PERIODS = [1, 3, 7, 30, 90, 180, 365]
+        for _pd_d in _KEY_PERIODS:
+            _sub_q  = df_done[df_done["period_days"] == _pd_d]
+            _sub_ex = df[(df["period_days"] == _pd_d) &
+                         df["expert_result"].isin(["ĐÚNG", "SAI"])]
+            if len(_sub_q) == 0 and len(_sub_ex) == 0:
+                continue
+            _aq = (_sub_q["quick_result"]  == "ĐÚNG").sum() / max(len(_sub_q),  1) * 100
+            _ae = (_sub_ex["expert_result"] == "ĐÚNG").sum() / max(len(_sub_ex), 1) * 100
+            _period_rows.append({
+                "Kỳ":      PERIOD_LABELS.get(_pd_d, f"{_pd_d}d"),
+                "⚡ Nhanh": f"{_aq:.0f}% ({len(_sub_q)})" if len(_sub_q) > 0 else "—",
+                "🧠 Expert": f"{_ae:.0f}% ({len(_sub_ex)})" if len(_sub_ex) > 0 else "—",
+            })
+        if _period_rows:
+            st.dataframe(pd.DataFrame(_period_rows), hide_index=True, use_container_width=True)
+        else:
+            st.info("Chưa đủ dữ liệu theo kỳ hạn.")
+
+    # Panel C: High-confidence filter (ML ≥ 60% hoặc ≤ 40%)
+    with _ap3:
+        st.markdown("**🎯 Tín Hiệu Tự Tin Cao (ML ≥ 60%)**")
+        st.caption("Chỉ tính khi ML prob ≥ 60% hoặc ≤ 40% — model đang chắc chắn")
+        _df_conf = df_done[
+            (df_done["ML Prob %"] >= 60) | (df_done["ML Prob %"] <= 40)
+        ]
+        _df_conf_ex = df[
+            ((df["ML Prob %"] >= 60) | (df["ML Prob %"] <= 40)) &
+            df["expert_result"].isin(["ĐÚNG", "SAI"])
+        ]
+        _acc_conf_q  = (_df_conf["quick_result"]   == "ĐÚNG").sum() / max(len(_df_conf),    1) * 100
+        _acc_conf_ex = (_df_conf_ex["expert_result"]== "ĐÚNG").sum() / max(len(_df_conf_ex), 1) * 100
+        _c3c1, _c3c2 = st.columns(2)
+        _c3c1.metric("⚡ Nhanh", f"{_acc_conf_q:.1f}%",
+                     f"{len(_df_conf)} tín hiệu")
+        _c3c2.metric("🧠 Expert", f"{_acc_conf_ex:.1f}%",
+                     f"{len(_df_conf_ex)} tín hiệu")
+        # Breakdown by ML confidence level
+        _conf_rows = []
+        for _lo, _hi, _lbl in [(60, 100, "≥60% (Bullish)"), (0, 40, "≤40% (Bearish)")]:
+            _sc = df_done[(df_done["ML Prob %"] >= _lo) & (df_done["ML Prob %"] <= _hi)]
+            if len(_sc) > 0:
+                _conf_rows.append({
+                    "ML Prob": _lbl,
+                    "Đúng": int((_sc["quick_result"] == "ĐÚNG").sum()),
+                    "Tổng": len(_sc),
+                    "Tỷ lệ": f"{(_sc['quick_result']=='ĐÚNG').sum()/len(_sc)*100:.1f}%",
+                })
+        if _conf_rows:
+            st.dataframe(pd.DataFrame(_conf_rows), hide_index=True, use_container_width=True)
+
     st.markdown("---")
 
     # ── Kết Luận Nhanh vs Dự Báo Chuyên Gia — So sánh độ chính xác ──────
