@@ -7911,6 +7911,33 @@ def render_expert_tab(macro: dict, fred_data: dict):
         except Exception:
             pass
 
+        # ── Auto-patch predictions.json cho hôm nay (không cần bấm nút) ──────
+        _ep_today = datetime.now().strftime("%Y-%m-%d")
+        if st.session_state.get("_expert_autopatch_date") != _ep_today:
+            try:
+                _ep_preds   = load_predictions_from_github()
+                _ep_changed = 0
+                for _ep_rec in _ep_preds:
+                    if _ep_rec.get("recorded_date") != _ep_today:
+                        continue
+                    _ep_ak   = _ep_rec.get("asset", "")
+                    _ep_dirs = _expert_dirs.get(_ep_ak, {})
+                    if not _ep_dirs:
+                        continue
+                    for _ep_d, _ep_pdata in _ep_rec.get("periods", {}).items():
+                        if _ep_pdata.get("expert_signal", "N/A") == "N/A":
+                            _ep_pdata["expert_signal"] = _ep_dirs.get(_ep_d, "NEUTRAL")
+                            _ep_pdata["expert_result"] = "PENDING"
+                            _ep_changed += 1
+                if _ep_changed > 0:
+                    # Verify ngay — đề phòng 1d/3d đã đến hạn
+                    _ep_preds, _ = _verify_predictions(_ep_preds)
+                    _save_predictions_to_github(_ep_preds)
+                    load_predictions_from_github.clear()
+                st.session_state["_expert_autopatch_date"] = _ep_today
+            except Exception:
+                pass
+
     st.markdown("---")
 
     # ══════════════════════════════════════════════════════════════════════════
@@ -8707,54 +8734,99 @@ def render_history_tab():
         "Khi đến ngày đáo hạn, giá thực tế được đối chiếu tự động để tính đúng/sai."
     )
 
-    # ── Patch button: gán expert signal hôm nay cho các record N/A ───────────
+    # ── Patch tools ───────────────────────────────────────────────────────────
     _today_hs = datetime.now().strftime("%Y-%m-%d")
     with st.expander("🔧 Công cụ — Cập nhật Expert Signal", expanded=False):
         st.caption(
-            "Dùng khi History hiện Expert Forecast 0/0. "
-            "Bước 1: Mở tab Chuyên Gia (để lưu signals hôm nay). "
-            "Bước 2: Quay lại đây bấm nút bên dưới."
+            "**Từ nay Expert Signal được gán tự động** khi bạn mở tab Chuyên Gia. "
+            "Nút bên dưới dùng để fix retroactive cho dữ liệu cũ còn N/A."
         )
-        if st.button("🔄 Cập nhật Expert Signal hôm nay", type="primary"):
-            with st.spinner("Đang đọc expert_signals.json từ GitHub..."):
-                _ex_gh = _load_expert_signals_from_github()
-            if not _ex_gh:
-                st.error("❌ Không tìm thấy expert_signals.json. Hãy mở tab Chuyên Gia trước rồi thử lại.")
-            elif _ex_gh.get("date") != _today_hs:
-                st.warning(
-                    f"⚠️ Expert signals trên GitHub là ngày **{_ex_gh.get('date')}**, "
-                    f"không phải hôm nay ({_today_hs}). "
-                    "Hãy mở tab Chuyên Gia để cập nhật, rồi bấm lại."
-                )
-            else:
-                with st.spinner("Đang patch predictions.json..."):
-                    _all_preds = load_predictions_from_github()
-                    _ex_dirs   = _ex_gh.get("directions", {})
-                    _changed   = 0
-                    for _rec in _all_preds:
-                        if _rec.get("recorded_date") != _today_hs:
-                            continue
-                        _ak      = _rec.get("asset", "")
-                        _ak_dirs = _ex_dirs.get(_ak, {})
-                        if not _ak_dirs:
-                            continue
-                        for _d_str, _pdata in _rec.get("periods", {}).items():
-                            if _pdata.get("expert_signal", "N/A") == "N/A":
-                                _pdata["expert_signal"] = _ak_dirs.get(_d_str, "NEUTRAL")
-                                _pdata["expert_result"] = "PENDING"
-                                _changed += 1
 
-                if _changed == 0:
-                    st.info("ℹ️ Không có record nào cần cập nhật cho hôm nay (đã có expert signal).")
-                elif _save_predictions_to_github(_all_preds):
-                    load_predictions_from_github.clear()
-                    st.success(
-                        f"✅ Đã patch **{_changed}** kỳ hạn với expert signal hôm nay! "
-                        "Kết quả sẽ được verify khi đến ngày đáo hạn."
+        _rc1, _rc2 = st.columns(2)
+
+        with _rc1:
+            st.markdown("**🔄 Patch hôm nay**")
+            if st.button("Cập nhật Expert Signal hôm nay", type="primary",
+                         key="btn_patch_today"):
+                with st.spinner("Đang đọc expert_signals.json từ GitHub..."):
+                    _ex_gh = _load_expert_signals_from_github()
+                if not _ex_gh or not _ex_gh.get("directions"):
+                    st.error("❌ Không tìm thấy expert_signals.json. Hãy mở tab Chuyên Gia trước.")
+                elif _ex_gh.get("date") != _today_hs:
+                    st.warning(
+                        f"⚠️ Signals trên GitHub là ngày **{_ex_gh.get('date')}**, "
+                        f"không phải hôm nay ({_today_hs}). Hãy mở tab Chuyên Gia trước."
                     )
-                    st.rerun()
                 else:
-                    st.error("❌ Lỗi khi lưu lên GitHub. Kiểm tra GITHUB_TOKEN trong secrets.")
+                    with st.spinner("Đang patch predictions.json..."):
+                        _all_preds = load_predictions_from_github()
+                        _ex_dirs   = _ex_gh.get("directions", {})
+                        _changed   = 0
+                        for _rec in _all_preds:
+                            if _rec.get("recorded_date") != _today_hs:
+                                continue
+                            _ak_dirs = _ex_dirs.get(_rec.get("asset", ""), {})
+                            for _d_str, _pdata in _rec.get("periods", {}).items():
+                                if _pdata.get("expert_signal", "N/A") == "N/A" and _ak_dirs:
+                                    _pdata["expert_signal"] = _ak_dirs.get(_d_str, "NEUTRAL")
+                                    _pdata["expert_result"] = "PENDING"
+                                    _changed += 1
+                        if _changed > 0:
+                            _all_preds, _ = _verify_predictions(_all_preds)
+                    if _changed == 0:
+                        st.info("ℹ️ Không có record nào cần cập nhật hôm nay.")
+                    elif _save_predictions_to_github(_all_preds):
+                        load_predictions_from_github.clear()
+                        st.success(f"✅ Đã patch **{_changed}** kỳ hạn!")
+                        st.rerun()
+                    else:
+                        st.error("❌ Lỗi lưu GitHub.")
+
+        with _rc2:
+            st.markdown("**🗓️ Retroactive Patch — 7 ngày gần nhất**")
+            st.caption("Dùng signals hiện tại làm proxy cho dữ liệu cũ còn N/A.")
+            if st.button("Retroactive Patch (7 ngày)", type="secondary",
+                         key="btn_patch_retro"):
+                with st.spinner("Đang đọc expert_signals.json từ GitHub..."):
+                    _ex_gh_r = _load_expert_signals_from_github()
+                if not _ex_gh_r or not _ex_gh_r.get("directions"):
+                    st.error("❌ Không có expert signals. Mở tab Chuyên Gia trước.")
+                else:
+                    with st.spinner("Đang retroactive patch 7 ngày qua..."):
+                        from datetime import timedelta as _td
+                        _retro_dates = {
+                            (datetime.now() - _td(days=i)).strftime("%Y-%m-%d")
+                            for i in range(8)   # hôm nay + 7 ngày trước
+                        }
+                        _all_preds_r = load_predictions_from_github()
+                        _ex_dirs_r   = _ex_gh_r.get("directions", {})
+                        _retro_count = 0
+                        for _rec in _all_preds_r:
+                            if _rec.get("recorded_date") not in _retro_dates:
+                                continue
+                            _ak_dirs_r = _ex_dirs_r.get(_rec.get("asset", ""), {})
+                            if not _ak_dirs_r:
+                                continue
+                            for _d_str, _pdata in _rec.get("periods", {}).items():
+                                if _pdata.get("expert_signal", "N/A") == "N/A":
+                                    _pdata["expert_signal"] = _ak_dirs_r.get(_d_str, "NEUTRAL")
+                                    _pdata["expert_result"] = "PENDING"
+                                    _retro_count += 1
+                        # Verify ngay — các kỳ đã đến hạn sẽ được tính ĐÚNG/SAI
+                        _all_preds_r, _retro_verified = _verify_predictions(_all_preds_r)
+
+                    if _retro_count == 0:
+                        st.info("ℹ️ Không có record N/A nào trong 7 ngày qua.")
+                    elif _save_predictions_to_github(_all_preds_r):
+                        load_predictions_from_github.clear()
+                        _v_note = f" · verify được {_retro_verified and 'một số' or '0'} kết quả đã đáo hạn." if _retro_count else ""
+                        st.success(
+                            f"✅ Đã patch **{_retro_count}** kỳ hạn từ 7 ngày qua!"
+                            f" Các kỳ đã đến hạn được tính ĐÚNG/SAI ngay lập tức."
+                        )
+                        st.rerun()
+                    else:
+                        st.error("❌ Lỗi lưu GitHub.")
 
     with st.spinner("📂 Đang tải lịch sử từ GitHub..."):
         predictions = load_predictions_from_github()
