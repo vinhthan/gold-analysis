@@ -143,6 +143,26 @@ ASSETS = {
         "prefix": "$", "suffix": "",
         "decimals": 0,
     },
+    "IRON": {
+        "tab":    "⛏️ Quặng Sắt",
+        "name":   "Quặng Sắt (Iron Ore)",
+        "short":  "Quặng Sắt",
+        "unit":   "USD",
+        "color":  "#8B4513",
+        "lo": 10,    "hi": 500,
+        "prefix": "$", "suffix": "",
+        "decimals": 2,
+    },
+    "STEEL": {
+        "tab":    "🔩 Thép",
+        "name":   "Thép (Steel ETF - SLX)",
+        "short":  "Thép",
+        "unit":   "USD",
+        "color":  "#708090",
+        "lo": 10,    "hi": 300,
+        "prefix": "$", "suffix": "",
+        "decimals": 2,
+    },
 }
 
 # ── Macro sign per asset (+1 = same direction as DXY-up/yield-up/vix-up/sp500-up)
@@ -154,6 +174,8 @@ MACRO_SIGNS = {
     "CL":     {"dxy":-1, "yield10y":-1, "vix":-1, "sp500":+1, "oil": 0, "tips":-1},
     "USDVND": {"dxy":+1, "yield10y":+1, "vix":-1, "sp500":+1, "oil":-1, "tips":+1},
     "BTC":    {"dxy":-1, "yield10y":-1, "vix":+1, "sp500":+1, "oil": 0, "tips":+1},
+    "IRON":   {"dxy":-1, "yield10y":-1, "vix":-1, "sp500":+1, "oil":+1, "tips":-1},
+    "STEEL":  {"dxy":-1, "yield10y":-1, "vix":-1, "sp500":+1, "oil":+1, "tips":-1},
 }
 
 # ── Seasonal monthly bias per asset (historical average monthly return) ─────
@@ -181,6 +203,14 @@ SEASONAL_BIAS = {
     "BTC": {
         1: 0.030, 2:-0.010, 3: 0.020, 4: 0.015, 5:-0.020, 6:-0.010,
         7: 0.010, 8: 0.005, 9:-0.030, 10: 0.030, 11: 0.020, 12: 0.025,
+    },
+    "IRON": {
+        1: 0.020, 2: 0.015, 3: 0.010, 4: 0.008, 5: 0.003, 6:-0.005,
+        7:-0.008, 8:-0.005, 9: 0.005, 10: 0.010, 11:-0.003, 12:-0.008,
+    },
+    "STEEL": {
+        1: 0.015, 2: 0.010, 3: 0.015, 4: 0.012, 5: 0.003, 6:-0.003,
+        7:-0.008, 8:-0.005, 9: 0.003, 10: 0.008, 11:-0.002, 12:-0.005,
     },
 }
 
@@ -892,6 +922,81 @@ def fetch_price(asset_key: str) -> tuple[pd.Series, str]:
         except Exception:
             pass
         raise RuntimeError("Không tải được dữ liệu giá Dầu WTI.")
+
+    # ── Quặng Sắt (IRON) — TIO=F → PICK ETF → VALE ──────────────────────────
+    if asset_key == "IRON":
+        # 1) TIO=F (SGX TSI Iron Ore 62% Fe futures, CME)
+        for period in ("2y", "1y"):
+            try:
+                raw = yf.download("TIO=F", period=period, interval="1d",
+                                  progress=False, auto_adjust=True)
+                s = _raw_to_close(raw)
+                if s is not None:
+                    s = s[(s > 10) & (s < 500)]
+                    if len(s) >= 60:
+                        return s, "TIO=F (SGX Iron Ore Futures)"
+            except Exception:
+                pass
+        # 2) PICK ETF (iShares Global Metals & Mining Producers — iron ore heavy)
+        try:
+            raw = yf.download("PICK", period="2y", interval="1d",
+                              progress=False, auto_adjust=True)
+            s = _raw_to_close(raw)
+            if s is not None:
+                s = s[(s > 10) & (s < 500)]
+                if len(s) >= 60:
+                    return s, "PICK ETF (Global Metals & Mining proxy)"
+        except Exception:
+            pass
+        # 3) VALE (Vale S.A. — largest iron ore producer)
+        try:
+            raw = yf.download("VALE", period="2y", interval="1d",
+                              progress=False, auto_adjust=True)
+            s = _raw_to_close(raw)
+            if s is not None:
+                s = s[(s > 1) & (s < 100)]
+                if len(s) >= 60:
+                    return s, "VALE (Vale S.A. — iron ore proxy)"
+        except Exception:
+            pass
+        raise RuntimeError("Không tải được dữ liệu Quặng Sắt.")
+
+    # ── Thép (STEEL) — SLX ETF → HRC=F → NUE ────────────────────────────────
+    if asset_key == "STEEL":
+        # 1) SLX (VanEck Steel ETF — tracks global steel producers)
+        try:
+            raw = yf.download("SLX", period="2y", interval="1d",
+                              progress=False, auto_adjust=True)
+            s = _raw_to_close(raw)
+            if s is not None:
+                s = s[(s > 10) & (s < 300)]
+                if len(s) >= 60:
+                    return s, "SLX (VanEck Steel ETF)"
+        except Exception:
+            pass
+        # 2) HRC=F (Hot Roll Coil Steel Futures — CME)
+        try:
+            raw = yf.download("HRC=F", period="2y", interval="1d",
+                              progress=False, auto_adjust=True)
+            s = _raw_to_close(raw)
+            if s is not None:
+                s = s[(s > 100) & (s < 3000)]
+                if len(s) >= 60:
+                    return s, "HRC=F (Hot Roll Coil Steel)"
+        except Exception:
+            pass
+        # 3) NUE (Nucor — largest US steel maker)
+        try:
+            raw = yf.download("NUE", period="2y", interval="1d",
+                              progress=False, auto_adjust=True)
+            s = _raw_to_close(raw)
+            if s is not None:
+                s = s[(s > 10) & (s < 300)]
+                if len(s) >= 60:
+                    return s, "NUE (Nucor — steel proxy)"
+        except Exception:
+            pass
+        raise RuntimeError("Không tải được dữ liệu Thép.")
 
     raise RuntimeError(f"Asset không hỗ trợ: {asset_key}")
 
@@ -3036,6 +3141,8 @@ def fetch_whale_data(asset_key: str) -> dict:
         "CL":     ("USO",  "dầu WTI"),
         "USDVND": (None,   "USD/VND"),
         "BTC":    ("IBIT", "Bitcoin"),
+        "IRON":   ("PICK", "quặng sắt"),
+        "STEEL":  ("SLX",  "thép"),
     }
     fut_map = {
         "XAU":    "GC=F",
@@ -3044,6 +3151,8 @@ def fetch_whale_data(asset_key: str) -> dict:
         "CL":     "CL=F",
         "USDVND": None,
         "BTC":    None,
+        "IRON":   "TIO=F",
+        "STEEL":  None,
     }
 
     etf_ticker, asset_vn = etf_map.get(asset_key, (None, asset_key))
@@ -9447,7 +9556,7 @@ def main():
     st.markdown("""
     <div class="gold-header">
         <h1>📊 MARKET TREND ANALYSIS</h1>
-        <p>Phân tích đa yếu tố vĩ mô + kỹ thuật + mùa vụ · Vàng · Bạc · Đồng · Dầu · USD/VND · Bitcoin</p>
+        <p>Phân tích đa yếu tố vĩ mô + kỹ thuật + mùa vụ · Vàng · Bạc · Đồng · Dầu · USD/VND · Bitcoin · Quặng Sắt · Thép</p>
     </div>""", unsafe_allow_html=True)
     st.markdown("---")
 
