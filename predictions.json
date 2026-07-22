@@ -9580,8 +9580,8 @@
         "result": "PENDING",
         "quick_signal": "UP",
         "quick_result": "PENDING",
-        "expert_signal": "N/A",
-        "expert_result": "N/A"
+        "expert_signal": "NEUTRAL",
+        "expert_result": "PENDING"
       },
       "1095": {
         "label": "3 năm tới",
@@ -9591,8 +9591,8 @@
         "result": "PENDING",
         "quick_signal": "UP",
         "quick_result": "PENDING",
-        "expert_signal": "N/A",
-        "expert_result": "N/A"
+        "expert_signal": "NEUTRAL",
+        "expert_result": "PENDING"
       },
       "1825": {
         "label": "5 năm tới",
@@ -9602,8 +9602,8 @@
         "result": "PENDING",
         "quick_signal": "UP",
         "quick_result": "PENDING",
-        "expert_signal": "N/A",
-        "expert_result": "N/A"
+        "expert_signal": "NEUTRAL",
+        "expert_result": "PENDING"
       }
     },
     "method": "expert",
@@ -9756,8 +9756,8 @@
         "result": "PENDING",
         "quick_signal": "NEUTRAL",
         "quick_result": "PENDING",
-        "expert_signal": "N/A",
-        "expert_result": "N/A"
+        "expert_signal": "NEUTRAL",
+        "expert_result": "PENDING"
       },
       "1095": {
         "label": "3 năm tới",
@@ -9767,8 +9767,8 @@
         "result": "PENDING",
         "quick_signal": "UP",
         "quick_result": "PENDING",
-        "expert_signal": "N/A",
-        "expert_result": "N/A"
+        "expert_signal": "NEUTRAL",
+        "expert_result": "PENDING"
       },
       "1825": {
         "label": "5 năm tới",
@@ -9778,8 +9778,8 @@
         "result": "PENDING",
         "quick_signal": "UP",
         "quick_result": "PENDING",
-        "expert_signal": "N/A",
-        "expert_result": "N/A"
+        "expert_signal": "NEUTRAL",
+        "expert_result": "PENDING"
       }
     },
     "method": "expert",
@@ -9932,8 +9932,8 @@
         "result": "PENDING",
         "quick_signal": "UP",
         "quick_result": "PENDING",
-        "expert_signal": "N/A",
-        "expert_result": "N/A"
+        "expert_signal": "NEUTRAL",
+        "expert_result": "PENDING"
       },
       "1095": {
         "label": "3 năm tới",
@@ -9943,8 +9943,8 @@
         "result": "PENDING",
         "quick_signal": "UP",
         "quick_result": "PENDING",
-        "expert_signal": "N/A",
-        "expert_result": "N/A"
+        "expert_signal": "NEUTRAL",
+        "expert_result": "PENDING"
       },
       "1825": {
         "label": "5 năm tới",
@@ -9954,8 +9954,8 @@
         "result": "PENDING",
         "quick_signal": "UP",
         "quick_result": "PENDING",
-        "expert_signal": "N/A",
-        "expert_result": "N/A"
+        "expert_signal": "NEUTRAL",
+        "expert_result": "PENDING"
       }
     },
     "method": "expert",
@@ -10108,8 +10108,8 @@
         "result": "PENDING",
         "quick_signal": "UP",
         "quick_result": "PENDING",
-        "expert_signal": "N/A",
-        "expert_result": "N/A"
+        "expert_signal": "NEUTRAL",
+        "expert_result": "PENDING"
       },
       "1095": {
         "label": "3 năm tới",
@@ -10119,8 +10119,8 @@
         "result": "PENDING",
         "quick_signal": "UP",
         "quick_result": "PENDING",
-        "expert_signal": "N/A",
-        "expert_result": "N/A"
+        "expert_signal": "NEUTRAL",
+        "expert_result": "PENDING"
       },
       "1825": {
         "label": "5 năm tới",
@@ -10130,8 +10130,8 @@
         "result": "PENDING",
         "quick_signal": "UP",
         "quick_result": "PENDING",
-        "expert_signal": "N/A",
-        "expert_result": "N/A"
+        "expert_signal": "NEUTRAL",
+        "expert_result": "PENDING"
       }
     },
     "method": "expert",
@@ -10460,8 +10460,8 @@
         "result": "PENDING",
         "quick_signal": "UP",
         "quick_result": "PENDING",
-        "expert_signal": "N/A",
-        "expert_result": "N/A"
+        "expert_signal": "NEUTRAL",
+        "expert_result": "PENDING"
       },
       "1095": {
         "label": "3 năm tới",
@@ -10471,8 +10471,8 @@
         "result": "PENDING",
         "quick_signal": "UP",
         "quick_result": "PENDING",
-        "expert_signal": "N/A",
-        "expert_result": "N/A"
+        "expert_signal": "NEUTRAL",
+        "expert_result": "PENDING"
       },
       "1825": {
         "label": "5 năm tới",
@@ -10482,8 +10482,8 @@
         "result": "PENDING",
         "quick_signal": "UP",
         "quick_result": "PENDING",
-        "expert_signal": "N/A",
-        "expert_result": "N/A"
+        "expert_signal": "NEUTRAL",
+        "expert_result": "PENDING"
       }
     },
     "method": "expert",
