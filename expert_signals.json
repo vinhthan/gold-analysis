@@ -1,7 +1,7 @@
 {
-  "date": "2026-07-21",
-  "XAU": 3,
-  "XAG": 2,
+  "date": "2026-07-22",
+  "XAU": 4,
+  "XAG": 3,
   "HG": -4,
   "CL": 3,
   "BTC": -1,
@@ -17,12 +17,12 @@
     "XAU": {
       "1": "NEUTRAL",
       "3": "NEUTRAL",
-      "7": "DOWN",
-      "14": "DOWN",
+      "7": "NEUTRAL",
+      "14": "NEUTRAL",
       "21": "DOWN",
       "30": "DOWN",
       "60": "NEUTRAL",
-      "90": "NEUTRAL",
+      "90": "UP",
       "180": "NEUTRAL",
       "270": "DOWN",
       "365": "DOWN"
