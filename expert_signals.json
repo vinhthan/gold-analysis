@@ -41,12 +41,12 @@
       "365": "DOWN"
     },
     "HG": {
-      "1": "DOWN",
+      "1": "NEUTRAL",
       "3": "NEUTRAL",
-      "7": "NEUTRAL",
+      "7": "UP",
       "14": "UP",
-      "21": "NEUTRAL",
-      "30": "NEUTRAL",
+      "21": "UP",
+      "30": "UP",
       "60": "DOWN",
       "90": "DOWN",
       "180": "DOWN",
