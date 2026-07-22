@@ -4382,6 +4382,233 @@ def short_term_signals(price: pd.Series, asset_key: str,
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+#  PRICE HISTORY CHART
+# ══════════════════════════════════════════════════════════════════════════════
+
+@st.cache_data(ttl=86400, show_spinner=False)
+def fetch_price_history(asset_key: str) -> "pd.Series | None":
+    """
+    Fetch lịch sử giá tối đa 10 năm cho biểu đồ lịch sử.
+    TTL=24h — chỉ fetch 1 lần/ngày để tránh chậm.
+    """
+    ticker_map = {
+        "XAU":    ["GC=F", "XAUUSD=X"],
+        "XAG":    ["XAGUSD=X", "SLV"],
+        "HG":     ["HG=F"],
+        "CL":     ["CL=F"],
+        "USDVND": ["USDVND=X"],
+        "BTC":    ["BTC-USD"],
+        "IRON":   ["TIO=F", "PICK", "VALE"],
+        "STEEL":  ["SLX", "NUE"],
+    }
+    for ticker in ticker_map.get(asset_key, []):
+        for period in ("10y", "5y", "max"):
+            try:
+                raw = yf.download(ticker, period=period, interval="1d",
+                                  progress=False, auto_adjust=True)
+                if raw is None or raw.empty:
+                    continue
+                if isinstance(raw.columns, pd.MultiIndex):
+                    raw.columns = raw.columns.get_level_values(0)
+                s = raw["Close"].dropna()
+                s = s[s > 0]
+                if len(s) >= 200:
+                    return s
+            except Exception:
+                continue
+    return None
+
+
+def render_price_history_chart(asset_key: str, price_2y: pd.Series):
+    """
+    Biểu đồ lịch sử giá theo kỳ: 1 tuần → 10 năm.
+    Area chart với gradient fill xanh/đỏ theo chiều biến động.
+    """
+    info     = ASSETS[asset_key]
+    a_color  = info["color"]
+    a_short  = info["short"]
+    prefix   = info["prefix"]
+    decimals = info["decimals"]
+
+    PERIODS = [
+        ("1T",  "1 Tuần",        7),
+        ("1M",  "1 Tháng",      30),
+        ("3M",  "3 Tháng",      90),
+        ("6M",  "6 Tháng",     182),
+        ("YTD", "Từ đầu năm",  None),
+        ("1N",  "1 Năm",       365),
+        ("2N",  "2 Năm",       730),
+        ("5N",  "5 Năm",      1825),
+        ("10N", "10 Năm",     3650),
+    ]
+
+    # Fetch dữ liệu dài hạn (cached 24h)
+    price_long = fetch_price_history(asset_key)
+    full_price = (price_long
+                  if price_long is not None and len(price_long) > len(price_2y)
+                  else price_2y)
+
+    def _slice(pk, days):
+        """Cắt series theo kỳ được chọn."""
+        end = full_price.index[-1]
+        if pk == "YTD":
+            start = pd.Timestamp(end.year, 1, 1)
+        elif days is not None:
+            start = end - pd.Timedelta(days=days)
+        else:
+            return full_price
+        return full_price[full_price.index >= start]
+
+    # ── Period selector với % change ─────────────────────────────────────────
+    st.markdown(
+        "<p style='font-size:0.9rem;font-weight:600;color:#8b949e;"
+        "margin:4px 0 6px 0;'>📈 Lịch sử biến động giá</p>",
+        unsafe_allow_html=True,
+    )
+
+    # Tính % change cho từng kỳ để hiển thị trên button
+    radio_labels = []
+    chg_map      = {}
+    for pk, plabel, days in PERIODS:
+        s = _slice(pk, days)
+        if len(s) >= 2:
+            chg = (float(s.iloc[-1]) / float(s.iloc[0]) - 1) * 100
+            clr = "🟢" if chg >= 0 else "🔴"
+            radio_labels.append(f"{plabel}  {clr}{chg:+.1f}%")
+            chg_map[pk] = chg
+        else:
+            radio_labels.append(plabel)
+            chg_map[pk] = None
+
+    state_key = f"hist_period_{asset_key}"
+    if state_key not in st.session_state:
+        st.session_state[state_key] = "1N"
+    default_idx = [p[0] for p in PERIODS].index(
+        st.session_state.get(state_key, "1N")
+    )
+
+    chosen_label = st.radio(
+        "Chọn kỳ lịch sử",
+        options=radio_labels,
+        index=default_idx,
+        horizontal=True,
+        label_visibility="collapsed",
+        key=f"hist_radio_{asset_key}",
+    )
+    chosen_idx = radio_labels.index(chosen_label)
+    sel_pk, sel_label, sel_days = PERIODS[chosen_idx]
+    st.session_state[state_key] = sel_pk
+
+    # ── Lấy data cho kỳ được chọn ────────────────────────────────────────────
+    plot_data = _slice(sel_pk, sel_days)
+
+    if len(plot_data) < 5:
+        st.info(f"Chưa có đủ dữ liệu lịch sử cho kỳ {sel_label}.")
+        return
+
+    p_start = float(plot_data.iloc[0])
+    p_end   = float(plot_data.iloc[-1])
+    is_up   = p_end >= p_start
+
+    line_clr = "#3fb950" if is_up else "#f85149"
+    fill_clr = "rgba(63,185,80,0.12)" if is_up else "rgba(248,81,73,0.12)"
+    total_chg = (p_end / p_start - 1) * 100
+
+    # Tick format theo độ dài kỳ
+    if sel_days is None or sel_days > 730:
+        x_fmt = "%b %Y"
+    elif sel_days > 90:
+        x_fmt = "%m/%Y"
+    else:
+        x_fmt = "%d/%m"
+
+    # ── Plotly area chart ─────────────────────────────────────────────────────
+    fig = go.Figure()
+
+    # Vùng tô bóng (area fill)
+    fig.add_trace(go.Scatter(
+        x=list(plot_data.index),
+        y=list(plot_data.values),
+        mode="lines",
+        line=dict(color=line_clr, width=2),
+        fill="tozeroy",
+        fillcolor=fill_clr,
+        name=a_short,
+        hovertemplate=(
+            f"<b>%{{x|%d/%m/%Y}}</b><br>"
+            f"<b>{prefix}%{{y:,.{decimals}f}}</b>"
+            f"<extra></extra>"
+        ),
+    ))
+
+    # Đường baseline (giá đầu kỳ)
+    fig.add_hline(
+        y=p_start,
+        line=dict(color="rgba(150,150,150,0.35)", width=1, dash="dot"),
+    )
+
+    # Annotation % thay đổi (góc trên trái)
+    fig.add_annotation(
+        x=0.01, y=0.96,
+        xref="paper", yref="paper",
+        text=f"<b>{total_chg:+.2f}%</b>",
+        showarrow=False,
+        font=dict(color=line_clr, size=20, family="Arial"),
+        align="left",
+    )
+
+    # Annotation giá hiện tại (góc trên phải)
+    fig.add_annotation(
+        x=0.99, y=0.96,
+        xref="paper", yref="paper",
+        text=f"<b>{prefix}{p_end:,.{decimals}f}</b>",
+        showarrow=False,
+        font=dict(color="#e6edf3", size=14, family="monospace"),
+        align="right",
+    )
+
+    # Annotation tên kỳ (giữa trên)
+    fig.add_annotation(
+        x=0.5, y=0.96,
+        xref="paper", yref="paper",
+        text=f"<span style='color:#8b949e'>{sel_label}</span>",
+        showarrow=False,
+        font=dict(color="#8b949e", size=12),
+        align="center",
+    )
+
+    fig.update_layout(
+        height=260,
+        margin=dict(l=0, r=8, t=36, b=8),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(13,17,23,0.5)",
+        showlegend=False,
+        hovermode="x unified",
+        xaxis=dict(
+            showgrid=False,
+            zeroline=False,
+            showline=False,
+            tickformat=x_fmt,
+            tickfont=dict(color="#8b949e", size=10),
+            rangeslider=dict(visible=False),
+        ),
+        yaxis=dict(
+            showgrid=True,
+            gridcolor="rgba(100,100,100,0.12)",
+            zeroline=False,
+            showline=False,
+            tickfont=dict(color="#8b949e", size=10),
+            tickprefix=prefix,
+            tickformat=f",.{decimals}f",
+            side="right",
+        ),
+    )
+
+    st.plotly_chart(fig, use_container_width=True,
+                    config={"displayModeBar": False})
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 #  ASSET TAB RENDERER
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -4560,6 +4787,10 @@ def render_asset_tab(asset_key: str, macro: dict, forecast_days: int):
             unsafe_allow_html=True,
         )
 
+    st.markdown("---")
+
+    # ── Biểu đồ lịch sử giá ───────────────────────────────────────────────
+    render_price_history_chart(asset_key, price)
     st.markdown("---")
 
     # ══ MARKET INTELLIGENCE DASHBOARD (Hedge Fund Framework) ══════════════
