@@ -1460,6 +1460,8 @@ def fetch_ohlcv(asset_key: str) -> pd.DataFrame:
         "CL":     "CL=F",
         "USDVND": "USDVND=X",
         "BTC":    "BTC-USD",
+        "IRON":   "PICK",
+        "STEEL":  "SLX",
     }
     ticker = ticker_map.get(asset_key, "GC=F")
     try:
@@ -1863,6 +1865,8 @@ def fetch_live(asset_key: str) -> tuple:
         "CL":     "CL=F",
         "USDVND": "USDVND=X",
         "BTC":    "BTC-USD",
+        "IRON":   "PICK",
+        "STEEL":  "SLX",
     }
     yf_tk = yf_map.get(asset_key)
     if yf_tk:
@@ -3350,7 +3354,7 @@ def whale_regime(whale_data: dict, asset_key: str) -> dict:
                           f"+ volume {vol['ratio']:.1f}× → cá mập đang phân phối {a_name}")
 
     # ── OI Delta — theo dõi thay đổi vị thế giữa các lần xem ───────────────
-    _oi_info = whale_data.get("oi", {})
+    _oi_info = whale_data.get("oi") or {}
     _oi_val  = _oi_info.get("value", 0)
     if _oi_val > 0:
         _oi_key   = f"_oi_prev_{asset_key}"
