@@ -2668,9 +2668,10 @@
       "14": {
         "label": "2 tuần tới",
         "target_date": "2026-07-23",
-        "actual_price": null,
-        "change_pct": null,
-        "result": "PENDING"
+        "actual_price": 4051.3067,
+        "change_pct": -1.78,
+        "result": "ĐÚNG",
+        "quick_result": "ĐÚNG"
       },
       "21": {
         "label": "3 tuần tới",
@@ -2772,9 +2773,10 @@
       "14": {
         "label": "2 tuần tới",
         "target_date": "2026-07-23",
-        "actual_price": null,
-        "change_pct": null,
-        "result": "PENDING"
+        "actual_price": 61.0451,
+        "change_pct": -3.88,
+        "result": "ĐÚNG",
+        "quick_result": "ĐÚNG"
       },
       "21": {
         "label": "3 tuần tới",
@@ -9462,13 +9464,13 @@
       "1": {
         "label": "Ngày mai",
         "target_date": "2026-07-23",
-        "actual_price": null,
-        "change_pct": null,
-        "result": "PENDING",
+        "actual_price": 4051.3067,
+        "change_pct": -0.9,
+        "result": "SAI",
         "quick_signal": "UP",
-        "quick_result": "PENDING",
+        "quick_result": "SAI",
         "expert_signal": "NEUTRAL",
-        "expert_result": "PENDING"
+        "expert_result": "ĐÚNG"
       },
       "3": {
         "label": "3 ngày tới",
@@ -9638,13 +9640,13 @@
       "1": {
         "label": "Ngày mai",
         "target_date": "2026-07-23",
-        "actual_price": null,
-        "change_pct": null,
-        "result": "PENDING",
+        "actual_price": 61.0451,
+        "change_pct": -1.98,
+        "result": "SAI",
         "quick_signal": "UP",
-        "quick_result": "PENDING",
+        "quick_result": "SAI",
         "expert_signal": "DOWN",
-        "expert_result": "PENDING"
+        "expert_result": "ĐÚNG"
       },
       "3": {
         "label": "3 ngày tới",
@@ -10694,11 +10696,11 @@
       "1": {
         "label": "Ngày mai",
         "target_date": "2026-07-23",
-        "actual_price": null,
-        "change_pct": null,
-        "result": "PENDING",
+        "actual_price": 101.93,
+        "change_pct": 1.52,
+        "result": "SAI",
         "quick_signal": "NEUTRAL",
-        "quick_result": "PENDING",
+        "quick_result": "SAI",
         "expert_signal": "N/A",
         "expert_result": "N/A"
       },
