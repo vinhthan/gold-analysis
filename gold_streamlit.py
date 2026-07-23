@@ -1004,21 +1004,31 @@ def fetch_price(asset_key: str) -> tuple[pd.Series, str]:
 
 @st.cache_data(ttl=1800, show_spinner=False)
 def fetch_macro() -> dict[str, pd.Series]:
-    """Lấy tất cả chỉ số vĩ mô một lần."""
-    result = {}
-    for ticker, key in MACRO_TICKERS.items():
+    """Lấy tất cả chỉ số vĩ mô một lần — song song (6 tickers đồng thời)."""
+    def _one(ticker, key):
         try:
             raw = yf.download(ticker, period="1y", interval="1d",
                               progress=False, auto_adjust=True)
             if raw is None or raw.empty:
-                continue
+                return key, None
             if isinstance(raw.columns, pd.MultiIndex):
                 raw.columns = raw.columns.get_level_values(0)
             s = raw["Close"].dropna()
-            if len(s) >= 20:
-                result[key] = s
+            return key, s if len(s) >= 20 else None
         except Exception:
-            pass
+            return key, None
+
+    result = {}
+    with _cf.ThreadPoolExecutor(max_workers=len(MACRO_TICKERS)) as pool:
+        futures = [pool.submit(_one, ticker, key)
+                   for ticker, key in MACRO_TICKERS.items()]
+        for f in _cf.as_completed(futures):
+            try:
+                key, s = f.result()
+                if s is not None:
+                    result[key] = s
+            except Exception:
+                pass
     return result
 
 
@@ -1043,19 +1053,27 @@ def fetch_fred_rates() -> dict:
         "m2":          "M2SL",      # M2 Money Supply — cung tiền (monthly), bullish cho vàng khi tăng
         "credit_oas":  "BAMLH0A0HYM2",  # ICE BofA US High Yield OAS — rủi ro tín dụng (credit stress)
     }
-    result = {}
-    for key, sid in series.items():
+    def _one(key, sid):
         try:
             url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={sid}"
-            r = _req.get(url, timeout=12,
-                        headers={"User-Agent": "Mozilla/5.0"})
+            r = _req.get(url, timeout=12, headers={"User-Agent": "Mozilla/5.0"})
             df = pd.read_csv(_SI(r.text), parse_dates=["DATE"], index_col="DATE")
             s = df.iloc[:, 0]
             s = pd.to_numeric(s, errors="coerce").dropna()
-            if len(s) >= 10:
-                result[key] = s
+            return key, s if len(s) >= 10 else None
         except Exception:
-            pass
+            return key, None
+
+    result = {}
+    with _cf.ThreadPoolExecutor(max_workers=len(series)) as pool:
+        futures = [pool.submit(_one, k, sid) for k, sid in series.items()]
+        for f in _cf.as_completed(futures):
+            try:
+                key, s = f.result()
+                if s is not None:
+                    result[key] = s
+            except Exception:
+                pass
     return result
 
 
@@ -1074,7 +1092,7 @@ def fetch_current_leaders() -> dict:
         url = ("https://query.wikidata.org/sparql?query="
                + urllib.parse.quote(query.strip()) + "&format=json")
         req = urllib.request.Request(url, headers={**hdrs, "Accept": "application/sparql-results+json"})
-        with urllib.request.urlopen(req, timeout=14) as r:
+        with urllib.request.urlopen(req, timeout=5) as r:
             data = _json.loads(r.read())
         return [b.get("personLabel", {}).get("value", "")
                 for b in data["results"]["bindings"] if b.get("personLabel")]
@@ -1083,7 +1101,7 @@ def fetch_current_leaders() -> dict:
         url = ("https://en.wikipedia.org/api/rest_v1/page/summary/"
                + urllib.parse.quote(page.replace(" ", "_")))
         req = urllib.request.Request(url, headers=hdrs)
-        with urllib.request.urlopen(req, timeout=10) as r:
+        with urllib.request.urlopen(req, timeout=5) as r:
             return _json.loads(r.read()).get("extract", "")
 
     # ── 1. Wikidata SPARQL (ưu tiên — dữ liệu chuẩn nhất) ──────────────
@@ -9813,15 +9831,27 @@ def main():
             st.cache_data.clear()
             st.rerun()
 
-    # ── Fetch macro + FRED một lần, chia sẻ cho tất cả tabs ──────────────────
-    with st.spinner("📡 Đang tải chỉ số vĩ mô & lãi suất FRED..."):
-        try:
-            macro = fetch_macro()
-            fetch_fred_rates()   # pre-warm FRED cache cho tất cả tabs
-        except Exception as _e:
-            st.error(f"⚠️ Không tải được dữ liệu vĩ mô: {_e}")
-            st.info("Nhấn 🔄 Làm mới để thử lại.")
-            st.stop()
+    # ── Startup parallel: macro + FRED + 8 asset prices cùng lúc ─────────────
+    # Sau bước này, tất cả cache đã warm → mở tab nào cũng gần như instant
+    with st.spinner("📡 Đang khởi động · Vĩ mô · FRED · Giá 8 tài sản (song song)..."):
+        with _cf.ThreadPoolExecutor(max_workers=10) as _startup:
+            _f_macro  = _startup.submit(fetch_macro)
+            _f_fred   = _startup.submit(fetch_fred_rates)
+            _price_fs = {k: _startup.submit(fetch_price, k) for k in ASSETS}
+
+            try:
+                macro = _f_macro.result(timeout=30)
+            except Exception as _e:
+                st.error(f"⚠️ Không tải được dữ liệu vĩ mô: {_e}")
+                st.info("Nhấn 🔄 Làm mới để thử lại.")
+                st.stop()
+
+            # Chờ FRED + prices (pre-warm cache, bỏ qua lỗi từng asset)
+            try: _f_fred.result(timeout=30)
+            except Exception: pass
+            for _pf in _price_fs.values():
+                try: _pf.result(timeout=30)
+                except Exception: pass
 
     # ── Tabs ──────────────────────────────────────────────────────────────────
     tab_keys   = list(ASSETS.keys())
