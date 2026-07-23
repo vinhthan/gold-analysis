@@ -1,5 +1,5 @@
 {
-  "date": "2026-07-22",
+  "date": "2026-07-23",
   "XAU": 4,
   "XAG": 3,
   "HG": -4,
@@ -16,22 +16,22 @@
   "directions": {
     "XAU": {
       "1": "NEUTRAL",
-      "3": "NEUTRAL",
-      "7": "NEUTRAL",
-      "14": "NEUTRAL",
+      "3": "UP",
+      "7": "UP",
+      "14": "UP",
       "21": "DOWN",
       "30": "DOWN",
-      "60": "NEUTRAL",
+      "60": "UP",
       "90": "UP",
-      "180": "NEUTRAL",
-      "270": "DOWN",
+      "180": "UP",
+      "270": "NEUTRAL",
       "365": "DOWN"
     },
     "XAG": {
-      "1": "DOWN",
-      "3": "DOWN",
-      "7": "DOWN",
-      "14": "DOWN",
+      "1": "NEUTRAL",
+      "3": "NEUTRAL",
+      "7": "NEUTRAL",
+      "14": "UP",
       "21": "DOWN",
       "30": "DOWN",
       "60": "DOWN",
@@ -41,7 +41,7 @@
       "365": "DOWN"
     },
     "HG": {
-      "1": "NEUTRAL",
+      "1": "DOWN",
       "3": "NEUTRAL",
       "7": "UP",
       "14": "UP",
