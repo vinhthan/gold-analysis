@@ -1,5 +1,5 @@
 {
-  "date": "2026-07-23",
+  "date": "2026-07-24",
   "XAU": 3,
   "XAG": 2,
   "HG": -4,
@@ -28,9 +28,9 @@
       "365": "DOWN"
     },
     "XAG": {
-      "1": "NEUTRAL",
+      "1": "DOWN",
       "3": "NEUTRAL",
-      "7": "NEUTRAL",
+      "7": "DOWN",
       "14": "NEUTRAL",
       "21": "DOWN",
       "30": "DOWN",
