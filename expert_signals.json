@@ -28,10 +28,10 @@
       "365": "DOWN"
     },
     "XAG": {
-      "1": "DOWN",
+      "1": "NEUTRAL",
       "3": "NEUTRAL",
       "7": "NEUTRAL",
-      "14": "NEUTRAL",
+      "14": "UP",
       "21": "DOWN",
       "30": "DOWN",
       "60": "DOWN",
