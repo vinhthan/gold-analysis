@@ -46,7 +46,7 @@
       "7": "NEUTRAL",
       "14": "UP",
       "21": "NEUTRAL",
-      "30": "NEUTRAL",
+      "30": "UP",
       "60": "DOWN",
       "90": "DOWN",
       "180": "DOWN",
@@ -54,7 +54,7 @@
       "365": "DOWN"
     },
     "CL": {
-      "1": "NEUTRAL",
+      "1": "DOWN",
       "3": "DOWN",
       "7": "DOWN",
       "14": "DOWN",
